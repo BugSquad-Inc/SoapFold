@@ -57,7 +57,7 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigation.replace('Home');
+      navigation.replace('Main');
     } catch (error) {
       Alert.alert(
         'Login Error',

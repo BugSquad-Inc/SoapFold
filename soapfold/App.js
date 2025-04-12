@@ -102,7 +102,7 @@ export default function App() {
             }
           >
             <Stack.Navigator
-              initialRouteName={user ? "Main" : "Welcome"}
+              initialRouteName={user ? "Home" : "Welcome"}
               screenOptions={{
                 headerShown: false,
                 animation: 'slide_from_right',
@@ -117,6 +117,11 @@ export default function App() {
               <Stack.Screen 
                 name="Login" 
                 component={LoginScreen}
+                options={{ animation: 'slide_from_right' }}
+              />
+              <Stack.Screen 
+                name="Home" 
+                component={HomeScreen}
                 options={{ animation: 'slide_from_right' }}
               />
               <Stack.Screen 

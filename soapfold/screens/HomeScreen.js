@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,67 +6,116 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ImageBackground,
   SafeAreaView,
   Dimensions,
+  Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import profileImage from '../assets/images/profile-image.png';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import MenuBar from './MenuBar';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 
 const { width, height } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const { profile } = useSelector((state) => state.user);
   const { orders } = useSelector((state) => state.order);
-
-  // State to track the selected tab
   const [selectedTab, setSelectedTab] = useState('Welcome Offer');
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuAnimation] = useState(new Animated.Value(width));
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setUserData(userDoc.data());
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  const toggleMenu = () => {
+    if (menuVisible) {
+      Animated.timing(menuAnimation, {
+        toValue: width,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => setMenuVisible(false));
+    } else {
+      setMenuVisible(true);
+      Animated.timing(menuAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigation.replace('Welcome');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
+      <Animated.View style={[styles.menu, { transform: [{ translateX: menuAnimation }] }]}>
+        <MenuBar onLogout={handleLogout} />
+      </Animated.View>
       <View style={styles.header}>
         <Image source={profileImage} style={styles.profileImage} />
         <View style={styles.greetingContainer}>
           <Text style={styles.greeting}>Hello 👋 {profile?.name || 'Guest'}</Text>
           <Text style={styles.welcomeText}>Welcome</Text>
         </View>
-        <TouchableOpacity onPress={() => navigation.toggleDrawer()} style={styles.menuButton}>
+        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
           <Ionicons name="menu" size={24} color="#333" />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Tabs Section */}
+        {/* Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer}>
-          <TouchableOpacity
-            style={[styles.tab, selectedTab === 'Welcome Offer' && styles.activeTab]}
-            onPress={() => setSelectedTab('Welcome Offer')}
-          >
-            <Text style={styles.tabText}>Welcome Offer</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, selectedTab === 'Wash & Iron' && styles.activeTab]}
-            onPress={() => setSelectedTab('Wash & Iron')}
-          >
-            <Text style={styles.tabText}>Wash & Iron</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, selectedTab === 'Ironing' && styles.activeTab]}
-            onPress={() => setSelectedTab('Ironing')}
-          >
-            <Text style={styles.tabText}>Ironing</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, selectedTab === 'Petrol Wash' && styles.activeTab]}
-            onPress={() => setSelectedTab('Petrol Wash')}
-          >
-            <Text style={styles.tabText}>Petrol Wash</Text>
-          </TouchableOpacity>
+          {['Welcome Offer', 'Wash & Iron', 'Ironing', 'Petrol Wash'].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, selectedTab === tab && styles.activeTab]}
+              onPress={() => setSelectedTab(tab)}
+            >
+              <Text style={styles.tabText}>{tab}</Text>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
 
-        {/* Promo Card */}
+        {/* Offer Card */}
         <View style={styles.offerContainer}>
           <Text style={styles.offerText}>Prepay and save your laundry services</Text>
           <Text style={styles.offerDetails}>€20 minimum order</Text>
@@ -78,16 +127,18 @@ const HomeScreen = ({ navigation }) => {
           <Image source={require('../assets/images/promotional_badge.png')} style={styles.badge} />
         </View>
 
-        {/* Getting Started Card */}
+        {/* Getting Started Section */}
         <View style={styles.getStartedContainer}>
-          <Text style={styles.getStartedText}>Getting Started?</Text>
-          <Text style={styles.getStartedSubtitle}>See how Laundry heap works and learn more about our services.</Text>
+          <View style={styles.getStartedTextContainer}>
+            <Text style={styles.getStartedText}>Getting Started?</Text>
+            <Text style={styles.getStartedSubtitle}>See how Laundry heap works and learn more about our services.</Text>
+          </View>
           <TouchableOpacity onPress={() => navigation.navigate('Services')}>
             <Ionicons name="arrow-forward" size={24} color="#007AFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Recent Orders Section */}
+        {/* Recent Orders */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Orders</Text>
@@ -95,6 +146,7 @@ const HomeScreen = ({ navigation }) => {
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
+
           {orders.length > 0 ? (
             orders.slice(0, 3).map((order) => (
               <TouchableOpacity
@@ -104,9 +156,7 @@ const HomeScreen = ({ navigation }) => {
               >
                 <View style={styles.orderInfo}>
                   <Text style={styles.orderId}>Order #{order.id}</Text>
-                  <Text style={styles.orderDate}>
-                    {new Date(order.date).toLocaleDateString()}
-                  </Text>
+                  <Text style={styles.orderDate}>{new Date(order.date).toLocaleDateString()}</Text>
                 </View>
                 <View style={styles.orderStatus}>
                   <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
@@ -120,19 +170,6 @@ const HomeScreen = ({ navigation }) => {
           )}
         </View>
       </ScrollView>
-
-      {/* Bottom Navigation Bar */}
-      {/* <View style={styles.bottomNav}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')}>
-          <Image source={require('../assets/images/home.png')} style={styles.navIcon} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Category')}>
-          <Image source={require('../assets/images/order.png')} style={styles.navIcon} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
-          <Image source={require('../assets/images/calendar.png')} style={styles.navIcon} />
-        </TouchableOpacity>
-      </View> */}
     </SafeAreaView>
   );
 };
@@ -153,51 +190,66 @@ const getStatusColor = (status) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding:10,
+    backgroundColor: '#fef8e9',
+    padding: wp('2%'),
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menu: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#333',
+    zIndex: 1000,
   },
   header: {
     padding: wp('2%'),
-    marginTop: hp('3%'),
+    marginTop: hp('2%'),
     backgroundColor: '#f8f8f8',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    borderRadius: 16,
   },
   profileImage: {
-    width: '15%',
-    height: undefined,
+    width: wp('15%'),
     aspectRatio: 1,
     borderRadius: 20,
-    marginRight: 10,
   },
   greetingContainer: {
-    flexDirection: 'column',
-    marginLeft: 10,
-    justifyContent: 'center',
+    flex: 1,
+    marginLeft: wp('4%'),
   },
   greeting: {
-    fontSize: 24,
+    fontSize: wp('5%'),
     fontWeight: 'bold',
     color: '#333',
   },
   welcomeText: {
-    fontSize: 20,
+    fontSize: wp('4%'),
     color: '#666',
+  },
+  menuButton: {
+    padding: wp('2%'),
   },
   content: {
     flex: 1,
-    paddingTop: 10,
+    paddingTop: hp('2%'),
   },
   tabsContainer: {
     flexDirection: 'row',
-    paddingVertical: 0,
+    marginBottom: hp('1.5%'),
   },
   tab: {
-    height: 40,
-    paddingHorizontal: 20,
+    height: hp('5%'),
+    paddingHorizontal: wp('5%'),
+    marginRight: wp('3%'),
     borderRadius: 20,
-    backgroundColor: 'transparent',
+    backgroundColor: '#f2f2f2',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -206,82 +258,99 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontWeight: 'bold',
+    fontSize: wp('3.5%'),
   },
   offerContainer: {
-    padding: 20,
+    padding: wp('5%'),
     backgroundColor: '#FFF3CC',
     borderRadius: 20,
-    marginVertical: 10,
+    marginVertical: hp('2%'),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   offerText: {
-    fontSize: 18,
+    fontSize: wp('4.5%'),
     fontWeight: 'bold',
   },
   offerDetails: {
-    fontSize: 14,
+    fontSize: wp('3.8%'),
     marginVertical: 2,
   },
   orderButton: {
     backgroundColor: '#FFC107',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingVertical: hp('1.5%'),
+    paddingHorizontal: wp('8%'),
     borderRadius: 25,
-    marginVertical: 10,
+    marginVertical: hp('2%'),
     alignItems: 'center',
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: wp('4%'),
     fontWeight: 'bold',
   },
   badge: {
-    width: 100,
-    height: 30,
-    marginTop: 10,
+    width: wp('25%'),
+    height: hp('5%'),
+    marginTop: hp('1%'),
+    resizeMode: 'contain',
   },
   getStartedContainer: {
     backgroundColor: '#fff',
-    padding: 16,
+    padding: wp('4%'),
     borderRadius: 16,
-    margin: 20,
+    marginHorizontal: wp('2%'),
+    marginBottom: hp('2%'),
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  getStartedTextContainer: {
+    flex: 1,
+    paddingRight: wp('4%'),
   },
   getStartedText: {
-    fontSize: 16,
+    fontSize: wp('4.5%'),
     fontWeight: 'bold',
+    marginBottom: 4,
   },
   getStartedSubtitle: {
     color: '#666',
+    fontSize: wp('3.8%'),
+    flexShrink: 1,
   },
   section: {
-    padding: 16,
+    paddingHorizontal: wp('4%'),
+    marginTop: hp('2%'),
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: hp('1.5%'),
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: wp('5%'),
     fontWeight: 'bold',
     color: '#333',
   },
   seeAll: {
     color: '#007AFF',
-    fontSize: 14,
+    fontSize: wp('4%'),
   },
   orderCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    padding: wp('4%'),
+    marginBottom: hp('1.5%'),
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -295,12 +364,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   orderId: {
-    fontSize: 16,
+    fontSize: wp('4.5%'),
     fontWeight: 'bold',
     color: '#333',
   },
   orderDate: {
-    fontSize: 14,
+    fontSize: wp('4%'),
     color: '#666',
     marginTop: 4,
   },
@@ -311,31 +380,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   statusText: {
-    fontSize: 14,
+    fontSize: wp('4%'),
     fontWeight: '500',
   },
   noOrders: {
     textAlign: 'center',
     color: '#666',
-    marginTop: 16,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-  },
-  navIcon: {
-    width: 24,
-    height: 24,
-  },
-  menuButton: {
-    marginLeft: 'auto',
-    padding: wp('2%'),
+    marginTop: hp('2%'),
   },
 });
 
-export default HomeScreen; 
+export default HomeScreen;
