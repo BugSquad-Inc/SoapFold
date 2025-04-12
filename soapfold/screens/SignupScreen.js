@@ -63,7 +63,7 @@ const SignupScreen = ({ navigation }) => {
         lastLogin: new Date().toISOString(),
       });
 
-      navigation.replace('Dashboard');
+      navigation.navigate('Welcome');
     } catch (error) {
       Alert.alert(
         'Signup Error',

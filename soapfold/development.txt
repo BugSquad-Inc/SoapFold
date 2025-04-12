@@ -1,0 +1,244 @@
+🧼 LaundryEase App – Home Screen Development Spec
+
+📱 Screen Name: Home Screen (Welcome Page)
+
+🧹 Components Overview
+
+1. Top Header
+
+Content:
+
+Greeting: “Hello 👋”
+
+User Name: Display the logged-in user's full name dynamically (e.g., Sarah Wilson)
+
+Profile Picture: Circular user avatar on the left
+
+CSS Config:
+
+Layout: display: flex; justify-content: space-between; align-items: center;
+
+Margin Top: 16px, Padding: 0 20px
+
+Avatar: Circular, width: 40px; height: 40px; border-radius: 50%
+
+Colors:
+
+Background: Transparent (default)
+
+Text: Dark gray (#1A1A1A)
+
+Emoji: Same size as text for visual alignment
+
+2. Main Heading
+
+Text: Welcome
+
+Font: Bold, sans-serif
+
+Font Size: 24px
+
+Color: Dark (#1A1A1A)
+
+Padding: Horizontal 20px
+
+3. Tabs Section
+
+Tabs:
+
+"Welcome Offer" (Active)
+
+"Wash & Iron"
+
+"Ironing"
+
+CSS Config:
+
+Layout: display: flex; justify-content: space-between;
+
+Tab container: Scrollable on smaller screens
+
+Active Tab:
+
+Background: Light Yellow (#FFF3CC)
+
+Border-radius: 20px
+
+Font Weight: bold
+
+Inactive Tabs:
+
+Background: Transparent or white
+
+Color: Light Gray (#999999)
+
+Padding: Vertical 12px, Horizontal 20px
+
+4. Promo Card – Prepay & Save
+
+Text:
+
+Title: "Prepay and save your laundry services"
+
+Bullet Points:
+
+€20 minimum order
+
+Free 24h delivery
+
+Best price guaranteed
+
+Call to Action: “Order Now” button
+
+Image:
+
+Woman with surprised expression
+
+File name: promo-surprised-woman.png
+
+Directory: /assets/images/
+
+CSS Config:
+
+Card Container:
+
+Background: Light Yellow (#FFF3CC)
+
+Border-radius: 20px
+
+Padding: 20px
+
+Margin: 20px
+
+Display: flex; flex-direction: column;
+
+Button:
+
+Background: Gradient from #FFC107 to #FF9800
+
+Padding: 12px 24px
+
+Border-radius: 25px
+
+Font: Bold, white
+
+Icon: Arrow on the right (SVG or PNG)
+
+Discount Badge:
+
+Text: “Up to 30% off”
+
+Background: Light Blue (#DFF3FF)
+
+Text Color: Blue (#007BFF)
+
+Border-radius: Circular or pill-shaped
+
+File name: discount-badge.png (if using image)
+
+5. Getting Started Card
+
+Text:
+
+Title: “Getting Started?”
+
+Subtitle: “See how Laundry heap works and learn more about our services.”
+
+Icon:
+
+Circular black info icon on left
+
+Right-arrow icon on the far right
+
+CSS Config:
+
+Background: White
+
+Padding: 16px 20px
+
+Border-radius: 16px
+
+Box-shadow: Subtle 0 1px 5px rgba(0, 0, 0, 0.1)
+
+Font:
+
+Title: Medium weight
+
+Subtitle: Lighter gray text (#666666)
+
+6. Bottom Navigation Bar
+
+Icons:
+
+Home (active state)
+
+Orders (bag icon)
+
+Calendar
+
+More (three dots or menu)
+
+CSS Config:
+
+Layout: display: flex; justify-content: space-around; align-items: center;
+
+Fixed at bottom: position: fixed; bottom: 0; width: 100%;
+
+Background: White
+
+Icon Size: 24px
+
+Active Icon Color: Primary Yellow (#FDC300)
+
+Inactive Icon Color: Gray (#999999)
+
+Padding: 12px 0
+
+🖼 Asset Summary
+
+promo-surprised-woman.png: Used in Promo Card
+
+discount-badge.png: Optional, or can use styled div
+
+info-icon.svg: Used in Getting Started card
+
+arrow-right.svg: CTA and navigation
+
+Navigation icons:
+
+home.svg, bag.svg, calendar.svg, menu.svg
+
+Image folder structure: /assets/images/
+
+🛠 Tech Notes
+
+Tech Stack:
+
+React Native or Flutter (preferred)
+
+Navigation: React Navigation / Flutter Navigator
+
+Asset Management: Use local SVG/PNG or CDN-based fallback
+
+State Handling:
+
+Context API or Zustand for user and tab state
+
+Responsiveness:
+
+Make use of SafeAreaView or equivalent
+
+Avoid absolute positioning unless necessary for overlay components
+
+✅ QA Checklist
+
+
+
+📄 Version
+
+Doc Version: 1.1
+
+Last Updated: 2025-04-11
+
+
+

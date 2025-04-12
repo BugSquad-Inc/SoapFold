@@ -20,7 +20,7 @@ const LoginScreen = ({ navigation }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        navigation.replace('Dashboard');
+        navigation.replace('Home');
       }
     });
 
@@ -57,7 +57,7 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigation.replace('Dashboard');
+      navigation.replace('Home');
     } catch (error) {
       Alert.alert(
         'Login Error',

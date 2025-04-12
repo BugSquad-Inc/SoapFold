@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ImageBackground } from 'react
 const WelcomeScreen = ({ navigation }) => {
   return (
     <ImageBackground
-      source={require('../assets/welcome-bg.jpg')}
+      source={require('../assets/images/welcome-bg.jpg')}
       style={styles.background}
     >
       <View style={styles.overlay}>
