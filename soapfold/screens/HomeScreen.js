@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Dimensions,
   Animated,
   ActivityIndicator,
+  PanResponder,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +21,7 @@ import { signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const { profile } = useSelector((state) => state.user);
@@ -30,6 +31,21 @@ const HomeScreen = ({ navigation }) => {
   const [menuAnimation] = useState(new Animated.Value(width));
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // PanResponder for swipe gesture
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return gestureState.dx > 20; // Detect swipe right
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx > 50) {
+          // Close the menu if swiped right enough
+          closeMenu();
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -53,19 +69,28 @@ const HomeScreen = ({ navigation }) => {
 
   const toggleMenu = () => {
     if (menuVisible) {
-      Animated.timing(menuAnimation, {
-        toValue: width,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => setMenuVisible(false));
+      closeMenu();
     } else {
-      setMenuVisible(true);
-      Animated.timing(menuAnimation, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      openMenu();
     }
+  };
+
+  const openMenu = () => {
+    setMenuVisible(true);
+    Animated.timing(menuAnimation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeMenu = () => {
+    setMenuVisible(false);
+    Animated.timing(menuAnimation, {
+      toValue: width,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handleLogout = async () => {
@@ -86,7 +111,7 @@ const HomeScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} {...panResponder.panHandlers}>
       <Animated.View style={[styles.menu, { transform: [{ translateX: menuAnimation }] }]}>
         <MenuBar onLogout={handleLogout} />
       </Animated.View>
@@ -101,7 +126,7 @@ const HomeScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {/* Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer}>
           {['Welcome Offer', 'Wash & Iron', 'Ironing', 'Petrol Wash'].map((tab) => (
@@ -191,7 +216,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fef8e9',
-    padding: wp('2%'),
   },
   loadingContainer: {
     flex: 1,
@@ -239,6 +263,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingTop: hp('2%'),
+    paddingBottom: 80,
+  },
+  scrollContent: {
+    paddingBottom: 80,
   },
   tabsContainer: {
     flexDirection: 'row',

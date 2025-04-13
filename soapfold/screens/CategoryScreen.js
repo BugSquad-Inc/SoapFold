@@ -1,6 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import * as Animatable from 'react-native-animatable';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+
+// Import your images
+const images = {
+  ironing: require('../assets/images/promotional_badge.png'),
+  // wash: require('../assets/images/wash.png'),
+  // washIron: require('../assets/images/wash_iron.png'),
+  // welcomeOffer: require('../assets/images/welcome_offer.png'),
+  // dryClean: require('../assets/images/dry_clean.png'),
+  // shoeCleaning: require('../assets/images/shoe_cleaning.png'),
+  // bulkOrder: require('../assets/images/bulk_order.png'),
+};
 
 const services = [
   {
@@ -8,48 +20,81 @@ const services = [
     description: 'Enjoy 10% off ironing service!',
     tag: 'ironing',
     color: '#fbd0f9',
-    // image: require('./assets/ironing.png'), // Add matching local image
+    image: images.ironing,
   },
   {
     title: 'WASH',
     description: 'Limited Time: 10% off wash service!',
     tag: '10% off',
     color: '#fef0b9',
-    // image: require('./assets/wash.png'),
+    // image: images.wash,
   },
   {
     title: 'WASH & IRON',
     description: 'Save 10% on wash & iron service!',
     tag: 'wash & iron',
     color: '#fcd6ae',
-    // image: require('./assets/wash_iron.png'),
+    // image: images.washIron,
   },
   {
     title: 'WELCOME OFFER',
     description: 'Get 15% off next order!',
     tag: 'next order',
     color: '#c9e7f2',
-    // image: require('./assets/welcome.png'),
+    // image: images.welcomeOffer,
+  },
+  {
+    title: 'DRY CLEAN',
+    description: 'Premium dry clean at 20% off!',
+    tag: 'dry clean',
+    color: '#dde3fb',
+    // image: images.dryClean,
+  },
+  {
+    title: 'SHOE CLEANING',
+    description: 'Fresh kicks? 15% off shoe care!',
+    tag: 'shoe cleaning',
+    color: '#d6f5f3',
+    // image: images.shoeCleaning,
+  },
+  {
+    title: 'BULK ORDER',
+    description: 'Save big with bulk orders!',
+    tag: 'bulk offer',
+    color: '#ffe7cc',
+    // image: images.bulkOrder,
   },
 ];
 
-const CategoryScreen = () => {
+const CategoryScreen = ({ navigation }) => {
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Services</Text>
-      {services.map((service, index) => (
-        <View key={index} style={[styles.card, { backgroundColor: service.color }]}>
-          <View style={styles.cardLeft}>
-            <Text style={styles.cardTitle}>{service.title}</Text>
-            <Text style={styles.cardDesc}>{service.description}</Text>
-            <TouchableOpacity style={styles.offerButton}>
-              <Text style={styles.offerButtonText}>Claim the offer</Text>
-            </TouchableOpacity>
-          </View>
-          <Image source={service.image} style={styles.cardImage} resizeMode="contain" />
-        </View>
-      ))}
-    </ScrollView>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <Text style={styles.header}>Services</Text>
+        {services.map((service, index) => (
+          <Animatable.View
+            animation="fadeInUp"
+            delay={index * 100}
+            duration={600}
+            key={index}
+            style={[styles.card, { backgroundColor: service.color }]}
+          >
+            <View style={styles.cardContent}>
+              <View style={styles.cardLeft}>
+                <Text style={styles.cardTitle}>{service.title}</Text>
+                <Text style={styles.cardDesc}>{service.description}</Text>
+                <TouchableOpacity style={styles.offerButton}>
+                  <Text style={styles.offerButtonText}>Continue</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.imagePlaceholder}>
+                <Image source={service.image} style={styles.serviceImage} />
+              </View>
+            </View>
+          </Animatable.View>
+        ))}
+      </ScrollView>
+    </View>
   );
 };
 
@@ -57,22 +102,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fef8e9',
-    padding: wp('4%'),
+    margin:hp('2%'),
+  },
+  scrollContainer: {
+    paddingBottom: 80,
   },
   header: {
+    marginTop:hp('2%'),
     fontSize: wp('7%'),
-    fontWeight: 'bold',
+    fontWeight: '600',
+    letterSpacing: 1,
     textAlign: 'center',
     color: '#2b2b2b',
     marginBottom: hp('2%'),
   },
   card: {
-    flexDirection: 'row',
     borderRadius: 18,
+    marginBottom: hp('2.5%'),
+    shadowColor: '#ccc',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+    height: hp('18%'),
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
     padding: wp('4%'),
-    marginBottom: hp('2%'),
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    height: '100%',
   },
   cardLeft: {
     flex: 1,
@@ -83,11 +141,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: hp('0.5%'),
     color: '#222',
+    letterSpacing: 0.5,
   },
   cardDesc: {
     fontSize: wp('4%'),
     marginBottom: hp('1.5%'),
     color: '#444',
+    letterSpacing: 0.3,
   },
   offerButton: {
     backgroundColor: '#fff',
@@ -106,9 +166,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: wp('3.5%'),
   },
-  cardImage: {
-    width: wp('25%'),
-    height: hp('12%'),
+  imagePlaceholder: {
+    width: wp('40%'),
+    height: '100%',
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    justifyContent: 'flex-end',
+    elevation: 3,
+  },
+  serviceImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
 });
 

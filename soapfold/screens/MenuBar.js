@@ -14,7 +14,10 @@ const MenuBar = ({ onLogout }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#333',
     padding: 20,
     // Add any additional styling here
