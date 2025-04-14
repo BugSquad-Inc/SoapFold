@@ -1,117 +1,255 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from 'react-native';
-import { useRoute } from '@react-navigation/native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import * as Animatable from 'react-native-animatable';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Image, FlatList, StyleSheet, ScrollView } from 'react-native';
 
-const CartScreen = () => {
-  const route = useRoute();
-  const { serviceTitle, selectedItems, color, image } = route.params;
+
+const imageMap = {
+  'Shirt': require('../assets/images/ironing.jpg'),
+  'Pant': require('../assets/images/ironing.jpg'),
+  'Bedsheet': require('../assets/images/ironing.jpg'),
+  'Towel': require('../assets/images/ironing.jpg'),
+  'Kurta': require('../assets/images/ironing.jpg'),
+  'Pillow Cover': require('../assets/images/ironing.jpg'),
+  'Saree': require('../assets/images/ironing.jpg'),
+  'Blazer': require('../assets/images/ironing.jpg'),
+  'Suit': require('../assets/images/ironing.jpg'),
+  'Curtain': require('../assets/images/ironing.jpg'),
+  'Sneakers': require('../assets/images/ironing.jpg'),
+  'Leather Shoes': require('../assets/images/ironing.jpg'),
+  'Heels': require('../assets/images/ironing.jpg'),
+  'School Uniform': require('../assets/images/ironing.jpg'),
+  'Hotel Linen': require('../assets/images/ironing.jpg'),
+  'Corporate Wear': require('../assets/images/ironing.jpg'),
+};
+const samplePrices = {
+  'Shirt': 2000,
+  'Pant': 2500,
+  'Bedsheet': 3000,
+  'Towel': 1500,
+  'Kurta': 2800,
+  'Pillow Cover': 1200,
+  'Saree': 4000,
+  'Blazer': 5000,
+  'Suit': 4500,
+  'Curtain': 3500,
+  'Sneakers': 3000,
+  'Leather Shoes': 5000,
+  'Heels': 3800,
+  'School Uniform': 3200,
+  'Hotel Linen': 4200,
+  'Corporate Wear': 5500,
+};
+
+const CartScreen = ({ route }) => {
+  const { serviceTitle } = route.params;
+  const [cartItems, setCartItems] = useState({});
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const items = Object.keys(imageMap);
+
+  const categories = ['All', 'Top', 'Bottoms', 'Linen', 'Shoes'];
+
+  const filterItems = () => {
+    if (selectedCategory === 'All') {
+      return items;
+    }
+    return items.filter(item => {
+      if (selectedCategory === 'Top' && (item === 'Shirt' || item === 'Kurta' || item === 'Blazer' || item === 'Saree')) {
+        return true;
+      }
+      if (selectedCategory === 'Bottoms' && (item === 'Pant' || item === 'Jeans')) {
+        return true;
+      }
+      if (selectedCategory === 'Linen' && (item === 'Bedsheet' || item === 'Curtain' || item === 'Pillow Cover')) {
+        return true;
+      }
+      if (selectedCategory === 'Shoes' && (item === 'Sneakers' || item === 'Leather Shoes' || item === 'Heels')) {
+        return true;
+      }
+      return false;
+    });
+  };
+
+  const increment = (name) => {
+    setCartItems((prev) => ({ ...prev, [name]: (prev[name] || 0) + 1 }));
+  };
+
+  const decrement = (name) => {
+    setCartItems((prev) => {
+      if (prev[name] && prev[name] > 0) {
+        return { ...prev, [name]: prev[name] - 1 };
+      }
+      return prev;
+    });
+  };
+
+  const renderItem = ({ item }) => {
+    const quantity = cartItems[item] || 0;
+
+    return (
+      <View style={styles.card}>
+        <Image source={imageMap[item]} style={styles.image} />
+        <Text style={styles.name}>{item}</Text>
+        <Text style={styles.price}>Rp {samplePrices[item].toLocaleString()}</Text>
+        <View style={styles.quantityControls}>
+          <TouchableOpacity onPress={() => decrement(item)} style={styles.decrementButton}>
+            <Text style={styles.decrementButtonText}>-</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => increment(item)} style={styles.incrementButton}>
+            <Text style={styles.incrementButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
+        {quantity > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{quantity}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderTabs = () => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
+      {categories.map((category) => (
+        <TouchableOpacity
+          key={category}
+          style={[styles.tab, selectedCategory === category && styles.activeTab]}
+          onPress={() => setSelectedCategory(category)}
+        >
+          <Text style={[styles.tabText, selectedCategory === category && styles.activeTabText]}>{category}</Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
 
   return (
-    <View style={[styles.container, { backgroundColor: color || '#fef8e9' }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={styles.header}>{serviceTitle} Cart</Text>
-
-        <Animatable.View animation="fadeInUp" delay={100} style={styles.imageContainer}>
-          <Image source={image} style={styles.image} />
-        </Animatable.View>
-
-        <View style={styles.cartCard}>
-          <Text style={styles.sectionTitle}>Items Selected</Text>
-          {selectedItems.map((item, index) => (
-            <Animatable.View
-              key={index}
-              animation="fadeInLeft"
-              delay={index * 100}
-              style={styles.itemRow}
-            >
-              <Text style={styles.itemText}>{item}</Text>
-              <Text style={styles.qtyText}>x1</Text>
-            </Animatable.View>
-          ))}
-        </View>
-
-        <TouchableOpacity style={styles.confirmButton}>
-          <Text style={styles.confirmButtonText}>Proceed to Checkout</Text>
-        </TouchableOpacity>
-      </ScrollView>
+    <View style={styles.container}>
+      <Text style={styles.title}>{serviceTitle}</Text>
+      {/* Render tabs as a header component */}
+      <FlatList
+        data={filterItems()}
+        renderItem={renderItem}
+        keyExtractor={(item) => item}
+        numColumns={2}
+        contentContainerStyle={styles.grid}
+        ListHeaderComponent={renderTabs}
+      />
     </View>
   );
 };
 
+export default CartScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: wp('5%'),
+    backgroundColor: '#fff',
+    padding: 12,
   },
-  header: {
-    fontSize: wp('7%'),
+  title: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#2b2b2b',
-    textAlign: 'center',
-    marginBottom: hp('3%'),
+    marginVertical: 8,
   },
-  imageContainer: {
+  tabsContainer: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    paddingHorizontal: 10,
+  },
+  tab: {
+    width: 80,
+    paddingVertical: 10,
+    marginRight: 10,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ccc',
     alignItems: 'center',
-    marginBottom: hp('2%'),
+    justifyContent: 'center',
+  },
+  activeTab: {
+    backgroundColor: '#000',
+    borderColor: '#000',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#000',
+    textAlign: 'center',
+  },
+  activeTabText: {
+    color: '#fff',
+  },
+  grid: {
+    gap: 12,
+  },
+  card: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 16,
+    padding: 10,
+    margin: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   image: {
-    width: wp('60%'),
-    height: hp('20%'),
+    width: 90,
+    height: 90,
     resizeMode: 'contain',
-    borderRadius: 18,
-    backgroundColor: '#fff',
-    elevation: 4,
+    marginBottom: 10,
   },
-  cartCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: wp('5%'),
-    shadowColor: '#ccc',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    elevation: 3,
-    marginBottom: hp('3%'),
-  },
-  sectionTitle: {
-    fontSize: wp('5%'),
+  name: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: hp('1%'),
+    marginBottom: 4,
   },
-  itemRow: {
+  price: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 10,
+  },
+  quantityControls: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: hp('1.5%'),
-  },
-  itemText: {
-    fontSize: wp('4.2%'),
-    color: '#444',
-    letterSpacing: 0.4,
-  },
-  qtyText: {
-    fontSize: wp('4%'),
-    fontWeight: 'bold',
-    color: '#555',
-  },
-  confirmButton: {
-    backgroundColor: '#2b2b2b',
-    borderRadius: 22,
-    paddingVertical: hp('1.5%'),
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 4,
   },
-  confirmButtonText: {
+  incrementButton: {
+    backgroundColor: '#000',
+    borderRadius: 20,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  incrementButtonText: {
     color: '#fff',
-    fontSize: wp('4.5%'),
-    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  decrementButton: {
+    backgroundColor: '#000',
+    borderRadius: 20,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  decrementButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  badge: {
+    position: 'absolute',
+    top: 6,
+    left: 8,
+    backgroundColor: '#000',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
-
-export default CartScreen;

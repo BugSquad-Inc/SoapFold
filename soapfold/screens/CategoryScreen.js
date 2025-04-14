@@ -5,7 +5,7 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 
 // Import your images
 const images = {
-  ironing: require('../assets/images/promotional_badge.png'),
+  ironing: require('../assets/images/ironing.jpg'),
   wash: require('../assets/images/laundry.jpg'),
   // washIron: require('../assets/images/wash_iron.png'),
   // welcomeOffer: require('../assets/images/welcome_offer.png'),
@@ -71,26 +71,34 @@ const services = [
 ];
 
 const CategoryScreen = ({ navigation }) => {
+  // const handleContinueToCart = (service) => {
+  //   const serviceDefaults = {
+  //     'IRONING': ['Shirt', 'Pant', 'Bedsheet'],
+  //     'WASH': ['Towel', 'Kurta', 'Pillow Cover'],
+  //     'WASH & IRON': ['Shirt', 'Saree', 'Blazer'],
+  //     'WELCOME OFFER': ['Shirt', 'Pant'],
+  //     'DRY CLEAN': ['Saree', 'Suit', 'Curtain'],
+  //     'SHOE CLEANING': ['Sneakers', 'Leather Shoes', 'Heels'],
+  //     'BULK ORDER': ['School Uniform', 'Hotel Linen', 'Corporate Wear'],
+  //   };
+
+  //   const defaultItems = serviceDefaults[service.title] || ['Shirt', 'Pant', 'Kurta']; // fallback
+
+  //   navigation.navigate('CartScreen', {
+  //     serviceTitle: service.title,
+  //     selectedItems: defaultItems,
+  //     color: service.color,
+  //     image: service.image,
+  //   });
+  // };
+
+
   const handleContinueToCart = (service) => {
-    const serviceDefaults = {
-      'IRONING': ['Shirt', 'Pant', 'Bedsheet'],
-      'WASH': ['Towel', 'Kurta', 'Pillow Cover'],
-      'WASH & IRON': ['Shirt', 'Saree', 'Blazer'],
-      'WELCOME OFFER': ['Shirt', 'Pant'],
-      'DRY CLEAN': ['Saree', 'Suit', 'Curtain'],
-      'SHOE CLEANING': ['Sneakers', 'Leather Shoes', 'Heels'],
-      'BULK ORDER': ['School Uniform', 'Hotel Linen', 'Corporate Wear'],
-    };
-
-    const defaultItems = serviceDefaults[service.title] || ['Shirt', 'Pant', 'Kurta']; // fallback
-
     navigation.navigate('CartScreen', {
       serviceTitle: service.title,
-      selectedItems: defaultItems,
-      color: service.color,
-      image: service.image,
     });
   };
+  
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
