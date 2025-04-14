@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, FlatList, StyleSheet, ScrollView } from 'react-native';
-
 
 const imageMap = {
   'Shirt': require('../assets/images/ironing.jpg'),
@@ -20,6 +19,7 @@ const imageMap = {
   'Hotel Linen': require('../assets/images/ironing.jpg'),
   'Corporate Wear': require('../assets/images/ironing.jpg'),
 };
+
 const samplePrices = {
   'Shirt': 2000,
   'Pant': 2500,
@@ -44,28 +44,24 @@ const CartScreen = ({ route }) => {
   const [cartItems, setCartItems] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('All');
   const items = Object.keys(imageMap);
-
   const categories = ['All', 'Top', 'Bottoms', 'Linen', 'Shoes'];
 
+  const totalPrice = useMemo(() =>
+    Object.entries(cartItems).reduce((acc, [item, qty]) => acc + qty * (samplePrices[item] || 0), 0),
+    [cartItems]
+  );
+
   const filterItems = () => {
-    if (selectedCategory === 'All') {
-      return items;
-    }
-    return items.filter(item => {
-      if (selectedCategory === 'Top' && (item === 'Shirt' || item === 'Kurta' || item === 'Blazer' || item === 'Saree')) {
-        return true;
-      }
-      if (selectedCategory === 'Bottoms' && (item === 'Pant' || item === 'Jeans')) {
-        return true;
-      }
-      if (selectedCategory === 'Linen' && (item === 'Bedsheet' || item === 'Curtain' || item === 'Pillow Cover')) {
-        return true;
-      }
-      if (selectedCategory === 'Shoes' && (item === 'Sneakers' || item === 'Leather Shoes' || item === 'Heels')) {
-        return true;
-      }
-      return false;
-    });
+    if (selectedCategory === 'All') return items;
+
+    const categoryMap = {
+      Top: ['Shirt', 'Kurta', 'Blazer', 'Saree'],
+      Bottoms: ['Pant', 'School Uniform'],
+      Linen: ['Bedsheet', 'Curtain', 'Pillow Cover', 'Hotel Linen'],
+      Shoes: ['Sneakers', 'Leather Shoes', 'Heels'],
+    };
+
+    return items.filter(item => categoryMap[selectedCategory]?.includes(item));
   };
 
   const increment = (name) => {
@@ -74,36 +70,11 @@ const CartScreen = ({ route }) => {
 
   const decrement = (name) => {
     setCartItems((prev) => {
-      if (prev[name] && prev[name] > 0) {
-        return { ...prev, [name]: prev[name] - 1 };
-      }
-      return prev;
+      const current = prev[name] || 0;
+      if (current > 1) return { ...prev, [name]: current - 1 };
+      const { [name]: _, ...rest } = prev;
+      return rest;
     });
-  };
-
-  const renderItem = ({ item }) => {
-    const quantity = cartItems[item] || 0;
-
-    return (
-      <View style={styles.card}>
-        <Image source={imageMap[item]} style={styles.image} />
-        <Text style={styles.name}>{item}</Text>
-        <Text style={styles.price}>Rp {samplePrices[item].toLocaleString()}</Text>
-        <View style={styles.quantityControls}>
-          <TouchableOpacity onPress={() => decrement(item)} style={styles.decrementButton}>
-            <Text style={styles.decrementButtonText}>-</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => increment(item)} style={styles.incrementButton}>
-            <Text style={styles.incrementButtonText}>+</Text>
-          </TouchableOpacity>
-        </View>
-        {quantity > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{quantity}</Text>
-          </View>
-        )}
-      </View>
-    );
   };
 
   const renderTabs = () => (
@@ -114,24 +85,93 @@ const CartScreen = ({ route }) => {
           style={[styles.tab, selectedCategory === category && styles.activeTab]}
           onPress={() => setSelectedCategory(category)}
         >
-          <Text style={[styles.tabText, selectedCategory === category && styles.activeTabText]}>{category}</Text>
+          <Text style={[styles.tabText, selectedCategory === category && styles.activeTabText]}>
+            {category}
+          </Text>
         </TouchableOpacity>
       ))}
     </ScrollView>
   );
 
+  // const renderItem = ({ item }) => {
+  //   const quantity = cartItems[item] || 0;
+
+  //   return (
+  //     <View style={styles.card}>
+  //       <Image source={imageMap[item]} style={styles.image} />
+  //       <Text style={styles.name}>{item}</Text>
+  //       <Text style={styles.price}>Rp {samplePrices[item].toLocaleString()}</Text>
+
+  //       <View style={styles.quantityControls}>
+  //         <TouchableOpacity onPress={() => decrement(item)} style={styles.decrementButton}>
+  //           <Text style={styles.decrementButtonText}>-</Text>
+  //         </TouchableOpacity>
+  //         <Text style={styles.quantityText}>{quantity}</Text>
+  //         <TouchableOpacity onPress={() => increment(item)} style={styles.incrementButton}>
+  //           <Text style={styles.incrementButtonText}>+</Text>
+  //         </TouchableOpacity>
+  //       </View>
+  //     </View>
+  //   );
+  // };
+
+  const renderItem = ({ item }) => {
+    const quantity = cartItems[item] || 0;
+    const pricePerItem = samplePrices[item] || 0;
+    const totalItemPrice = quantity * pricePerItem;
+  
+    return (
+      <View style={styles.card}>
+        <Image source={imageMap[item]} style={styles.image} />
+        
+        <Text style={styles.name}>
+          {item} {quantity > 0 ? `(x${quantity}) — Rp ${totalItemPrice.toLocaleString()}` : ''}
+        </Text>
+  
+        {quantity === 0 && (
+          <Text style={styles.price}>Rp {pricePerItem.toLocaleString()}</Text>
+        )}
+  
+        <View style={styles.quantityControls}>
+          <TouchableOpacity onPress={() => decrement(item)} style={styles.decrementButton}>
+            <Text style={styles.decrementButtonText}>-</Text>
+          </TouchableOpacity>
+          <Text style={styles.quantityText}>{quantity}</Text>
+          <TouchableOpacity onPress={() => increment(item)} style={styles.incrementButton}>
+            <Text style={styles.incrementButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{serviceTitle}</Text>
-      {/* Render tabs as a header component */}
-      <FlatList
-        data={filterItems()}
-        renderItem={renderItem}
-        keyExtractor={(item) => item}
-        numColumns={2}
-        contentContainerStyle={styles.grid}
-        ListHeaderComponent={renderTabs}
-      />
+    <View style={styles.wrapper}>
+      <View style={styles.container}>
+        <Text style={styles.title}>{serviceTitle}</Text>
+        <FlatList
+          data={filterItems()}
+          renderItem={renderItem}
+          keyExtractor={(item) => item}
+          numColumns={2}
+          contentContainerStyle={styles.grid}
+          ListHeaderComponent={renderTabs}
+        />
+      </View>
+
+      <View style={styles.footer}>
+        <View style={styles.totalContainer}>
+          <Text style={styles.totalLabel}>Total:</Text>
+          <Text style={styles.totalAmount}>Rp {totalPrice.toLocaleString()}</Text>
+        </View>
+        <TouchableOpacity
+          disabled={totalPrice === 0}
+          style={[styles.verifyButton, totalPrice === 0 && styles.verifyButtonDisabled]}
+          onPress={() => console.log('Verify order clicked')}
+        >
+          <Text style={styles.verifyText}>Verify Order</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -139,10 +179,14 @@ const CartScreen = ({ route }) => {
 export default CartScreen;
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 12,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingTop: 12,
   },
   title: {
     fontSize: 20,
@@ -155,15 +199,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   tab: {
-    width: 80,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     marginRight: 10,
     borderRadius: 20,
     backgroundColor: '#f0f0f0',
     borderWidth: 1,
     borderColor: '#ccc',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   activeTab: {
     backgroundColor: '#000',
@@ -172,13 +214,12 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     color: '#000',
-    textAlign: 'center',
   },
   activeTabText: {
     color: '#fff',
   },
   grid: {
-    gap: 12,
+    paddingBottom: 100,
   },
   card: {
     flex: 1,
@@ -188,7 +229,6 @@ const styles = StyleSheet.create({
     margin: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
   image: {
     width: 90,
@@ -209,47 +249,68 @@ const styles = StyleSheet.create({
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
+  },
+  quantityText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginHorizontal: 10,
   },
   incrementButton: {
     backgroundColor: '#000',
     borderRadius: 20,
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
-  },
-  incrementButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    lineHeight: 20,
   },
   decrementButton: {
     backgroundColor: '#000',
     borderRadius: 20,
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  incrementButtonText: {
+    color: '#fff',
+    fontSize: 18,
   },
   decrementButtonText: {
     color: '#fff',
+    fontSize: 18,
+  },
+  footer: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  totalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  totalLabel: {
     fontSize: 16,
-    lineHeight: 20,
+    fontWeight: '600',
   },
-  badge: {
-    position: 'absolute',
-    top: 6,
-    left: 8,
+  totalAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  verifyButton: {
     backgroundColor: '#000',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  badgeText: {
+  verifyButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  verifyText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
 });
