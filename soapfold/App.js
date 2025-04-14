@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator, Text , Image} from 'react-native';
+import { View, ActivityIndicator, Text, Image } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './config/firebase';
@@ -14,6 +14,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
+import CartScreen from './screens/CartScreen';
 
 // Main App Screens
 import HomeScreen from './screens/HomeScreen';
@@ -29,38 +30,38 @@ const MainTabNavigator = () => {
     <Tab.Navigator
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen} 
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
         options={{
           tabBarIcon: ({ color }) => (
-            <Image 
-              source={require('./assets/images/home.png')} 
-              style={{ tintColor: color, width: 24, height: 24 }} 
+            <Image
+              source={require('./assets/images/home.png')}
+              style={{ tintColor: color, width: 24, height: 24 }}
             />
           )
         }}
       />
-      <Tab.Screen 
-        name="Category" 
-        component={CategoryScreen} 
+      <Tab.Screen
+        name="Category"
+        component={CategoryScreen}
         options={{
           tabBarIcon: ({ color }) => (
-            <Image 
-              source={require('./assets/images/order.png')} 
-              style={{ tintColor: color, width: 24, height: 24 }} 
+            <Image
+              source={require('./assets/images/order.png')}
+              style={{ tintColor: color, width: 24, height: 24 }}
             />
           )
         }}
       />
-      <Tab.Screen 
-        name="Calendar" 
-        component={CalendarScreen} 
+      <Tab.Screen
+        name="Calendar"
+        component={CalendarScreen}
         options={{
           tabBarIcon: ({ color }) => (
-            <Image 
-              source={require('./assets/images/calendar.png')} 
-              style={{ tintColor: color, width: 24, height: 24 }} 
+            <Image
+              source={require('./assets/images/calendar.png')}
+              style={{ tintColor: color, width: 24, height: 24 }}
             />
           )
         }}
@@ -109,23 +110,28 @@ export default function App() {
                 contentStyle: { backgroundColor: '#fff' },
               }}
             >
-              <Stack.Screen 
-                name="Welcome" 
+              <Stack.Screen
+                name="Welcome"
                 component={WelcomeScreen}
                 options={{ animation: 'fade' }}
               />
-              <Stack.Screen 
-                name="Login" 
+              <Stack.Screen
+                name="Login"
                 component={LoginScreen}
                 options={{ animation: 'slide_from_right' }}
               />
-              <Stack.Screen 
-                name="Signup" 
+              <Stack.Screen
+                name="CartScreen"
+                component={CartScreen}
+                options={{ animation: 'slide_from_right', headerShown: true, title: 'Your Cart' }}
+              />
+              <Stack.Screen
+                name="Signup"
                 component={SignupScreen}
                 options={{ animation: 'slide_from_right' }}
               />
-              <Stack.Screen 
-                name="Main" 
+              <Stack.Screen
+                name="Main"
                 component={MainTabNavigator}
               />
             </Stack.Navigator>

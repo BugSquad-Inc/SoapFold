@@ -6,13 +6,17 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 // Import your images
 const images = {
   ironing: require('../assets/images/promotional_badge.png'),
-  // wash: require('../assets/images/wash.png'),
+  wash: require('../assets/images/laundry.jpg'),
   // washIron: require('../assets/images/wash_iron.png'),
   // welcomeOffer: require('../assets/images/welcome_offer.png'),
   // dryClean: require('../assets/images/dry_clean.png'),
   // shoeCleaning: require('../assets/images/shoe_cleaning.png'),
   // bulkOrder: require('../assets/images/bulk_order.png'),
 };
+
+
+
+
 
 const services = [
   {
@@ -27,7 +31,7 @@ const services = [
     description: 'Limited Time: 10% off wash service!',
     tag: '10% off',
     color: '#fef0b9',
-    // image: images.wash,
+    image: images.wash,
   },
   {
     title: 'WASH & IRON',
@@ -67,6 +71,26 @@ const services = [
 ];
 
 const CategoryScreen = ({ navigation }) => {
+  const handleContinueToCart = (service) => {
+    const serviceDefaults = {
+      'IRONING': ['Shirt', 'Pant', 'Bedsheet'],
+      'WASH': ['Towel', 'Kurta', 'Pillow Cover'],
+      'WASH & IRON': ['Shirt', 'Saree', 'Blazer'],
+      'WELCOME OFFER': ['Shirt', 'Pant'],
+      'DRY CLEAN': ['Saree', 'Suit', 'Curtain'],
+      'SHOE CLEANING': ['Sneakers', 'Leather Shoes', 'Heels'],
+      'BULK ORDER': ['School Uniform', 'Hotel Linen', 'Corporate Wear'],
+    };
+
+    const defaultItems = serviceDefaults[service.title] || ['Shirt', 'Pant', 'Kurta']; // fallback
+
+    navigation.navigate('CartScreen', {
+      serviceTitle: service.title,
+      selectedItems: defaultItems,
+      color: service.color,
+      image: service.image,
+    });
+  };
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -83,9 +107,11 @@ const CategoryScreen = ({ navigation }) => {
               <View style={styles.cardLeft}>
                 <Text style={styles.cardTitle}>{service.title}</Text>
                 <Text style={styles.cardDesc}>{service.description}</Text>
-                <TouchableOpacity style={styles.offerButton}>
-                  <Text style={styles.offerButtonText}>Continue</Text>
-                </TouchableOpacity>
+                <Animatable.View animation="pulse" duration={600} iterationCount={1}>
+                  <TouchableOpacity style={styles.offerButton} onPress={() => handleContinueToCart(service)}>
+                    <Text style={styles.offerButtonText}>Continue</Text>
+                  </TouchableOpacity>
+                </Animatable.View>
               </View>
               <View style={styles.imagePlaceholder}>
                 <Image source={service.image} style={styles.serviceImage} />
@@ -102,13 +128,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fef8e9',
-    margin:hp('2%'),
+    margin: hp('2%'),
   },
   scrollContainer: {
     paddingBottom: 80,
   },
   header: {
-    marginTop:hp('2%'),
+    marginTop: hp('2%'),
     fontSize: wp('7%'),
     fontWeight: '600',
     letterSpacing: 1,
@@ -177,7 +203,7 @@ const styles = StyleSheet.create({
   serviceImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
 });
 
