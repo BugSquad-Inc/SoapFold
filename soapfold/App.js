@@ -9,11 +9,12 @@ import { useState, useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { store } from './store';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { MaterialIcons } from '@expo/vector-icons';
 
 // Auth Screens
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
-import WelcomeScreen from './screens/WelcomeScreen';
+import OnboardingScreen from './screens/OnboardingScreen';
 import CartScreen from './screens/CartScreen';
 
 // Main App Screens
@@ -35,10 +36,7 @@ const MainTabNavigator = () => {
         component={HomeScreen}
         options={{
           tabBarIcon: ({ color }) => (
-            <Image
-              source={require('./assets/images/home.png')}
-              style={{ tintColor: color, width: 24, height: 24 }}
-            />
+            <MaterialIcons name="home" size={24} color={color} />
           )
         }}
       />
@@ -47,10 +45,7 @@ const MainTabNavigator = () => {
         component={CategoryScreen}
         options={{
           tabBarIcon: ({ color }) => (
-            <Image
-              source={require('./assets/images/order.png')}
-              style={{ tintColor: color, width: 24, height: 24 }}
-            />
+            <MaterialIcons name="category" size={24} color={color} />
           )
         }}
       />
@@ -59,10 +54,7 @@ const MainTabNavigator = () => {
         component={CalendarScreen}
         options={{
           tabBarIcon: ({ color }) => (
-            <Image
-              source={require('./assets/images/calendar.png')}
-              style={{ tintColor: color, width: 24, height: 24 }}
-            />
+            <MaterialIcons name="calendar-today" size={24} color={color} />
           )
         }}
       />
@@ -95,47 +87,49 @@ export default function App() {
     <Provider store={store}>
       <SafeAreaProvider>
         <ErrorBoundary>
-          <NavigationContainer
-            fallback={
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#007AFF" />
-              </View>
-            }
-          >
+          <NavigationContainer>
             <Stack.Navigator
-              initialRouteName={user ? "Main" : "Welcome"}
+              initialRouteName="Onboarding"
               screenOptions={{
                 headerShown: false,
                 animation: 'slide_from_right',
-                contentStyle: { backgroundColor: '#fff' },
+                contentStyle: { backgroundColor: '#000' },
               }}
             >
-              <Stack.Screen
-                name="Welcome"
-                component={WelcomeScreen}
-                options={{ animation: 'fade' }}
-              />
-              <Stack.Screen
-                name="Login"
-                component={LoginScreen}
-                options={{ animation: 'slide_from_right' }}
-              />
-              <Stack.Screen
-                name="CartScreen"
-                component={CartScreen}
-                options={{ animation: 'slide_from_right', headerShown: true, title: 'Your Cart' }}
-              />
-              <Stack.Screen
-                name="Signup"
-                component={SignupScreen}
-                options={{ animation: 'slide_from_right' }}
-              />
-              <Stack.Screen
-                name="Main"
-                component={MainTabNavigator}
-              />
+              {!user ? (
+                <>
+                  <Stack.Screen
+                    name="Onboarding"
+                    component={OnboardingScreen}
+                    options={{ animation: 'fade' }}
+                  />
+                  <Stack.Screen
+                    name="Login"
+                    component={LoginScreen}
+                    options={{ animation: 'slide_from_right' }}
+                  />
+                  <Stack.Screen
+                    name="Signup"
+                    component={SignupScreen}
+                    options={{ animation: 'slide_from_right' }}
+                  />
+                </>
+              ) : (
+                <>
+                  <Stack.Screen name="Main" component={MainTabNavigator} />
+                  <Stack.Screen
+                    name="CartScreen"
+                    component={CartScreen}
+                    options={{ 
+                      animation: 'slide_from_right', 
+                      headerShown: true, 
+                      title: 'Your Cart' 
+                    }}
+                  />
+                </>
+              )}
             </Stack.Navigator>
-            <StatusBar style="auto" />
+            <StatusBar style="light" />
           </NavigationContainer>
         </ErrorBoundary>
       </SafeAreaProvider>
