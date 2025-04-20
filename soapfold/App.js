@@ -15,6 +15,7 @@ import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
 import CartScreen from './screens/CartScreen';
+import PaymentScreen from './screens/PaymentScreen';
 
 // Main App Screens
 import HomeScreen from './screens/HomeScreen';
@@ -130,6 +131,12 @@ export default function App() {
                 component={SignupScreen}
                 options={{ animation: 'slide_from_right' }}
               />
+
+              <Stack.Screen name="PaymentScreen" 
+              component={PaymentScreen} 
+              options={{ title: 'Confirm Payment' }} 
+              />
+
               <Stack.Screen
                 name="Main"
                 component={MainTabNavigator}

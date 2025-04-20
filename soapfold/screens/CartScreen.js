@@ -39,7 +39,7 @@ const samplePrices = {
   'Corporate Wear': 5500,
 };
 
-const CartScreen = ({ route }) => {
+const CartScreen = ({ route, navigation }) => {
   const { serviceTitle } = route.params;
   const [cartItems, setCartItems] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -50,6 +50,14 @@ const CartScreen = ({ route }) => {
     Object.entries(cartItems).reduce((acc, [item, qty]) => acc + qty * (samplePrices[item] || 0), 0),
     [cartItems]
   );
+
+  const handleContinueToPayment = () => {
+    navigation.navigate('PaymentScreen', {
+      cartItems,
+      totalPrice,
+      serviceTitle,
+    });
+  };
 
   const filterItems = () => {
     if (selectedCategory === 'All') return items;
@@ -93,45 +101,23 @@ const CartScreen = ({ route }) => {
     </ScrollView>
   );
 
-  // const renderItem = ({ item }) => {
-  //   const quantity = cartItems[item] || 0;
-
-  //   return (
-  //     <View style={styles.card}>
-  //       <Image source={imageMap[item]} style={styles.image} />
-  //       <Text style={styles.name}>{item}</Text>
-  //       <Text style={styles.price}>Rp {samplePrices[item].toLocaleString()}</Text>
-
-  //       <View style={styles.quantityControls}>
-  //         <TouchableOpacity onPress={() => decrement(item)} style={styles.decrementButton}>
-  //           <Text style={styles.decrementButtonText}>-</Text>
-  //         </TouchableOpacity>
-  //         <Text style={styles.quantityText}>{quantity}</Text>
-  //         <TouchableOpacity onPress={() => increment(item)} style={styles.incrementButton}>
-  //           <Text style={styles.incrementButtonText}>+</Text>
-  //         </TouchableOpacity>
-  //       </View>
-  //     </View>
-  //   );
-  // };
-
   const renderItem = ({ item }) => {
     const quantity = cartItems[item] || 0;
     const pricePerItem = samplePrices[item] || 0;
     const totalItemPrice = quantity * pricePerItem;
-  
+
     return (
       <View style={styles.card}>
         <Image source={imageMap[item]} style={styles.image} />
         
         <Text style={styles.name}>
-          {item} {quantity > 0 ? `(x${quantity}) — Rp ${totalItemPrice.toLocaleString()}` : ''}
+          {item} {quantity > 0 ? `(x${quantity}) — ₹${totalItemPrice.toLocaleString()}` : ''}
         </Text>
-  
+
         {quantity === 0 && (
-          <Text style={styles.price}>Rp {pricePerItem.toLocaleString()}</Text>
+          <Text style={styles.price}>₹{pricePerItem.toLocaleString()}</Text>
         )}
-  
+
         <View style={styles.quantityControls}>
           <TouchableOpacity onPress={() => decrement(item)} style={styles.decrementButton}>
             <Text style={styles.decrementButtonText}>-</Text>
@@ -162,12 +148,12 @@ const CartScreen = ({ route }) => {
       <View style={styles.footer}>
         <View style={styles.totalContainer}>
           <Text style={styles.totalLabel}>Total:</Text>
-          <Text style={styles.totalAmount}>Rp {totalPrice.toLocaleString()}</Text>
+          <Text style={styles.totalAmount}>₹{totalPrice.toLocaleString()}</Text>
         </View>
         <TouchableOpacity
           disabled={totalPrice === 0}
           style={[styles.verifyButton, totalPrice === 0 && styles.verifyButtonDisabled]}
-          onPress={() => console.log('Verify order clicked')}
+          onPress={handleContinueToPayment}
         >
           <Text style={styles.verifyText}>Verify Order</Text>
         </TouchableOpacity>
