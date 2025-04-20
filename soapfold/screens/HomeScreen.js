@@ -96,7 +96,16 @@ const HomeScreen = ({ navigation }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigation.replace('Welcome');
+      // Navigate to the Onboarding screen within Auth navigator
+      navigation.reset({
+        index: 0,
+        routes: [{ 
+          name: 'Auth',
+          state: {
+            routes: [{ name: 'Onboarding' }]
+          }
+        }],
+      });
     } catch (error) {
       console.error('Error signing out:', error);
     }

@@ -1,9 +1,12 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, BackHandler } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, BackHandler, Alert, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { AntDesign } from '@expo/vector-icons';
+import { auth } from '../config/firebase';
+import { getDoc, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -14,16 +17,17 @@ const PlaceholderImage = ({ width, height, color, style }) => (
       {
         width,
         height,
-        backgroundColor: color || '#2A2A2A',
+        backgroundColor: color || '#2A2A2A'
       },
-      style,
+      style
     ]}
   />
 );
 
-const OnboardingScreen = ({ navigation }) => {
+const OnboardingScreen = ({ navigation, promptAsync }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isLogin, setIsLogin] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(1)).current;
   const slideAnim = React.useRef(new Animated.Value(0)).current;
   
@@ -111,6 +115,17 @@ const OnboardingScreen = ({ navigation }) => {
     ]).start();
   };
 
+  // Add useEffect for automatic shape changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentValue = imageShape1._value;
+      const nextValue = currentValue === 0 ? 1 : currentValue === 1 ? 2 : 0;
+      animateImageShapes(nextValue);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
@@ -138,13 +153,13 @@ const OnboardingScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
-        toValue: -50,
+        toValue: -width,
         duration: 200,
         useNativeDriver: true,
       })
     ]).start(() => {
       setCurrentStep(1);
-      slideAnim.setValue(50);
+      slideAnim.setValue(width);
       animateImageShapes(1);
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -169,13 +184,13 @@ const OnboardingScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
-        toValue: 50,
+        toValue: width,
         duration: 200,
         useNativeDriver: true,
       })
     ]).start(() => {
       setCurrentStep(0);
-      slideAnim.setValue(-50);
+      slideAnim.setValue(-width);
       animateImageShapes(0);
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -200,13 +215,13 @@ const OnboardingScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
-        toValue: -50,
+        toValue: -width,
         duration: 200,
         useNativeDriver: true,
       })
     ]).start(() => {
       setIsLogin(true);
-      slideAnim.setValue(50);
+      slideAnim.setValue(width);
       animateImageShapes(2);
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -231,13 +246,13 @@ const OnboardingScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
-        toValue: 50,
+        toValue: width,
         duration: 200,
         useNativeDriver: true,
       })
     ]).start(() => {
       setIsLogin(false);
-      slideAnim.setValue(-50);
+      slideAnim.setValue(-width);
       animateImageShapes(1);
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -252,6 +267,21 @@ const OnboardingScreen = ({ navigation }) => {
         })
       ]).start();
     });
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsSigningIn(true);
+      await promptAsync();
+    } catch (error) {
+      console.error('Google Sign In Error:', error);
+      Alert.alert(
+        'Sign In Error',
+        'An error occurred during sign in. Please try again.'
+      );
+    } finally {
+      setIsSigningIn(false);
+    }
   };
 
   const renderImageGrid = () => (
@@ -308,7 +338,7 @@ const OnboardingScreen = ({ navigation }) => {
           styles.contentContainer,
           { 
             opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }]
+            transform: [{ translateX: slideAnim }]
           }
         ]}
       >
@@ -316,24 +346,41 @@ const OnboardingScreen = ({ navigation }) => {
           <View style={styles.signUpContainer}>
             <Text style={styles.signUpTitle}>Welcome back</Text>
             <Text style={styles.signUpSubtitle}>
-              Log in to continue exploring and booking events
+              Log in to manage your laundry services and track your orders
             </Text>
             <View style={styles.signInButtonsContainer}>
-              <TouchableOpacity style={styles.googleButton}>
-                <View style={styles.buttonContent}>
-                  <AntDesign name="google" size={20} color="#000000" style={styles.buttonIcon} />
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
-                </View>
+              <TouchableOpacity 
+                style={[
+                  styles.googleButton,
+                  isSigningIn && styles.googleButtonDisabled
+                ]} 
+                onPress={handleGoogleSignIn}
+                disabled={isSigningIn}
+              >
+                {isSigningIn ? (
+                  <ActivityIndicator size="small" color="#DB4437" />
+                ) : (
+                  <>
+                    <AntDesign name="google" size={24} color="#DB4437" />
+                    <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  </>
+                )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.signInButton}>
+              <TouchableOpacity 
+                style={styles.signInButton}
+                onPress={() => navigation.navigate('EmailLogin')}
+              >
                 <View style={styles.buttonContent}>
                   <MaterialIcons name="mail-outline" size={20} color="#FFFFFF" style={styles.buttonIcon} />
                   <Text style={styles.signInButtonText}>Continue with email</Text>
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.signInButton}>
+              <TouchableOpacity 
+                style={styles.signInButton}
+                onPress={() => navigation.navigate('PhoneSignIn')}
+              >
                 <View style={styles.buttonContent}>
                   <MaterialIcons name="smartphone" size={20} color="#FFFFFF" style={styles.buttonIcon} />
                   <Text style={styles.signInButtonText}>Continue with phone number</Text>
@@ -341,15 +388,15 @@ const OnboardingScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.loginLink} onPress={handleLoginBack}>
-              <Text style={styles.loginLinkText}>Don't have an account? Sign up</Text>
+              <Text style={styles.loginLinkText}>Don't have an account? Signup</Text>
             </TouchableOpacity>
           </View>
         ) : currentStep === 0 ? (
           <View style={styles.textBackground}>
             <View style={styles.textContainer}>
-              <Text style={styles.title}>Event exploration{'\n'}made simple</Text>
+              <Text style={styles.title}>Laundry made{'\n'}effortless</Text>
               <Text style={styles.subtitle}>
-                Discover, book, and track events seamlessly with calendar integration and personalized event curation
+                Schedule pickups, track your laundry status, and enjoy professional cleaning services at your convenience
               </Text>
             </View>
             <View style={styles.bottomContainer}>
@@ -371,32 +418,36 @@ const OnboardingScreen = ({ navigation }) => {
           <View style={styles.signUpContainer}>
             <Text style={styles.signUpTitle}>Get started</Text>
             <Text style={styles.signUpSubtitle}>
-              Register for events and create images of the activities you plan to attend.
+              Create an account to schedule laundry pickups and manage your orders
             </Text>
             <View style={styles.signInButtonsContainer}>
-              <TouchableOpacity style={styles.googleButton}>
-                <View style={styles.buttonContent}>
-                  <AntDesign name="google" size={20} color="#000000" style={styles.buttonIcon} />
-                  <Text style={styles.googleButtonText}>Sign up with Google</Text>
-                </View>
+              <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn}>
+                <AntDesign name="google" size={24} color="#DB4437" />
+                <Text style={styles.googleButtonText}>Sign up with Google</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.signInButton}>
+              <TouchableOpacity 
+                style={styles.signInButton}
+                onPress={() => navigation.navigate('EmailSignup')}
+              >
                 <View style={styles.buttonContent}>
                   <MaterialIcons name="mail-outline" size={20} color="#FFFFFF" style={styles.buttonIcon} />
-                  <Text style={styles.signInButtonText}>sign up with email</Text>
+                  <Text style={styles.signInButtonText}>Sign up with email</Text>
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.signInButton}>
+              <TouchableOpacity 
+                style={styles.signInButton}
+                onPress={() => navigation.navigate('PhoneSignIn')}
+              >
                 <View style={styles.buttonContent}>
                   <MaterialIcons name="smartphone" size={20} color="#FFFFFF" style={styles.buttonIcon} />
-                  <Text style={styles.signInButtonText}>sign up with phone number</Text>
+                  <Text style={styles.signInButtonText}>Sign up with phone number</Text>
                 </View>
               </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.loginLink} onPress={handleLoginTransition}>
-              <Text style={styles.loginLinkText}>Already have an account? Log in</Text>
+              <Text style={styles.loginLinkText}>Already have an account? Login</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -417,7 +468,7 @@ const OnboardingScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#000000'
   },
   step: {
     flex: 1,
@@ -568,13 +619,19 @@ const styles = StyleSheet.create({
   },
   signInButtonsContainer: {
     gap: 12,
+    marginBottom: 24,
   },
   googleButton: {
-    height: 52,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   buttonContent: {
     flexDirection: 'row',
@@ -588,8 +645,9 @@ const styles = StyleSheet.create({
   },
   googleButtonText: {
     color: '#000000',
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
   },
   signInButton: {
     height: 52,
@@ -606,17 +664,18 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     alignItems: 'center',
-    position: 'absolute',
-    bottom: 24,
-    left: 0,
-    right: 0,
+    marginTop: -8,
   },
   loginLinkText: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 13,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '500',
   },
   placeholderImage: {
     overflow: 'hidden',
+  },
+  googleButtonDisabled: {
+    opacity: 0.7,
   },
 });
 
