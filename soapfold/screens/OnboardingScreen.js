@@ -270,18 +270,11 @@ const OnboardingScreen = ({ navigation, promptAsync }) => {
   };
 
   const handleGoogleSignIn = async () => {
-    try {
-      setIsSigningIn(true);
-      await promptAsync();
-    } catch (error) {
-      console.error('Google Sign In Error:', error);
-      Alert.alert(
-        'Sign In Error',
-        'An error occurred during sign in. Please try again.'
-      );
-    } finally {
-      setIsSigningIn(false);
-    }
+    // Google sign-in functionality removed
+    Alert.alert(
+      'Google Sign In Disabled',
+      'Google Sign In has been temporarily disabled.'
+    );
   };
 
   const renderImageGrid = () => (
