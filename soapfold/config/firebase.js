@@ -2,10 +2,11 @@ import { initializeApp } from "firebase/app";
 import { getAuth, PhoneAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import Constants from 'expo-constants';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI",
+  apiKey: Constants.expoConfig?.extra?.firebaseApiKey || process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: "soapfold.firebaseapp.com",
   projectId: "soapfold",
   storageBucket: "soapfold.appspot.com",
@@ -17,6 +18,7 @@ const firebaseConfig = {
 let app;
 try {
   app = initializeApp(firebaseConfig);
+  console.log("Firebase initialized successfully");
 } catch (error) {
   console.error('Firebase initialization error:', error);
   // Handle initialization error

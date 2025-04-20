@@ -45,7 +45,8 @@
     "extra": {
       "eas": {
         "projectId": "your-project-id"
-      }
+      },
+      "firebaseApiKey": "FIREBASE_API_KEY"
     }
   }
 }
