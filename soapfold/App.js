@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './config/firebase';
+import { auth, db } from './config/firebase';
 import { useState, useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { store } from './store';
@@ -14,20 +14,28 @@ import * as WebBrowser from 'expo-web-browser';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 // Auth Screens
 import OnboardingScreen from './screens/OnboardingScreen';
-import CartScreen from './screens/CartScreen';
 import EmailSignupScreen from './screens/EmailSignupScreen';
 import EmailLoginScreen from './screens/EmailLoginScreen';
 import PhoneSignInScreen from './screens/PhoneSignInScreen';
 import VerifyCodeScreen from './screens/VerifyCodeScreen';
+import SignInScreen from './screens/SignInScreen';
+import SignUpScreen from './screens/SignupScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 
 // Main App Screens
 import HomeScreen from './screens/HomeScreen';
+import ProfileScreen from './screens/ProfileScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 import CategoryScreen from './screens/CategoryScreen';
 import CalendarScreen from './screens/CalendarScreen';
+import CartScreen from './screens/CartScreen';
+
+// Import BottomTabNavigator
+import BottomTabNavigator from './navigation/BottomTabNavigator';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -52,6 +60,21 @@ const AuthNavigator = ({ promptAsync }) => (
     >
       {(props) => <OnboardingScreen {...props} promptAsync={promptAsync} />}
     </AuthStack.Screen>
+    <AuthStack.Screen
+      name="SignIn"
+      component={SignInScreen}
+      options={{ animation: 'slide_from_right' }}
+    />
+    <AuthStack.Screen
+      name="SignUp"
+      component={SignUpScreen}
+      options={{ animation: 'slide_from_right' }}
+    />
+    <AuthStack.Screen
+      name="ForgotPassword"
+      component={ForgotPasswordScreen}
+      options={{ animation: 'slide_from_right' }}
+    />
     <AuthStack.Screen
       name="EmailSignup"
       component={EmailSignupScreen}
@@ -84,32 +107,14 @@ const AppNavigator = () => (
     }}
   >
     <AppStack.Screen 
-      name="HomeScreen" 
-      component={HomeScreen}
-      options={{ animation: 'fade' }}
+      name="MainTabs" 
+      component={BottomTabNavigator}
+      options={{ animation: 'fade', headerShown: false }}
     />
     <AppStack.Screen
       name="CategoryScreen"
       component={CategoryScreen}
       options={{ animation: 'slide_from_right' }}
-    />
-    <AppStack.Screen
-      name="CalendarScreen"
-      component={CalendarScreen}
-      options={{ animation: 'slide_from_right' }}
-    />
-    <AppStack.Screen
-      name="CartScreen"
-      component={CartScreen}
-      options={{ 
-        animation: 'slide_from_right', 
-        headerShown: true, 
-        title: 'Your Cart',
-        headerStyle: {
-          backgroundColor: '#000000',
-        },
-        headerTintColor: '#FFFFFF',
-      }}
     />
   </AppStack.Navigator>
 );
@@ -143,12 +148,59 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         console.log('User authenticated:', user.email);
-        setUserInfo(user);
-        await AsyncStorage.setItem('@user', JSON.stringify(user));
+        
+        try {
+          // Check if user exists in Firestore
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          let userData;
+          
+          if (userDoc.exists()) {
+            // User exists in Firestore, use that data
+            userData = userDoc.data();
+            console.log('User data from Firestore:', userData.displayName);
+            
+            // Update lastLogin
+            await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
+          } else {
+            // User doesn't exist in Firestore yet (might be from Google Sign-In)
+            // Create a user document
+            userData = {
+              displayName: user.displayName || user.email.split('@')[0],
+              email: user.email,
+              photoURL: user.photoURL,
+              createdAt: serverTimestamp(),
+              lastLogin: serverTimestamp(),
+              location: 'Cembung Dafur, Yogyakarta'
+            };
+            
+            console.log('Creating new user in Firestore:', userData.displayName);
+            await setDoc(userDocRef, userData);
+          }
+          
+          // Cache the user data
+          await AsyncStorage.setItem('@userData', JSON.stringify({
+            ...userData,
+            // Convert timestamps for storage
+            createdAt: userData.createdAt instanceof Date ? userData.createdAt.toISOString() : new Date().toISOString(),
+            lastLogin: new Date().toISOString()
+          }));
+          
+          // Set the authenticated user
+          setUserInfo(user);
+          await AsyncStorage.setItem('@user', JSON.stringify(user));
+        } catch (error) {
+          console.error('Error handling user data in auth state change:', error);
+          // Still set the user even if there was an error
+          setUserInfo(user);
+          await AsyncStorage.setItem('@user', JSON.stringify(user));
+        }
       } else {
         console.log("User is not authenticated");
         setUserInfo(null);
         await AsyncStorage.removeItem('@user');
+        await AsyncStorage.removeItem('@userData');
       }
     });
 
@@ -165,6 +217,40 @@ export default function App() {
         signInWithCredential(auth, credential)
           .then(async (result) => {
             console.log('Google sign in successful:', result.user.email);
+            
+            try {
+              // Check if user exists in Firestore
+              const userDocRef = doc(db, 'users', result.user.uid);
+              const userDoc = await getDoc(userDocRef);
+              
+              if (!userDoc.exists()) {
+                // Create a new user document for Google Sign-In
+                const userData = {
+                  displayName: result.user.displayName || result.user.email.split('@')[0],
+                  email: result.user.email,
+                  photoURL: result.user.photoURL,
+                  createdAt: serverTimestamp(),
+                  lastLogin: serverTimestamp(),
+                  location: 'Cembung Dafur, Yogyakarta'
+                };
+                
+                console.log('Creating Google user in Firestore:', userData.displayName);
+                await setDoc(userDocRef, userData);
+                
+                // Cache the user data
+                await AsyncStorage.setItem('@userData', JSON.stringify({
+                  ...userData,
+                  createdAt: new Date().toISOString(),
+                  lastLogin: new Date().toISOString()
+                }));
+              } else {
+                // Update lastLogin for existing user
+                await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
+              }
+            } catch (error) {
+              console.error('Error handling Google sign-in user data:', error);
+            }
+            
             setUserInfo(result.user);
             await AsyncStorage.setItem('@user', JSON.stringify(result.user));
           })
@@ -203,32 +289,37 @@ export default function App() {
 
   return (
     <Provider store={store}>
-      <SafeAreaProvider>
-        <ErrorBoundary>
+      <ErrorBoundary>
+        <SafeAreaProvider>
           <NavigationContainer>
+            <StatusBar style="light" />
+            
             <RootStack.Navigator
               screenOptions={{
                 headerShown: false,
                 animation: 'fade',
+                contentStyle: { backgroundColor: '#000' },
               }}
             >
-              {!userInfo ? (
-                <RootStack.Screen 
-                  name="Auth"
-                >
-                  {(props) => <AuthNavigator {...props} promptAsync={promptAsync} />}
+              {loading ? (
+                <RootStack.Screen name="Loading">
+                  {() => (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+                      <ActivityIndicator size="large" color="#FFCA28" />
+                    </View>
+                  )}
                 </RootStack.Screen>
+              ) : userInfo ? (
+                <RootStack.Screen name="App" component={AppNavigator} />
               ) : (
-                <RootStack.Screen 
-                  name="App" 
-                  component={AppNavigator}
-                />
+                <RootStack.Screen name="Auth">
+                  {() => <AuthNavigator promptAsync={promptAsync} />}
+                </RootStack.Screen>
               )}
             </RootStack.Navigator>
-            <StatusBar style="light" />
           </NavigationContainer>
-        </ErrorBoundary>
-      </SafeAreaProvider>
+        </SafeAreaProvider>
+      </ErrorBoundary>
     </Provider>
   );
 }

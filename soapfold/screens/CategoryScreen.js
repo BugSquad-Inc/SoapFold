@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import * as Animatable from 'react-native-animatable';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { MaterialIcons } from '@expo/vector-icons';
 
 // Import your images
 const images = {
@@ -99,6 +100,10 @@ const CategoryScreen = ({ navigation }) => {
     });
   };
   
+  const goBackToHome = () => {
+    navigation.navigate('MainTabs', { screen: 'HomeScreen' });
+  };
+  
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -128,6 +133,9 @@ const CategoryScreen = ({ navigation }) => {
           </Animatable.View>
         ))}
       </ScrollView>
+      <TouchableOpacity onPress={goBackToHome} style={styles.backButton}>
+        <MaterialIcons name="arrow-back" size={24} color="#FFF" />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -212,6 +220,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'contain',
+  },
+  backButton: {
+    position: 'absolute',
+    top: hp('2%'),
+    left: wp('2%'),
+    padding: wp('2%'),
   },
 });
 

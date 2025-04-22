@@ -14,16 +14,19 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const EmailSignupScreen = ({ navigation }) => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState({ 
+    name: false,
     email: false, 
     password: false,
     confirmPassword: false 
@@ -53,22 +56,25 @@ const EmailSignupScreen = ({ navigation }) => {
   };
 
   const errors = React.useMemo(() => ({
+    name: touched.name && !name.trim() ? 'Full name is required' : '',
     email: touched.email && (!email || !isValidEmail(email)) ? 'Valid email is required' : '',
     password: touched.password && (!password || password.length < 6) ? 'Password must be at least 6 characters' : '',
     confirmPassword: touched.confirmPassword && (!confirmPassword || password !== confirmPassword) 
       ? 'Passwords must match' : '',
-  }), [email, password, confirmPassword, touched]);
+  }), [name, email, password, confirmPassword, touched]);
 
   const isValid = React.useMemo(() => {
     return (
+      name.trim() &&
       isValidEmail(email) && 
       password.length >= 6 && 
       password === confirmPassword &&
+      !errors.name &&
       !errors.email && 
       !errors.password && 
       !errors.confirmPassword
     );
-  }, [email, password, confirmPassword, errors]);
+  }, [name, email, password, confirmPassword, errors]);
 
   const handleSignUp = async () => {
     if (!isValid) return;
@@ -77,14 +83,36 @@ const EmailSignupScreen = ({ navigation }) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      
+      // Make sure name is trimmed
+      const trimmedName = name.trim();
 
-      // Create a user document in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        email: user.email,
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString(),
+      // Update user profile to include display name
+      await updateProfile(user, {
+        displayName: trimmedName
       });
 
+      // Create a user document in Firestore with proper timestamps
+      const userData = {
+        displayName: trimmedName,
+        email: user.email,
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp(),
+        location: 'Cembung Dafur, Yogyakarta' // Default location
+      };
+
+      // Store in Firestore
+      await setDoc(doc(db, 'users', user.uid), userData);
+      
+      // Also cache in AsyncStorage for faster access
+      await AsyncStorage.setItem('@userData', JSON.stringify({
+        ...userData,
+        createdAt: new Date().toISOString(), // Convert for local storage
+        lastLogin: new Date().toISOString()
+      }));
+
+      console.log('User created successfully with name:', trimmedName);
+      
       // Navigation will be handled by the auth state listener
     } catch (error) {
       Alert.alert(
@@ -116,6 +144,24 @@ const EmailSignupScreen = ({ navigation }) => {
               <Text style={styles.subtitle}>Create an account to manage your laundry services</Text>
 
               <View style={styles.form}>
+                <View>
+                  <Text style={styles.inputLabel}>Full Name</Text>
+                  <View style={[styles.inputContainer, errors.name && touched.name && styles.inputError]}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your full name"
+                      placeholderTextColor="#666"
+                      value={name}
+                      onChangeText={setName}
+                      onBlur={() => setTouched(prev => ({ ...prev, name: true }))}
+                      autoCapitalize="words"
+                    />
+                  </View>
+                  {errors.name && touched.name && (
+                    <Text style={styles.errorText}>{errors.name}</Text>
+                  )}
+                </View>
+
                 <View>
                   <Text style={styles.inputLabel}>Email</Text>
                   <View style={[styles.inputContainer, errors.email && touched.email && styles.inputError]}>

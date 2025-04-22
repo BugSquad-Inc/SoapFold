@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MenuBar = () => {
   const navigation = useNavigation();
@@ -10,15 +11,13 @@ const MenuBar = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigation.reset({
-        index: 0,
-        routes: [{ 
-          name: 'Auth',
-          state: {
-            routes: [{ name: 'Onboarding' }]
-          }
-        }],
-      });
+      
+      // Clear user data from AsyncStorage
+      await AsyncStorage.removeItem('@userData');
+      await AsyncStorage.removeItem('@user');
+      
+      // Navigate to Onboarding screen
+      navigation.navigate('Onboarding');
     } catch (error) {
       console.error('Error signing out:', error);
     }

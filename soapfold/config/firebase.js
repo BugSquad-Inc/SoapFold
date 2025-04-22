@@ -1,8 +1,9 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, PhoneAuthProvider } from "firebase/auth";
+import { initializeAuth, getReactNativePersistence, PhoneAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -24,8 +25,10 @@ try {
   // Handle initialization error
 }
 
-// Initialize Auth
-const auth = getAuth(app);
+// Initialize Auth with AsyncStorage persistence
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
 
 // Initialize Firestore
 const db = getFirestore(app);
