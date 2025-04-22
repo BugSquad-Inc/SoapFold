@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "192181548467",
+    "project_id": "soapfold",
+    "storage_bucket": "soapfold.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:192181548467:android:e078909753fd897ca547c6",
+        "android_client_info": {
+          "package_name": "com.soapfold"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "192181548467-18ddv39f0qtr6avibrqo9dna2atrvfb7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "192181548467-18ddv39f0qtr6avibrqo9dna2atrvfb7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
