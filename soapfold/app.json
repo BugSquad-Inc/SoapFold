@@ -13,22 +13,40 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.soapfold.app",
+      "config": {
+        "googleSignIn": {
+          "reservedClientId": "com.googleusercontent.apps.681509346490-8gek6h4l6na8roqafikh5id12qojo8ii"
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.arsacskasha.soapfold"
+      "package": "com.soapfold.app",
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "scheme": "com.soapfold.app",
+    "plugins": [
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "androidPackageName": "com.soapfold.app",
+          "iosUrlScheme": "com.googleusercontent.apps.681509346490-8gek6h4l6na8roqafikh5id12qojo8ii"
+        }
+      ]
+    ],
     "extra": {
       "eas": {
-        "projectId": "13c5810a-25f8-4319-85ee-d316c53131c4"
-      }
+        "projectId": "your-project-id"
+      },
+      "firebaseApiKey": "FIREBASE_API_KEY"
     }
   }
 }

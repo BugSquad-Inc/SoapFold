@@ -24,7 +24,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="com.arsacskasha.soapfold"/>
+        <data android:scheme="soapfold"/>
+        <data android:scheme="com.soapfold"/>
         <data android:scheme="exp+soapfold"/>
       </intent-filter>
     </activity>

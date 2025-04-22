@@ -12,65 +12,66 @@ import {
   Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
+import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../config/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 
-const SignUpScreen = ({ navigation }) => {
-  const [name, setName] = useState('');
+WebBrowser.maybeCompleteAuthSession();
+
+const SignInScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSignUp = async () => {
-    // Validate inputs
-    if (!name || !email || !password || !confirmPassword) {
+  // Google Sign-in configuration
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
+    androidClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
+    webClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
+  });
+
+  // Function to handle email sign-in
+  const handleSignIn = async () => {
+    if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-    
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-    
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password should be at least 6 characters');
       return;
     }
 
     try {
       setIsLoading(true);
-      // Create user with email and password
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Update user profile with name
-      await updateProfile(userCredential.user, {
-        displayName: name
-      });
-      
-      // Save additional user data to Firestore
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        uid: userCredential.user.uid,
-        displayName: name,
-        email: email,
-        createdAt: new Date(),
-        phoneNumber: userCredential.user.phoneNumber || '',
-        photoURL: userCredential.user.photoURL || '',
-      });
-      
+      await signInWithEmailAndPassword(auth, email, password);
       setIsLoading(false);
-      // Navigation is handled by authStateChanged listener in App.js
     } catch (error) {
       setIsLoading(false);
       Alert.alert('Error', error.message);
     }
+  };
+
+  // Function to handle Google sign-in
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      const result = await promptAsync();
+      
+      if (result.type === 'success') {
+        const { id_token } = result.params;
+        const credential = GoogleAuthProvider.credential(id_token);
+        await signInWithCredential(auth, credential);
+      }
+      setIsLoading(false);
+    } catch (error) {
+      setIsLoading(false);
+      Alert.alert('Error', error.message);
+    }
+  };
+
+  // Function to navigate to phone sign-in screen
+  const handlePhoneSignIn = () => {
+    navigation.navigate('PhoneSignIn');
   };
 
   return (
@@ -91,22 +92,10 @@ const SignUpScreen = ({ navigation }) => {
               >
                 <MaterialIcons name="arrow-back-ios" size={24} color="#FFFFFF" />
               </TouchableOpacity>
-              <Text style={styles.title}>Create Account</Text>
+              <Text style={styles.title}>Sign In</Text>
             </View>
 
             <View style={styles.formContainer}>
-              {/* Name input */}
-              <View style={styles.inputContainer}>
-                <MaterialIcons name="person" size={20} color="#FFFFFF" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Full Name"
-                  placeholderTextColor="#AAAAAA"
-                  value={name}
-                  onChangeText={setName}
-                />
-              </View>
-
               {/* Email input */}
               <View style={styles.inputContainer}>
                 <MaterialIcons name="email" size={20} color="#FFFFFF" style={styles.inputIcon} />
@@ -144,59 +133,59 @@ const SignUpScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Confirm Password input */}
-              <View style={styles.inputContainer}>
-                <MaterialIcons name="lock" size={20} color="#FFFFFF" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Confirm Password"
-                  placeholderTextColor="#AAAAAA"
-                  secureTextEntry={!showConfirmPassword}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                />
-                <TouchableOpacity
-                  style={styles.showPasswordButton}
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  <MaterialIcons
-                    name={showConfirmPassword ? "visibility" : "visibility-off"}
-                    size={22}
-                    color="#AAAAAA"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Sign Up Button */}
               <TouchableOpacity
-                style={styles.signUpButton}
-                onPress={handleSignUp}
+                style={styles.forgotPasswordButton}
+                onPress={() => navigation.navigate('ForgotPassword')}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </TouchableOpacity>
+
+              {/* Sign In Button */}
+              <TouchableOpacity
+                style={styles.signInButton}
+                onPress={handleSignIn}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.signUpButtonText}>Create Account</Text>
+                  <Text style={styles.signInButtonText}>Sign In</Text>
                 )}
               </TouchableOpacity>
 
-              {/* Terms and Privacy Policy */}
-              <Text style={styles.termsText}>
-                By signing up, you agree to our{' '}
-                <Text style={styles.linkText} onPress={() => navigation.navigate('Terms')}>
-                  Terms of Service
-                </Text>{' '}
-                and{' '}
-                <Text style={styles.linkText} onPress={() => navigation.navigate('Privacy')}>
-                  Privacy Policy
-                </Text>
-              </Text>
+              {/* OR divider */}
+              <View style={styles.orContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.orText}>OR</Text>
+                <View style={styles.divider} />
+              </View>
+
+              {/* Social Sign In Options */}
+              <View style={styles.socialButtonsContainer}>
+                <TouchableOpacity
+                  style={[styles.socialButton, styles.googleButton]}
+                  onPress={handleGoogleSignIn}
+                  disabled={isLoading}
+                >
+                  <AntDesign name="google" size={20} color="#FFFFFF" />
+                  <Text style={styles.socialButtonText}>Google</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.socialButton, styles.phoneButton]}
+                  onPress={handlePhoneSignIn}
+                  disabled={isLoading}
+                >
+                  <MaterialIcons name="phone" size={20} color="#FFFFFF" />
+                  <Text style={styles.socialButtonText}>Phone</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
-                <Text style={styles.signInText}>Sign In</Text>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+                <Text style={styles.signUpText}>Sign Up</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -259,7 +248,15 @@ const styles = StyleSheet.create({
   showPasswordButton: {
     padding: 8,
   },
-  signUpButton: {
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
+  },
+  forgotPasswordText: {
+    color: '#FFCA28',
+    fontSize: 14,
+  },
+  signInButton: {
     backgroundColor: '#FFCA28',
     borderRadius: 8,
     height: 50,
@@ -267,20 +264,48 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
-  signUpButtonText: {
+  signInButtonText: {
     color: '#000000',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  termsText: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    textAlign: 'center',
+  orContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
-    lineHeight: 20,
   },
-  linkText: {
-    color: '#FFCA28',
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  orText: {
+    color: '#FFFFFF',
+    marginHorizontal: 10,
+    fontSize: 14,
+  },
+  socialButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    borderRadius: 8,
+    flex: 0.48,
+  },
+  googleButton: {
+    backgroundColor: '#DB4437',
+  },
+  phoneButton: {
+    backgroundColor: '#4285F4',
+  },
+  socialButtonText: {
+    color: '#FFFFFF',
+    marginLeft: 10,
+    fontSize: 16,
     fontWeight: '500',
   },
   footer: {
@@ -294,11 +319,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
   },
-  signInText: {
+  signUpText: {
     color: '#FFCA28',
     fontSize: 14,
     fontWeight: 'bold',
   },
 });
 
-export default SignUpScreen; 
+export default SignInScreen; 
