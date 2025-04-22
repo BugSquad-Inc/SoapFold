@@ -1,31 +1,22 @@
 import { initializeApp } from "firebase/app";
-import { initializeAuth, getReactNativePersistence, PhoneAuthProvider } from "firebase/auth";
+import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: Constants.expoConfig?.extra?.firebaseApiKey || process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  apiKey: "AIzaSyDzRW7AN0PJOdsx-jw6aHoZZpZl51Ww1pg",
   authDomain: "soapfold.firebaseapp.com",
   projectId: "soapfold",
-  storageBucket: "soapfold.appspot.com",
+  storageBucket: "soapfold.firebasestorage.app",
   messagingSenderId: "192181548467",
-  appId: "1:192181548467:web:8gek6h4l6na8roqafikh5id12qojo8ii"
+  appId: "1:192181548467:web:5de6d3f12ef0e18fa547c6",
+  measurementId: "G-B1R7EYKQ05"
 };
 
 // Initialize Firebase
-let app;
-try {
-  app = initializeApp(firebaseConfig);
-  console.log("Firebase initialized successfully");
-} catch (error) {
-  console.error('Firebase initialization error:', error);
-  // Handle initialization error
-}
+const app = initializeApp(firebaseConfig);
 
-// Initialize Auth with AsyncStorage persistence
+// Initialize Auth with AsyncStorage
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
@@ -33,12 +24,4 @@ const auth = initializeAuth(app, {
 // Initialize Firestore
 const db = getFirestore(app);
 
-// Initialize Storage
-const storage = getStorage(app);
-
-// Enable phone authentication
-auth.settings = {
-  appVerificationDisabledForTesting: true // Set to false in production
-};
-
-export { auth, db, storage, PhoneAuthProvider };
+export { auth, db };
