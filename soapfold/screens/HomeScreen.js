@@ -352,20 +352,19 @@ const HomeScreen = ({ navigation }) => {
   // Handle logout
   const handleLogout = async () => {
     try {
-      // Clear ALL user data from AsyncStorage
+      console.log('Starting logout process from HomeScreen...');
+      
+      // Clear user data from AsyncStorage, but keep onboarding status
       const keys = ['@userData', '@user', '@authUser', '@userToken'];
       await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));
+      console.log('AsyncStorage items removed (keeping @hasSeenOnboarding)');
       
       // Now sign out from Firebase
       await signOut(auth);
+      console.log('User signed out from Firebase Auth');
       
-      console.log('User signed out and local storage cleared');
-      
-      // Reset navigation all the way to Auth stack at root level
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Auth' }]
-      });
+      // The auth state listener in App.js will handle navigation automatically
+      // No need to navigate here as the auth state change will trigger App.js to show the Auth stack
     } catch (error) {
       console.error('Error signing out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');

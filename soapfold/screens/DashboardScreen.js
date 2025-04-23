@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import { signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DashboardScreen = ({ navigation }) => {
   const [userData, setUserData] = useState(null);
@@ -30,8 +31,19 @@ const DashboardScreen = ({ navigation }) => {
 
   const handleLogout = async () => {
     try {
+      console.log('Starting logout process from DashboardScreen...');
+      
+      // Clear user data from AsyncStorage, but keep onboarding status
+      const keys = ['@userData', '@user', '@authUser', '@userToken'];
+      await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));
+      console.log('AsyncStorage items removed (keeping @hasSeenOnboarding)');
+      
+      // Sign out from Firebase
       await signOut(auth);
-      navigation.replace('Welcome');
+      console.log('User signed out from Firebase Auth');
+      
+      // The auth state listener in App.js will handle navigation automatically
+      // No need to navigate here as the auth state change will trigger App.js to show the Auth stack
     } catch (error) {
       console.error('Error signing out:', error);
     }

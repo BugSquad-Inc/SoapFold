@@ -1,4 +1,4 @@
-package com.soapfold
+package com.soapfold.app
 
 import android.app.Application
 import android.content.res.Configuration

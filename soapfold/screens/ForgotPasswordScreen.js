@@ -9,18 +9,20 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
+  ImageBackground
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../config/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
+import { theme, getTextStyle } from '../utils/theme';
 
 const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
 
   const isValidEmail = (email) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -44,22 +46,26 @@ const ForgotPasswordScreen = ({ navigation }) => {
   };
 
   return (
-    <LinearGradient
-      colors={['#000000', '#1a1a1a']}
-      style={styles.container}
+    <ImageBackground
+      source={require('../assets/sign_bg.png')}
+      style={{flex: 1}}
     >
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : null}
           style={styles.keyboardAvoid}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
         >
-          <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={styles.header}>
               <TouchableOpacity 
                 style={styles.backButton} 
                 onPress={() => navigation.goBack()}
               >
-                <MaterialIcons name="arrow-back-ios" size={24} color="#FFFFFF" />
+                <MaterialIcons name="arrow-back" size={24} color="#000000" />
               </TouchableOpacity>
               <Text style={styles.title}>Reset Password</Text>
             </View>
@@ -71,16 +77,25 @@ const ForgotPasswordScreen = ({ navigation }) => {
                 </Text>
                 
                 {/* Email input */}
-                <View style={styles.inputContainer}>
-                  <MaterialIcons name="email" size={20} color="#FFFFFF" style={styles.inputIcon} />
+                <View style={[
+                  styles.inputContainer,
+                  isEmailFocused && styles.inputContainerFocused
+                ]}>
                   <TextInput
                     style={styles.input}
                     placeholder="Email"
-                    placeholderTextColor="#AAAAAA"
+                    placeholderTextColor="#888888"
                     keyboardType="email-address"
                     autoCapitalize="none"
                     value={email}
                     onChangeText={setEmail}
+                    onFocus={() => setIsEmailFocused(true)}
+                    onBlur={() => setIsEmailFocused(false)}
+                  />
+                  <MaterialIcons 
+                    name="email" 
+                    size={24} 
+                    color={email ? "#000000" : isEmailFocused ? "#FF0000" : "#DDDDDD"} 
                   />
                 </View>
 
@@ -115,7 +130,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </LinearGradient>
+    </ImageBackground>
   );
 };
 
@@ -131,7 +146,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    padding: 20,
+    padding: 24,
   },
   header: {
     flexDirection: 'row',
@@ -140,50 +155,60 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   backButton: {
-    padding: 5,
+    padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 20,
+    marginRight: 15,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 10,
+    color: '#000000',
   },
   formContainer: {
     width: '100%',
   },
   instructions: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 30,
+    lineHeight: 24,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    marginBottom: 20,
-    paddingHorizontal: 10,
-    height: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    marginBottom: 30,
+    paddingHorizontal: 15,
+    height: 55,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
   },
-  inputIcon: {
-    marginRight: 10,
+  inputContainerFocused: {
+    borderColor: theme.colors.secondary,
   },
   input: {
     flex: 1,
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 16,
     height: 50,
   },
   resetButton: {
-    backgroundColor: '#FFCA28',
-    borderRadius: 8,
-    height: 50,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 25,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   resetButtonText: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -199,25 +224,28 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#000000',
     marginBottom: 10,
   },
   successText: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: '#000000',
     textAlign: 'center',
     marginBottom: 30,
+    lineHeight: 24,
   },
   backToLoginButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
   },
   backToLoginText: {
-    color: '#FFCA28',
+    color: theme.colors.primary,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
 

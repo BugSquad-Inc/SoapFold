@@ -1,9 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator, Platform, Text, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import { auth, db } from './config/firebase';
 import { useState, useEffect } from 'react';
 import { Provider } from 'react-redux';
@@ -15,11 +15,11 @@ import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import FirebaseVerifier from './components/FirebaseVerifier';
+import { useLoadFonts } from './utils/fonts';
 
 // Auth Screens
 import OnboardingScreen from './screens/OnboardingScreen';
-import EmailSignupScreen from './screens/EmailSignupScreen';
-import EmailLoginScreen from './screens/EmailLoginScreen';
 import PhoneSignInScreen from './screens/PhoneSignInScreen';
 import VerifyCodeScreen from './screens/VerifyCodeScreen';
 import SignInScreen from './screens/SignInScreen';
@@ -46,19 +46,20 @@ const AppStack = createNativeStackNavigator();
 // Update redirect URI to match your Expo development URL
 const redirectUri = 'https://auth.expo.io/@soapfold/soapfold';
 
-const AuthNavigator = ({ promptAsync }) => (
+const AuthNavigator = ({ promptAsync, hasSeenOnboarding, markOnboardingAsSeen }) => (
   <AuthStack.Navigator
     screenOptions={{
       headerShown: false,
       animation: 'slide_from_right',
       contentStyle: { backgroundColor: '#000' },
     }}
+    initialRouteName={hasSeenOnboarding ? "SignIn" : "Onboarding"}
   >
     <AuthStack.Screen
       name="Onboarding"
       options={{ animation: 'fade' }}
     >
-      {(props) => <OnboardingScreen {...props} promptAsync={promptAsync} />}
+      {(props) => <OnboardingScreen {...props} promptAsync={promptAsync} markOnboardingAsSeen={markOnboardingAsSeen} />}
     </AuthStack.Screen>
     <AuthStack.Screen
       name="SignIn"
@@ -73,16 +74,6 @@ const AuthNavigator = ({ promptAsync }) => (
     <AuthStack.Screen
       name="ForgotPassword"
       component={ForgotPasswordScreen}
-      options={{ animation: 'slide_from_right' }}
-    />
-    <AuthStack.Screen
-      name="EmailSignup"
-      component={EmailSignupScreen}
-      options={{ animation: 'slide_from_right' }}
-    />
-    <AuthStack.Screen
-      name="EmailLogin"
-      component={EmailLoginScreen}
       options={{ animation: 'slide_from_right' }}
     />
     <AuthStack.Screen
@@ -121,7 +112,11 @@ const AppNavigator = () => (
 
 export default function App() {
   const [userInfo, setUserInfo] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showFirebaseVerifier, setShowFirebaseVerifier] = useState(__DEV__); // Only show in development
+  const [authInitialized, setAuthInitialized] = useState(false);
+  const fontsLoaded = useLoadFonts();
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: "192181548467-18ddv39f0qtr6avibrqo9dna2atrvfb7.apps.googleusercontent.com",
@@ -140,72 +135,206 @@ export default function App() {
     console.log('Redirect URI:', 'https://auth.expo.io/@soapfold/soapfold');
   }, []);
 
+  // Check if Firebase auth is initialized
   useEffect(() => {
-    checkLocalUser();
+    const checkFirebaseAuth = async () => {
+      try {
+        console.log("Checking Firebase auth initialization...");
+        if (auth) {
+          console.log("Firebase auth is initialized");
+          setAuthInitialized(true);
+        } else {
+          console.error("Firebase auth is not initialized");
+          Alert.alert(
+            "Initialization Error",
+            "There was a problem setting up the app. Please restart the app."
+          );
+        }
+      } catch (error) {
+        console.error("Error checking Firebase auth:", error);
+      } finally {
+        // Even if auth failed, we'll move forward and handle errors later
+        setAuthInitialized(true);
+      }
+    };
+    
+    checkFirebaseAuth();
   }, []);
 
+  // Only set up auth listener if Firebase is initialized
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        console.log('User authenticated:', user.email);
+    let unsubscribe = () => {};
+    
+    const setupAuthListener = async () => {
+      if (!authInitialized) return;
+      
+      try {
+        if (!auth) {
+          console.error("Auth is undefined, cannot set up listener");
+          setLoading(false);
+          return;
+        }
         
-        try {
-          // Check if user exists in Firestore
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
+        // Make sure we're using the initialized auth with persistence
+        console.log("Setting up auth state listener with persistence-enabled auth");
+        
+        // Try to get the current user first to test auth
+        const currentUser = auth.currentUser;
+        console.log("Current user before listener:", currentUser ? "Signed in" : "Not signed in");
+        
+        unsubscribe = onAuthStateChanged(auth, async (user) => {
+          console.log("Auth state changed:", user ? "User is signed in" : "User is signed out");
           
-          let userData;
-          
-          if (userDoc.exists()) {
-            // User exists in Firestore, use that data
-            userData = userDoc.data();
-            console.log('User data from Firestore:', userData.displayName);
-            
-            // Update lastLogin
-            await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
+          if (user) {
+            try {
+              // Check if user exists in Firestore
+              if (!db) {
+                console.error("Firestore is not initialized");
+                setUserInfo(user);
+                setLoading(false);
+                return;
+              }
+              
+              const userDocRef = doc(db, 'users', user.uid);
+              const userDoc = await getDoc(userDocRef);
+              
+              let userData;
+              
+              if (userDoc.exists()) {
+                // User exists in Firestore, use that data
+                userData = userDoc.data();
+                console.log('User data from Firestore:', userData.displayName);
+                
+                // Update lastLogin
+                await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
+              } else {
+                // User doesn't exist in Firestore yet (might be from Google Sign-In)
+                // Create a user document
+                userData = {
+                  displayName: user.displayName || user.email.split('@')[0],
+                  email: user.email,
+                  photoURL: user.photoURL,
+                  createdAt: serverTimestamp(),
+                  lastLogin: serverTimestamp(),
+                  location: 'Default Location'
+                };
+                
+                console.log('Creating new user in Firestore:', userData.displayName);
+                await setDoc(userDocRef, userData);
+              }
+              
+              // Cache the user data
+              await AsyncStorage.setItem('@userData', JSON.stringify({
+                ...userData,
+                // Convert timestamps for storage
+                createdAt: userData.createdAt instanceof Date ? userData.createdAt.toISOString() : new Date().toISOString(),
+                lastLogin: new Date().toISOString()
+              }));
+              
+              // Also save the user auth object for persistence
+              await AsyncStorage.setItem('@user', JSON.stringify({
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL,
+              }));
+              
+              // Set the authenticated user
+              setUserInfo(user);
+            } catch (error) {
+              console.error('Error handling user data in auth state change:', error);
+              // Still set the user even if there was an error
+              setUserInfo(user);
+            }
           } else {
-            // User doesn't exist in Firestore yet (might be from Google Sign-In)
-            // Create a user document
-            userData = {
-              displayName: user.displayName || user.email.split('@')[0],
-              email: user.email,
-              photoURL: user.photoURL,
-              createdAt: serverTimestamp(),
-              lastLogin: serverTimestamp(),
-              location: 'Cembung Dafur, Yogyakarta'
-            };
+            // User is signed out
+            setUserInfo(null);
+            await AsyncStorage.removeItem('@user');
+            await AsyncStorage.removeItem('@userData');
             
-            console.log('Creating new user in Firestore:', userData.displayName);
-            await setDoc(userDocRef, userData);
+            // Keep onboarding as seen after logout, don't clear this value
+            // This ensures users who have seen onboarding won't see it again after logout
+            console.log('User signed out: Keeping onboarding status as seen');
           }
           
-          // Cache the user data
-          await AsyncStorage.setItem('@userData', JSON.stringify({
-            ...userData,
-            // Convert timestamps for storage
-            createdAt: userData.createdAt instanceof Date ? userData.createdAt.toISOString() : new Date().toISOString(),
-            lastLogin: new Date().toISOString()
-          }));
-          
-          // Set the authenticated user
-          setUserInfo(user);
-          await AsyncStorage.setItem('@user', JSON.stringify(user));
-        } catch (error) {
-          console.error('Error handling user data in auth state change:', error);
-          // Still set the user even if there was an error
-          setUserInfo(user);
-          await AsyncStorage.setItem('@user', JSON.stringify(user));
-        }
-      } else {
-        console.log("User is not authenticated");
-        setUserInfo(null);
-        await AsyncStorage.removeItem('@user');
-        await AsyncStorage.removeItem('@userData');
+          setLoading(false);
+        });
+      } catch (error) {
+        console.error("Error setting up auth listener:", error);
+        setLoading(false);
       }
-    });
+    };
 
-    return () => unsubscribe();
+    setupAuthListener();
+    
+    // Clean up the listener
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [authInitialized]);
+
+  // Check for local user and onboarding status on startup
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        // Only reset onboarding on a fresh app install - REMOVED reset on every DEV reload
+        
+        // Check onboarding status first
+        const hasSeenOnboarding = await AsyncStorage.getItem('@hasSeenOnboarding');
+        console.log('Onboarding status from storage:', hasSeenOnboarding);
+        
+        // If no value is found (null), this is a fresh install or reinstall
+        // We should NOT set hasSeenOnboarding to true - let user see onboarding
+        setHasSeenOnboarding(hasSeenOnboarding === 'true');
+        
+        // Then check for local user
+        await checkLocalUser();
+      } catch (error) {
+        console.error('Error during app initialization:', error);
+        // Don't default to true on error - show onboarding if there's an issue
+        setHasSeenOnboarding(false);
+      }
+    };
+    
+    initApp();
   }, []);
+
+  const checkLocalUser = async () => {
+    try {
+      const user = await AsyncStorage.getItem('@user');
+      if (user) {
+        // If we have a cached user, use it temporarily until Firebase auth state updates
+        console.log("Found user in local storage");
+        setUserInfo(JSON.parse(user));
+      }
+    } catch (error) {
+      console.error('Error checking local user:', error);
+    }
+  };
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const hasSeenOnboarding = await AsyncStorage.getItem('@hasSeenOnboarding');
+      // For fresh installs, this will be null, and we should show onboarding
+      setHasSeenOnboarding(hasSeenOnboarding === 'true');
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      // Default to false (show onboarding) if there's an error
+      setHasSeenOnboarding(false);
+    }
+  };
+  
+  // Function to mark onboarding as seen
+  const markOnboardingAsSeen = async () => {
+    try {
+      await AsyncStorage.setItem('@hasSeenOnboarding', 'true');
+      setHasSeenOnboarding(true);
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+    }
+  };
 
   useEffect(() => {
     if (response?.type === "success") {
@@ -265,61 +394,38 @@ export default function App() {
     }
   }, [response]);
 
-  const checkLocalUser = async () => {
-    try {
-      setLoading(true);
-      const userJSON = await AsyncStorage.getItem('@user');
-      const userData = userJSON ? JSON.parse(userJSON) : null;
-      console.log("Local storage user:", userData?.email);
-      setUserInfo(userData);
-    } catch (error) {
-      console.error('Error checking local user:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (loading || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-        <ActivityIndicator size="large" color="#FFF" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#000" />
       </View>
     );
   }
 
   return (
-    <Provider store={store}>
-      <ErrorBoundary>
+    <ErrorBoundary>
+      <Provider store={store}>
         <SafeAreaProvider>
+          <StatusBar style="light" />
+          {showFirebaseVerifier && <FirebaseVerifier />}
           <NavigationContainer>
-            <StatusBar style="light" />
-            
-            <RootStack.Navigator
-              screenOptions={{
-                headerShown: false,
-                animation: 'fade',
-                contentStyle: { backgroundColor: '#000' },
-              }}
-            >
-              {loading ? (
-                <RootStack.Screen name="Loading">
-                  {() => (
-                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-                      <ActivityIndicator size="large" color="#FFCA28" />
-                    </View>
-                  )}
-                </RootStack.Screen>
-              ) : userInfo ? (
+            <RootStack.Navigator screenOptions={{ headerShown: false }}>
+              {userInfo ? (
                 <RootStack.Screen name="App" component={AppNavigator} />
               ) : (
                 <RootStack.Screen name="Auth">
-                  {() => <AuthNavigator promptAsync={promptAsync} />}
+                  {(props) => <AuthNavigator 
+                    {...props} 
+                    promptAsync={promptAsync} 
+                    hasSeenOnboarding={hasSeenOnboarding}
+                    markOnboardingAsSeen={markOnboardingAsSeen} 
+                  />}
                 </RootStack.Screen>
               )}
             </RootStack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>
-      </ErrorBoundary>
-    </Provider>
+      </Provider>
+    </ErrorBoundary>
   );
 }

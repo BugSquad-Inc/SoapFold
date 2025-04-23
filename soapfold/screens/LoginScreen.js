@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { auth } from '../config/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { theme, getTextStyle } from '../utils/theme';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -89,6 +90,7 @@ const LoginScreen = ({ navigation }) => {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                fontSize={18}
               />
             </View>
             
@@ -101,6 +103,7 @@ const LoginScreen = ({ navigation }) => {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
+                fontSize={18}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
@@ -168,9 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    ...getTextStyle('semiBold', 'lg', '#FFFFFF'),
   },
   placeholder: {
     width: 40,
@@ -181,9 +182,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
+    ...getTextStyle('medium', 'sm', '#FFFFFF'),
     marginBottom: 8,
     marginLeft: 4,
   },
@@ -200,8 +199,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     paddingHorizontal: 16,
-    color: '#FFFFFF',
-    fontSize: 14,
+    ...getTextStyle('bold', 'lg', '#FFFFFF'),
   },
   eyeIcon: {
     padding: 10,
@@ -211,9 +209,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotPasswordText: {
-    color: '#FFCA28',
-    fontSize: 14,
-    fontWeight: '500',
+    ...getTextStyle('medium', 'sm', '#FFCA28'),
   },
   loginButton: {
     backgroundColor: '#FFCA28',
@@ -224,9 +220,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   loginButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+    ...getTextStyle('semiBold', 'md', '#000000'),
   },
   signupPrompt: {
     flexDirection: 'row',
@@ -234,13 +228,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   signupText: {
-    color: '#AAAAAA',
-    fontSize: 14,
+    ...getTextStyle('regular', 'sm', '#AAAAAA'),
   },
   signupLink: {
-    color: '#FFCA28',
-    fontSize: 14,
-    fontWeight: '500',
+    ...getTextStyle('medium', 'sm', '#FFCA28'),
   },
 });
 

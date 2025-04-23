@@ -288,20 +288,28 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleLogout = async () => {
     try {
-      // Clear ALL user data from AsyncStorage first
+      console.log('Starting logout process...');
+      
+      // Clear user data from AsyncStorage, but keep onboarding status
       const keys = ['@userData', '@user', '@authUser', '@userToken'];
+      console.log('Removing keys from AsyncStorage:', keys);
+      
       await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));
+      console.log('AsyncStorage items removed (keeping @hasSeenOnboarding)');
       
       // Then sign out from Firebase
-      await signOut(auth);
+      if (auth) {
+        console.log('Signing out from Firebase Auth');
+        await signOut(auth);
+        console.log('Firebase Auth sign out successful');
+      } else {
+        console.error('Auth object is undefined or null, cannot sign out');
+      }
       
       console.log('User signed out and local storage cleared');
       
-      // Reset navigation to Auth stack instead of just navigating
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Auth' }]
-      });
+      // The auth state listener in App.js will handle navigation automatically
+      // No need to navigate here as the auth state change will trigger App.js to show the Auth stack
     } catch (error) {
       console.error('Error signing out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');

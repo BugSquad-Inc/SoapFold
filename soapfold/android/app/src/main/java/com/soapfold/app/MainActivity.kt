@@ -1,4 +1,4 @@
-package com.soapfold
+package com.soapfold.app
 
 import android.os.Build
 import android.os.Bundle
