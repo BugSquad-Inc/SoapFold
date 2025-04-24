@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import verifyFirebaseApiKey from '../utils/verifyFirebaseConfig';
 import { getAuth } from 'firebase/auth';
+import { theme } from '../utils/theme';
 
 const API_KEY = "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI".trim();
 
@@ -52,7 +53,7 @@ const FirebaseVerifier = () => {
         <Text style={styles.title}>Firebase Configuration Status</Text>
         
         {verificationStatus.isChecking ? (
-          <ActivityIndicator size="large" color="#0000ff" />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         ) : (
           <>
             <Text style={[

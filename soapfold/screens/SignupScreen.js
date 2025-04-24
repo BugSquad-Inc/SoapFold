@@ -180,7 +180,7 @@ const SignUpScreen = ({ navigation }) => {
       Alert.alert('Permission Required', 'You need to grant permission to access your photos');
       return;
     }
-    
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -339,7 +339,7 @@ const SignUpScreen = ({ navigation }) => {
             
             // Show verification success briefly, then navigate home without a button
             setTimeout(() => {
-              setIsLoading(false);
+      setIsLoading(false);
               setIsPreloading(false);
               
               // Navigate to the appropriate screen after verification
@@ -403,7 +403,7 @@ const SignUpScreen = ({ navigation }) => {
           Alert.alert('Error', 'Network error. Please check your internet connection.');
           break;
         default:
-          Alert.alert('Error', error.message);
+      Alert.alert('Error', error.message);
       }
     }
   };
@@ -442,13 +442,13 @@ const SignUpScreen = ({ navigation }) => {
   const renderStep = ({ item, index }) => {
     switch (index) {
       case 0:
-        return (
+  return (
           <View style={styles.stepContainer}>
             <View style={styles.contentContainer}>
               <Text style={styles.title}>Create Account</Text>
               <Text style={styles.subtitle}>Please enter your details</Text>
-              
-              <View style={styles.formContainer}>
+
+            <View style={styles.formContainer}>
                 <View style={styles.inputWrapper}>
                   <View style={[
                     styles.inputContainer,
@@ -481,11 +481,11 @@ const SignUpScreen = ({ navigation }) => {
                     styles.inputContainer,
                     isLastNameFocused && styles.inputContainerFocused
                   ]}>
-                    <TextInput
+                <TextInput
                       ref={lastNameInputRef}
-                      style={styles.input}
+                  style={styles.input}
                       placeholder="Last Name"
-                      placeholderTextColor="#AAAAAA"
+                  placeholderTextColor="#AAAAAA"
                       value={lastName}
                       onChangeText={setLastName}
                       onFocus={() => setIsLastNameFocused(true)}
@@ -553,15 +553,15 @@ const SignUpScreen = ({ navigation }) => {
                     styles.inputContainer,
                     isEmailFocused && styles.inputContainerFocused
                   ]}>
-                    <TextInput
+                <TextInput
                       ref={emailInputRef}
-                      style={styles.input}
-                      placeholder="Email"
-                      placeholderTextColor="#AAAAAA"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      value={email}
-                      onChangeText={setEmail}
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="#AAAAAA"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
                       onFocus={() => setIsEmailFocused(true)}
                       onBlur={() => setIsEmailFocused(false)}
                       returnKeyType="next"
@@ -574,58 +574,58 @@ const SignUpScreen = ({ navigation }) => {
                       color={email ? "#000000" : isEmailFocused ? "#FF0000" : "#DDDDDD"} 
                     />
                   </View>
-                </View>
+              </View>
 
                 <View style={styles.inputWrapper}>
                   <View style={[
                     styles.inputContainer,
                     isPasswordFocused && styles.inputContainerFocused
                   ]}>
-                    <TextInput
+                <TextInput
                       ref={passwordInputRef}
-                      style={styles.input}
-                      placeholder="Password"
-                      placeholderTextColor="#AAAAAA"
-                      secureTextEntry={!showPassword}
-                      value={password}
-                      onChangeText={setPassword}
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor="#AAAAAA"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
                       onFocus={() => setIsPasswordFocused(true)}
                       onBlur={() => setIsPasswordFocused(false)}
                       returnKeyType="next"
                       onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
                       required
-                    />
+                />
                     <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                      <MaterialIcons
-                        name={showPassword ? "visibility" : "visibility-off"}
+                  <MaterialIcons
+                    name={showPassword ? "visibility" : "visibility-off"}
                         size={28}
                         color={password ? "#000000" : isPasswordFocused ? "#FF0000" : "#DDDDDD"}
-                      />
-                    </TouchableOpacity>
+                  />
+                </TouchableOpacity>
                   </View>
-                </View>
+              </View>
 
                 <View style={styles.inputWrapper}>
                   <View style={[
                     styles.inputContainer,
                     isConfirmPasswordFocused && styles.inputContainerFocused
                   ]}>
-                    <TextInput
+                <TextInput
                       ref={confirmPasswordInputRef}
-                      style={styles.input}
-                      placeholder="Confirm Password"
-                      placeholderTextColor="#AAAAAA"
-                      secureTextEntry={!showConfirmPassword}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
+                  style={styles.input}
+                  placeholder="Confirm Password"
+                  placeholderTextColor="#AAAAAA"
+                  secureTextEntry={!showConfirmPassword}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
                       onFocus={() => setIsConfirmPasswordFocused(true)}
                       onBlur={() => setIsConfirmPasswordFocused(false)}
                       returnKeyType="done"
                       required
-                    />
+                />
                     <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                      <MaterialIcons
-                        name={showConfirmPassword ? "visibility" : "visibility-off"}
+                  <MaterialIcons
+                    name={showConfirmPassword ? "visibility" : "visibility-off"}
                         size={28}
                         color={confirmPassword ? "#000000" : isConfirmPasswordFocused ? "#FF0000" : "#DDDDDD"}
                       />
@@ -684,14 +684,14 @@ const SignUpScreen = ({ navigation }) => {
     if (currentStep === 0) {
       return (
         <View style={styles.bottomButtonContainer}>
-          <TouchableOpacity
+              <TouchableOpacity
             style={styles.actionButtonFullWidth}
             onPress={nextStep}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
               <Text style={styles.actionButtonText}>NEXT</Text>
             )}
           </TouchableOpacity>
@@ -708,8 +708,8 @@ const SignUpScreen = ({ navigation }) => {
           onPress={prevStep}
         >
           <Text style={styles.backButtonText}>BACK</Text>
-        </TouchableOpacity>
-        
+              </TouchableOpacity>
+
         {/* Next/Register button for steps 1 and 2 */}
         <TouchableOpacity
           style={styles.actionButton}
@@ -721,23 +721,19 @@ const SignUpScreen = ({ navigation }) => {
           ) : (
             <Text style={styles.actionButtonText}>
               {currentStep < 2 ? 'NEXT' : 'SIGN UP'}
-            </Text>
+                </Text>
           )}
-        </TouchableOpacity>
-      </View>
+              </TouchableOpacity>
+            </View>
     );
   };
 
   return (
-    <ImageBackground 
-      source={require('../assets/sign_bg.png')} 
-      style={{flex: 1}}
-    >
+    <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : null}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
         >
           <View style={styles.progressContainer}>
             {renderProgressIndicator()}
@@ -787,7 +783,7 @@ const SignUpScreen = ({ navigation }) => {
           )}
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 };
 

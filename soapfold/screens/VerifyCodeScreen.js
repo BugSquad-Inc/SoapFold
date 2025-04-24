@@ -71,14 +71,11 @@ export default function VerifyCodeScreen({ route, navigation }) {
   };
 
   return (
-    <ImageBackground 
-      source={require('../assets/sign_bg.png')} 
-      style={{flex: 1}}
-    >
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView 
+    <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : null}
-          style={styles.content}
+          style={styles.keyboardAvoid}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
         >
           <View style={styles.header}>
@@ -136,15 +133,15 @@ export default function VerifyCodeScreen({ route, navigation }) {
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
   },
-  content: {
+  keyboardAvoid: {
     flex: 1,
     padding: 20,
   },

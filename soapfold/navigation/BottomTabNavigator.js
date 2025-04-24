@@ -329,7 +329,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
               }
             };
 
-            // Center "+" button with bubbles and washing machine animation
+            // Center "+" button with bubbles animation
             if (route.name === 'CartScreen') {
               return (
                 <TouchableOpacity 
@@ -338,45 +338,32 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                   onPress={onPress}
                   activeOpacity={0.8}
                 >
-                  <Animatable.View 
-                    style={styles.centerNavButton}
-                    animation="pulse" 
-                    iterationCount="infinite" 
-                    duration={2000}
-                  >
-                    {/* Washing machine animation */}
-                    <WashingMachineEffect />
+                  <View style={styles.centerNavButton}>
+                    <MaterialIcons name="add" size={28} color="#FFFFFF" />
                     
-                    {/* Icon */}
-                    <View style={styles.iconContainer}>
-                      <MaterialIcons name="add" size={30} color="#000" />
-                    </View>
-                    
-                    {/* Bubbles */}
-                    <Bubble delay={0} size={8} left={-5} duration={2000} />
-                    <Bubble delay={500} size={10} left={48} duration={2500} />
-                    <Bubble delay={1200} size={6} left={10} duration={1800} />
-                    <Bubble delay={800} size={12} left={36} duration={2200} />
-                    <Bubble delay={1500} size={7} left={24} duration={2300} />
-                  </Animatable.View>
+                    {/* Bubble animations */}
+                    <Bubble delay={0} size={8} left={21} duration={1800} />
+                    <Bubble delay={400} size={6} left={15} duration={2000} />
+                    <Bubble delay={800} size={7} left={28} duration={1700} />
+                    <Bubble delay={1200} size={5} left={22} duration={2200} />
+                    <Bubble delay={1600} size={6} left={18} duration={1900} />
+                  </View>
                 </TouchableOpacity>
               );
             }
 
             // Get icon name based on route
             let iconName;
-            let isCustomIcon = false;
+            let Component = MaterialIcons;
             
             if (route.name === 'HomeScreen') {
-              iconName = 'home';
+              iconName = 'cottage'; // Stylish house/home icon
             } else if (route.name === 'CalendarScreen') {
-              iconName = 'event-note';
+              iconName = 'receipt-long'; // Modern receipt/orders icon
             } else if (route.name === 'CategoryScreen') {
-              // Using a FontAwesome5 icon for the pro feature - more elegant than medal
-              iconName = 'crown';
-              isCustomIcon = true;
+              iconName = 'notifications-none'; // Outlined notifications icon
             } else if (route.name === 'ProfileScreen') {
-              iconName = 'person';
+              iconName = 'person-outline'; // Outlined person icon
             }
 
             // Regular nav items with active state
@@ -387,24 +374,11 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                 activeOpacity={0.7}
                 onPress={onPress}
               >
-                <View style={[
-                  styles.navItemButton,
-                  isFocused && styles.activeNavItemButton
-                ]}>
-                  {isCustomIcon ? (
-                    <FontAwesome5 
-                      name={iconName} 
-                      size={24} 
-                      color={isFocused ? "#FFFFFF" : "#999"} 
-                    />
-                  ) : (
-                    <MaterialIcons 
-                      name={iconName} 
-                      size={30} 
-                      color={isFocused ? "#FFFFFF" : "#999"} 
-                    />
-                  )}
-                </View>
+                <Component 
+                  name={iconName} 
+                  size={28} // Increased icon size
+                  color={isFocused ? "#222222" : "#AAAAAA"} 
+                />
               </TouchableOpacity>
             );
           })}
@@ -420,7 +394,10 @@ const BottomTabNavigator = () => {
       initialRouteName="HomeScreen"
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { display: 'none' },
+        tabBarStyle: { 
+          display: 'none',
+          backgroundColor: '#f8f8f8' 
+        },
       }}
       tabBar={props => <CustomTabBar {...props} />}
     >
@@ -439,77 +416,59 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 90,
+    height: 75,
     zIndex: 999,
-    elevation: 8,
+    elevation: 0,
     backgroundColor: 'transparent',
     pointerEvents: 'box-none',
   },
   bottomNavContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 50,
-    right: 50,
-    height: 80,
-    backgroundColor: 'transparent',
+    padding: 10,
+    backgroundColor: '#f8f8f8',
+    width: '100%',
+    elevation: 0,
+    borderTopWidth: 0,
   },
   bottomNav: {
     flexDirection: 'row',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 15,
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 15,
-    height: '100%',
-    backgroundColor: 'rgba(25, 25, 25, 0.85)',
-    borderRadius: 40,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 10,
   },
   navItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 46,
-    height: 46,
-  },
-  navItemButton: {
-    backgroundColor: 'transparent',
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  activeNavItemButton: {
-    backgroundColor: 'transparent',
+    width: 52, // Slightly increase size to accommodate bigger icon
+    height: 52, // Slightly increase size to accommodate bigger icon
   },
   centerNavItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 48,
-    height: 48,
-    overflow: 'visible',
+    width: 50,
+    height: 50,
   },
   centerNavButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#222222',
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'visible',
-    position: 'relative',
-  },
-  iconContainer: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
+    position: 'relative', // For bubble positioning
+    overflow: 'visible', // Allow bubbles to overflow
+    borderWidth: 2,
+    borderColor: '#BBBBBB', // Medium gray border
   },
   washingMachineContainer: {
     position: 'absolute',
@@ -550,10 +509,10 @@ const styles = StyleSheet.create({
   },
   bubble: {
     position: 'absolute',
-    backgroundColor: 'rgba(0, 170, 255, 0.85)',
+    backgroundColor: 'rgba(170, 170, 170, 0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(150, 220, 255, 0.6)',
-    bottom: 10,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    bottom: 30,
     zIndex: 3,
   },
   // Styles for the cleaning brush animation

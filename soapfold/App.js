@@ -17,6 +17,7 @@ import Constants from 'expo-constants';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import FirebaseVerifier from './components/FirebaseVerifier';
 import { useLoadFonts } from './utils/fonts';
+import { theme } from './utils/theme';
 
 // Auth Screens
 import OnboardingScreen from './screens/OnboardingScreen';
@@ -51,8 +52,9 @@ const AuthNavigator = ({ promptAsync, hasSeenOnboarding, markOnboardingAsSeen })
     screenOptions={{
       headerShown: false,
       animation: 'slide_from_right',
-      contentStyle: { backgroundColor: '#000' },
+      contentStyle: { backgroundColor: '#FFFFFF' },
     }}
+    // Only show onboarding for fresh installs, otherwise go straight to SignIn
     initialRouteName={hasSeenOnboarding ? "SignIn" : "Onboarding"}
   >
     <AuthStack.Screen
@@ -94,7 +96,7 @@ const AppNavigator = () => (
     screenOptions={{
       headerShown: false,
       animation: 'slide_from_right',
-      contentStyle: { backgroundColor: '#000' },
+      contentStyle: { backgroundColor: '#FFFFFF' },
     }}
   >
     <AppStack.Screen 
@@ -278,23 +280,36 @@ export default function App() {
   // Check for local user and onboarding status on startup
   useEffect(() => {
     const initApp = async () => {
+      console.log('Initializing app...');
       try {
-        // Only reset onboarding on a fresh app install - REMOVED reset on every DEV reload
+        // This determines when to show the onboarding screen:
+        // 1. In development mode: Show onboarding screens when dev server restarts (simulating fresh install)
+        // 2. For real devices: Only show onboarding on fresh installs (first app launch)
+        // 3. After logout or app reload: Never show onboarding again once user has seen it
         
-        // Check onboarding status first
-        const hasSeenOnboarding = await AsyncStorage.getItem('@hasSeenOnboarding');
-        console.log('Onboarding status from storage:', hasSeenOnboarding);
+        // Check if this is a development server restart
+        const devServerRestarted = __DEV__ && !await AsyncStorage.getItem('@devServerSession');
+        if (devServerRestarted) {
+          console.log('Development server restart detected - marking new dev session');
+          // Create a session marker for this dev server session
+          await AsyncStorage.setItem('@devServerSession', Date.now().toString());
+          
+          // Check if we should explicitly reset onboarding for this dev session
+          const devResetRequested = await AsyncStorage.getItem('@devResetOnboarding') === 'true';
+          if (devResetRequested) {
+            console.log('Development mode: Explicit onboarding reset requested');
+            await AsyncStorage.removeItem('@devResetOnboarding');
+            await AsyncStorage.removeItem('@hasSeenOnboarding');
+          }
+        }
         
-        // If no value is found (null), this is a fresh install or reinstall
-        // We should NOT set hasSeenOnboarding to true - let user see onboarding
-        setHasSeenOnboarding(hasSeenOnboarding === 'true');
-        
-        // Then check for local user
-        await checkLocalUser();
+        // Now run the normal initialization
+        await Promise.all([
+          checkLocalUser(),
+          checkOnboardingStatus(),
+        ]);
       } catch (error) {
         console.error('Error during app initialization:', error);
-        // Don't default to true on error - show onboarding if there's an issue
-        setHasSeenOnboarding(false);
       }
     };
     
@@ -316,21 +331,52 @@ export default function App() {
 
   const checkOnboardingStatus = async () => {
     try {
+      // In development mode, we can check for a parameter in AsyncStorage
+      // that indicates whether we should reset onboarding
+      if (__DEV__) {
+        const resetOnboarding = await AsyncStorage.getItem('@devResetOnboarding');
+        if (resetOnboarding === 'true') {
+          // Reset the flag
+          await AsyncStorage.removeItem('@devResetOnboarding');
+          // Reset the onboarding status
+          await AsyncStorage.removeItem('@hasSeenOnboarding');
+          setHasSeenOnboarding(false);
+          return;
+        }
+      }
+      
       const hasSeenOnboarding = await AsyncStorage.getItem('@hasSeenOnboarding');
       // For fresh installs, this will be null, and we should show onboarding
-      setHasSeenOnboarding(hasSeenOnboarding === 'true');
+      // Otherwise, mark as seen so it doesn't show on logout or reload
+      const hasSeen = hasSeenOnboarding === 'true';
+      setHasSeenOnboarding(hasSeen);
+      
+      // If value was null (fresh install) and this isn't triggered by a logout,
+      // set the value to false to ensure it doesn't repeatedly trigger
+      if (!hasSeen && hasSeenOnboarding === null) {
+        console.log('First time app launch detected - showing onboarding');
+      }
     } catch (error) {
       console.error('Error checking onboarding status:', error);
-      // Default to false (show onboarding) if there's an error
-      setHasSeenOnboarding(false);
+      // Default to true (don't show onboarding) if there's an error
+      setHasSeenOnboarding(true);
     }
   };
   
   // Function to mark onboarding as seen
   const markOnboardingAsSeen = async () => {
     try {
+      // Permanently mark onboarding as seen for this app installation
+      // This ensures onboarding won't show again on logout or app reload
       await AsyncStorage.setItem('@hasSeenOnboarding', 'true');
       setHasSeenOnboarding(true);
+      
+      console.log('User has completed onboarding - permanently marked as seen');
+      
+      // In development mode, we also note that this session has seen onboarding
+      if (__DEV__) {
+        await AsyncStorage.setItem('@devSeenOnboarding', 'true');
+      }
     } catch (error) {
       console.error('Error saving onboarding status:', error);
     }
@@ -397,7 +443,7 @@ export default function App() {
   if (loading || !fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#000" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }

@@ -46,10 +46,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
   };
 
   return (
-    <ImageBackground
-      source={require('../assets/sign_bg.png')}
-      style={{flex: 1}}
-    >
+    <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : null}
@@ -130,7 +127,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 };
 

@@ -24,19 +24,19 @@ const OnboardingScreen = ({ navigation, markOnboardingAsSeen }) => {
       id: '1',
       title: 'Spotless Laundry at Your Fingertips',
       image: require('../assets/onboarding1.jpg'),
-      backgroundColor: '#000000'
+      backgroundColor: '#f8f8f8'
     },
     {
       id: '2',
       title: 'Fast Pickup & Delivery when you need it most',
       image: require('../assets/onboarding2.jpg'),
-      backgroundColor: '#000000'
+      backgroundColor: '#f8f8f8'
     },
     {
       id: '3',
       title: 'Start Your Journey with SoapFold! Tap the button to continue',
       image: require('../assets/onboarding3.jpg'),
-      backgroundColor: '#000000'
+      backgroundColor: '#f8f8f8'
     }
   ];
 
@@ -214,7 +214,7 @@ const OnboardingScreen = ({ navigation, markOnboardingAsSeen }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#f8f8f8',
   },
   skipButton: {
     position: 'absolute',

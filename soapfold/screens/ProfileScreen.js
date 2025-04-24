@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,14 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Feather, Ionicons } from '@expo/vector-icons';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile, signOut } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uploadToCloudinary } from '../utils/imageUpload';
+import { theme } from '../utils/theme';
 
 const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
@@ -350,11 +351,46 @@ const ProfileScreen = ({ navigation }) => {
     return (firstInitial + lastInitial).toUpperCase();
   };
   
+  // Add a resetOnboarding function
+  const resetOnboarding = async () => {
+    try {
+      // First confirm with the user
+      Alert.alert(
+        'Reset Tutorial',
+        'Are you sure you want to reset the welcome tutorial? You will see the welcome screens again next time you open the app.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Reset',
+            onPress: async () => {
+              // Remove the hasSeenOnboarding flag
+              await AsyncStorage.removeItem('@hasSeenOnboarding');
+              console.log('Onboarding tutorial has been reset');
+              
+              // Show confirmation to user
+              Alert.alert(
+                'Tutorial Reset',
+                'The welcome tutorial has been reset successfully. You will see it the next time you restart the app.',
+                [{ text: 'OK' }]
+              );
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error resetting onboarding:', error);
+      Alert.alert('Error', 'Could not reset tutorial. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FFCA28" />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -402,7 +438,7 @@ const ProfileScreen = ({ navigation }) => {
               disabled={saving || uploadingImage}
             >
               {saving || uploadingImage ? (
-                <ActivityIndicator size="small" color="#FFCA28" />
+                <ActivityIndicator size="small" color={theme.colors.primary} />
               ) : (
                 <Text style={styles.saveButtonText}>Save</Text>
               )}
@@ -498,13 +534,32 @@ const ProfileScreen = ({ navigation }) => {
             </View>
           </View>
           
-          <TouchableOpacity 
-            style={styles.logoutButton} 
-            onPress={confirmLogout}
-          >
-            <MaterialIcons name="logout" size={20} color="#FFFFFF" />
-            <Text style={styles.logoutText}>Sign Out</Text>
-          </TouchableOpacity>
+          <View style={styles.settingsSection}>
+            <Text style={styles.sectionTitle}>Settings</Text>
+            
+            <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('AccountSettings')}>
+              <MaterialIcons name="account-circle" size={24} color="#666" />
+              <Text style={styles.settingText}>Account Settings</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#999" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('NotificationSettings')}>
+              <MaterialIcons name="notifications" size={24} color="#666" />
+              <Text style={styles.settingText}>Notifications</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#999" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.settingItem} onPress={resetOnboarding}>
+              <MaterialIcons name="refresh" size={24} color="#666" />
+              <Text style={styles.settingText}>Reset Tutorial</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#999" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
+              <MaterialIcons name="logout" size={24} color="#FF3B30" />
+              <Text style={[styles.settingText, { color: '#FF3B30' }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -514,7 +569,7 @@ const ProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#f8f8f8',
   },
   keyboardAvoidContainer: {
     flex: 1,
@@ -523,6 +578,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -632,10 +688,12 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 20,
+    marginHorizontal: 12,
+    marginTop: 6,
+    marginBottom: 8,
   },
   fieldContainer: {
     marginBottom: 16,
@@ -656,19 +714,26 @@ const styles = StyleSheet.create({
     borderBottomColor: '#FFCA28',
     paddingVertical: 4,
   },
-  logoutButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#444',
-    paddingVertical: 12,
-    borderRadius: 10,
+  settingsSection: {
     marginTop: 20,
+    backgroundColor: 'rgba(40, 40, 40, 0.8)',
+    borderRadius: 15,
+    padding: 8,
+    marginHorizontal: 16,
+    marginBottom: 20,
   },
-  logoutText: {
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  settingText: {
+    flex: 1,
+    fontSize: 16,
     color: '#FFFFFF',
-    marginLeft: 8,
-    fontWeight: '600',
+    marginLeft: 12,
   },
 });
 

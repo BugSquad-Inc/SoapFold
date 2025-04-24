@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { theme } from '../utils/theme';
 
 const DashboardScreen = ({ navigation }) => {
   const [userData, setUserData] = useState(null);
@@ -52,7 +53,7 @@ const DashboardScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f8f8',
   },
   title: {
     fontSize: 24,
