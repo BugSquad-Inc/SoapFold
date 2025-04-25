@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, FlatList, StyleSheet, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const imageMap = {
   'Shirt': require('../assets/images/ironing.jpg'),
@@ -45,6 +46,7 @@ const CartScreen = ({ route }) => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const items = Object.keys(imageMap);
   const categories = ['All', 'Top', 'Bottoms', 'Linen', 'Shoes'];
+  const insets = useSafeAreaInsets();
 
   const totalPrice = useMemo(() =>
     Object.entries(cartItems).reduce((acc, [item, qty]) => acc + qty * (samplePrices[item] || 0), 0),
@@ -93,28 +95,6 @@ const CartScreen = ({ route }) => {
     </ScrollView>
   );
 
-  // const renderItem = ({ item }) => {
-  //   const quantity = cartItems[item] || 0;
-
-  //   return (
-  //     <View style={styles.card}>
-  //       <Image source={imageMap[item]} style={styles.image} />
-  //       <Text style={styles.name}>{item}</Text>
-  //       <Text style={styles.price}>Rp {samplePrices[item].toLocaleString()}</Text>
-
-  //       <View style={styles.quantityControls}>
-  //         <TouchableOpacity onPress={() => decrement(item)} style={styles.decrementButton}>
-  //           <Text style={styles.decrementButtonText}>-</Text>
-  //         </TouchableOpacity>
-  //         <Text style={styles.quantityText}>{quantity}</Text>
-  //         <TouchableOpacity onPress={() => increment(item)} style={styles.incrementButton}>
-  //           <Text style={styles.incrementButtonText}>+</Text>
-  //         </TouchableOpacity>
-  //       </View>
-  //     </View>
-  //   );
-  // };
-
   const renderItem = ({ item }) => {
     const quantity = cartItems[item] || 0;
     const pricePerItem = samplePrices[item] || 0;
@@ -154,12 +134,18 @@ const CartScreen = ({ route }) => {
           renderItem={renderItem}
           keyExtractor={(item) => item}
           numColumns={2}
-          contentContainerStyle={styles.grid}
+          contentContainerStyle={[
+            styles.grid,
+            { paddingBottom: 100 + insets.bottom }
+          ]}
           ListHeaderComponent={renderTabs}
         />
       </View>
 
-      <View style={styles.footer}>
+      <View style={[
+        styles.footer,
+        { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }
+      ]}>
         <View style={styles.totalContainer}>
           <Text style={styles.totalLabel}>Total:</Text>
           <Text style={styles.totalAmount}>Rp {totalPrice.toLocaleString()}</Text>

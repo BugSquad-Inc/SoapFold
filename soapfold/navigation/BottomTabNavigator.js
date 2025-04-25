@@ -1,9 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Animatable from 'react-native-animatable';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useColorScheme } from 'react-native';
 
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
@@ -11,9 +15,27 @@ import ProfileScreen from '../screens/ProfileScreen';
 import CategoryScreen from '../screens/CategoryScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import CartScreen from '../screens/CartScreen';
+import NotificationScreen, { unreadNotificationsCount } from '../screens/NotificationScreen';
+import OrderScreen from '../screens/OrderScreen';
+import OrderDetailScreen from '../screens/OrderDetailScreen';
+
+// Import other screens
+import OrdersNavigator from './OrdersNavigator';
+import RedeemScreen from '../screens/RedeemScreen';
+import OffersScreen from '../screens/OffersScreen';
+import ServiceWithOffersScreen from '../screens/ServiceWithOffersScreen';
+import ServiceScreen from '../screens/ServiceScreen';
+import ClothesScreen from '../screens/ClothesScreen';
+import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
+import RecentOrdersScreen from '../screens/RecentOrdersScreen';
+import ServiceCategoryScreen from '../screens/ServiceCategoryScreen';
+import ServiceDetailScreen from '../screens/ServiceDetailScreen';
+import BookingScreen from '../screens/BookingScreen';
+import BookingConfirmationScreen from '../screens/BookingConfirmationScreen';
 
 const { width } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
 // Create a Cleaning Brush animation component for loading
 const CleaningBrushAnimation = () => {
@@ -308,7 +330,46 @@ const Bubble = ({ delay, size, left, duration }) => {
   );
 };
 
+// Stack navigator for the Orders section
+const OrderStack = createStackNavigator();
+
+function OrderScreenNavigator() {
+  return (
+    <OrderStack.Navigator screenOptions={{ headerShown: false }}>
+      <OrderStack.Screen name="OrdersMain" component={OrderScreen} />
+      <OrderStack.Screen name="OrderDetail" component={OrderDetailScreen} />
+    </OrderStack.Navigator>
+  );
+}
+
+// Define TabBarIcon function
+const TabBarIcon = (props) => {
+  return <MaterialIcons size={30} style={{ marginBottom: -3 }} {...props} />;
+};
+
+// Update Custom Tab Bar to include Orders tab
 const CustomTabBar = ({ state, descriptors, navigation }) => {
+  const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Check for unread notifications
+  useEffect(() => {
+    const checkUnreadNotifications = async () => {
+      try {
+        const count = await AsyncStorage.getItem('@unreadNotifications');
+        setUnreadCount(count ? parseInt(count) : unreadNotificationsCount);
+      } catch (error) {
+        console.log('Error loading unread notifications count', error);
+        setUnreadCount(unreadNotificationsCount);
+      }
+    };
+    
+    checkUnreadNotifications();
+    
+    // Check for unread notifications every time the tab bar is focused
+    const unsubscribe = navigation.addListener('focus', checkUnreadNotifications);
+    return unsubscribe;
+  }, [navigation]);
+
   return (
     <View style={styles.container}>
       <View style={styles.bottomNavContainer}>
@@ -335,11 +396,24 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                 <TouchableOpacity 
                   key={route.key}
                   style={styles.centerNavItem} 
-                  onPress={onPress}
+                  onPress={() => {
+                    // Navigate to ServiceCategoryScreen within HomeStack
+                    navigation.navigate('HomeScreen', {
+                      screen: 'ServiceCategoryScreen',
+                      params: {
+                        category: {
+                          id: 'all',
+                          name: 'All Categories',
+                          icon: 'category',
+                          color: '#222222'
+                        }
+                      }
+                    });
+                  }}
                   activeOpacity={0.8}
                 >
                   <View style={styles.centerNavButton}>
-                    <MaterialIcons name="add" size={28} color="#FFFFFF" />
+                    <MaterialIcons name="add" size={32} color="#FFFFFF" />
                     
                     {/* Bubble animations */}
                     <Bubble delay={0} size={8} left={21} duration={1800} />
@@ -359,26 +433,37 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
             if (route.name === 'HomeScreen') {
               iconName = 'cottage'; // Stylish house/home icon
             } else if (route.name === 'CalendarScreen') {
-              iconName = 'receipt-long'; // Modern receipt/orders icon
+              iconName = 'receipt-long'; // Orders icon
             } else if (route.name === 'CategoryScreen') {
-              iconName = 'notifications-none'; // Outlined notifications icon
+              iconName = isFocused ? 'notifications-active' : 'notifications-none'; // Active/inactive notification icon
             } else if (route.name === 'ProfileScreen') {
               iconName = 'person-outline'; // Outlined person icon
+            } else if (route.name === 'Orders') {
+              iconName = 'receipt-long'; // Receipt icon for orders
             }
 
             // Regular nav items with active state
             return (
               <TouchableOpacity 
                 key={route.key}
-                style={styles.navItem} 
+                style={index === 0 ? styles.firstNavItem : (index === state.routes.length - 1 ? styles.lastNavItem : styles.navItem)} 
                 activeOpacity={0.7}
                 onPress={onPress}
               >
-                <Component 
-                  name={iconName} 
-                  size={28} // Increased icon size
-                  color={isFocused ? "#222222" : "#AAAAAA"} 
-                />
+                <View style={styles.iconContainer}>
+                  <Component 
+                    name={iconName} 
+                    size={32} // Increased icon size from 28 to 32
+                    color={isFocused ? "#222222" : "#AAAAAA"} 
+                  />
+                  
+                  {/* Show notification badge for notification tab if there are unread notifications */}
+                  {route.name === 'CategoryScreen' && unreadCount > 0 && (
+                    <View style={styles.badgeContainer}>
+                      <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                    </View>
+                  )}
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -388,10 +473,39 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   );
 };
 
+// Create a stack navigator for each tab
+const HomeStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="HomeMain" component={HomeScreen} />
+    <Stack.Screen name="Orders" component={OrdersNavigator} />
+    <Stack.Screen name="CategoryScreen" component={CategoryScreen} />
+    <Stack.Screen name="RedeemScreen" component={RedeemScreen} />
+    <Stack.Screen name="OffersScreen" component={OffersScreen} />
+    <Stack.Screen name="ServiceWithOffersScreen" component={ServiceWithOffersScreen} />
+    <Stack.Screen name="ServiceScreen" component={ServiceScreen} />
+    <Stack.Screen name="ClothesScreen" component={ClothesScreen} />
+    <Stack.Screen name="PaymentSuccessScreen" component={PaymentSuccessScreen} />
+    <Stack.Screen name="RecentOrdersScreen" component={RecentOrdersScreen} />
+    <Stack.Screen name="ServiceCategoryScreen" component={ServiceCategoryScreen} />
+    <Stack.Screen name="ServiceDetailScreen" component={ServiceDetailScreen} />
+    <Stack.Screen name="BookingScreen" component={BookingScreen} />
+    <Stack.Screen name="BookingConfirmationScreen" component={BookingConfirmationScreen} />
+    <Stack.Screen name="OrderDetailScreen" component={OrderDetailScreen} />
+  </Stack.Navigator>
+);
+
 const BottomTabNavigator = () => {
+  const colorScheme = useColorScheme();
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  
+  useEffect(() => {
+    // ... existing code ...
+  }, []);
+
   return (
     <Tab.Navigator
       initialRouteName="HomeScreen"
+      tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarStyle: { 
@@ -399,12 +513,11 @@ const BottomTabNavigator = () => {
           backgroundColor: '#f8f8f8' 
         },
       }}
-      tabBar={props => <CustomTabBar {...props} />}
     >
-      <Tab.Screen name="HomeScreen" component={HomeScreen} />
-      <Tab.Screen name="CalendarScreen" component={CalendarScreen} />
+      <Tab.Screen name="HomeScreen" component={HomeStack} />
+      <Tab.Screen name="CalendarScreen" component={OrderScreenNavigator} options={{ title: 'Orders' }} />
       <Tab.Screen name="CartScreen" component={CartScreen} />
-      <Tab.Screen name="CategoryScreen" component={CategoryScreen} />
+      <Tab.Screen name="CategoryScreen" component={NotificationScreen} options={{ title: 'Notifications' }} />
       <Tab.Screen name="ProfileScreen" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -416,18 +529,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 75,
+    height: 65,
     zIndex: 999,
     elevation: 0,
     backgroundColor: 'transparent',
     pointerEvents: 'box-none',
   },
   bottomNavContainer: {
-    padding: 10,
+    padding: 4,
     backgroundColor: '#f8f8f8',
     width: '100%',
     elevation: 0,
     borderTopWidth: 0,
+    paddingBottom: 8,
   },
   bottomNav: {
     flexDirection: 'row',
@@ -436,13 +550,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 5,
-    paddingVertical: 10,
+    paddingVertical: 3,
   },
   navItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 52, // Slightly increase size to accommodate bigger icon
-    height: 52, // Slightly increase size to accommodate bigger icon
+    width: 52,
+    height: 48,
+    paddingHorizontal: 8,
+  },
+  firstNavItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 52,
+    height: 48,
+    paddingHorizontal: 8,
+    paddingLeft: 15,
+  },
+  lastNavItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 52,
+    height: 48,
+    paddingHorizontal: 8,
+    paddingRight: 15,
   },
   centerNavItem: {
     alignItems: 'center',
@@ -560,7 +691,32 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
     bottom: 5,
     zIndex: 0
-  }
+  },
+  iconContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeContainer: {
+    position: 'absolute',
+    right: -6,
+    top: -5,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    paddingHorizontal: 4,
+  },
 });
 
 export default BottomTabNavigator; 

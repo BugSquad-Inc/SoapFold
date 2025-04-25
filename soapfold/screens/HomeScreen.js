@@ -313,8 +313,17 @@ const HomeScreen = ({ navigation }) => {
       })
     ]).start();
     
-    // Navigate to parent navigator first, then to the screen
-    navigation.navigate('CategoryScreen', { category: service.name });
+    // Using direct navigation within the stack
+    navigation.navigate('ServiceCategoryScreen', { 
+      category: {
+        id: service.id.toString(),
+        name: service.name,
+        icon: service.icon === ClothesIcon ? 'dry-cleaning' : 
+              service.icon === LaundryIcon ? 'local-laundry-service' :
+              service.icon === IronIcon ? 'iron' : 'layers',
+        color: service.color
+      }
+    });
   };
 
   const renderServiceItem = ({ item }) => (
@@ -649,7 +658,16 @@ const HomeScreen = ({ navigation }) => {
               <Text style={[styles.promoSubtitle, {color: item.accentColor}]}>{item.subtitle}</Text>
               <Text style={styles.promoDescription}>{item.description}</Text>
               
-              <TouchableOpacity style={[styles.promoActionButton, {backgroundColor: item.accentColor}]}>
+              <TouchableOpacity 
+                style={[styles.promoActionButton, {backgroundColor: item.accentColor, marginTop: 10, marginBottom: 4}]}
+                onPress={() => {
+                  // Navigate to OffersScreen instead of CategoryScreen
+                  navigation.navigate('OffersScreen', {
+                    title: 'Special Offers',
+                    showAllPromotions: true
+                  });
+                }}
+              >
                 <Text style={styles.promoActionButtonText}>Redeem Now</Text>
                 <Feather name="arrow-right-circle" size={16} color="#FFFFFF" style={{marginLeft: 5}} />
               </TouchableOpacity>
@@ -711,6 +729,39 @@ const HomeScreen = ({ navigation }) => {
     );
   };
 
+  // Handle project box selection with state
+  const handleProjectPress = (project, index) => {
+    setActiveProjectIndex(index);
+    
+    // Map project icons to proper icon names for ServiceDetailScreen
+    const iconMap = {
+      'local-laundry-service': 'local-laundry-service',
+      'dry-cleaning': 'dry-cleaning',
+      'timer': 'timer',
+      'iron': 'iron',
+      'opacity': 'opacity'
+    };
+    
+    // Using direct navigation to ServiceDetailScreen instead of ServiceCategoryScreen
+    navigation.navigate('ServiceDetailScreen', {
+      service: {
+        id: project.id.toString(),
+        name: project.title,
+        icon: iconMap[project.icon] || 'local-laundry-service',
+        description: project.description,
+        price: project.id === '1' ? 14.99 : project.id === '2' ? 24.99 : 19.99,
+        unit: project.id === '1' ? 'per kg' : 'per item',
+        rating: 4.8,
+        reviews: 124,
+        image: project.id === '1' 
+          ? 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
+          : project.id === '2'
+          ? 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
+          : 'https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#222222" />
@@ -722,13 +773,13 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.headerTextContainer}>
             <Text style={styles.greeting}>Hey {firstName}!</Text>
             <View style={styles.projectHeadingContainer}>
-              <Text style={styles.subHeading}>Fresh & Clean</Text>
-              <Text style={styles.projectHeading}>laundry service</Text>
+              <Text style={styles.subHeading}>Your Laundry</Text>
+              <Text style={styles.projectHeading}>Our Daily Duty</Text>
             </View>
           </View>
           <TouchableOpacity 
             style={styles.profileContainer}
-            onPress={() => navigation.navigate('Profile')}
+            onPress={() => navigation.navigate('ProfileScreen')}
             onLongPress={resetOnboardingForDev}
             delayLongPress={1000}
           >
@@ -759,9 +810,23 @@ const HomeScreen = ({ navigation }) => {
               placeholderTextColor="#999999"
               value={searchQuery}
               onChangeText={setSearchQuery}
+              onSubmitEditing={() => {
+                if (searchQuery.trim()) {
+                  navigation.navigate('CategoryScreen', {
+                    category: 'Search',
+                    searchQuery: searchQuery.trim()
+                  });
+                }
+              }}
             />
             <View style={styles.filterButtonContainer}>
-              <TouchableOpacity style={styles.filterButton}>
+              <TouchableOpacity 
+                style={styles.filterButton}
+                onPress={() => navigation.navigate('CategoryScreen', {
+                  category: 'Filter',
+                  showFilters: true
+                })}
+              >
                 <MaterialIcons name="tune" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -777,7 +842,10 @@ const HomeScreen = ({ navigation }) => {
         {/* Promotional Section Header */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Special Offers</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('OffersScreen', {
+            title: 'Special Offers',
+            showAllPromotions: true
+          })}>
             <Text style={styles.sectionLink}>View all</Text>
           </TouchableOpacity>
         </View>
@@ -788,8 +856,15 @@ const HomeScreen = ({ navigation }) => {
         {/* Projects Section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Our Services</Text>
-          <TouchableOpacity>
-            <Text style={styles.sectionLink}>All Services</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('ServiceCategoryScreen', {
+            category: {
+              id: 'all',
+              name: 'All Services',
+              icon: 'local-laundry-service',
+              color: theme.colors.primary
+            }
+          })}>
+            <Text style={styles.sectionLink}>View all</Text>
           </TouchableOpacity>
         </View>
         
@@ -815,6 +890,7 @@ const HomeScreen = ({ navigation }) => {
                 styles.projectCard, 
                 { backgroundColor: index === activeProjectIndex ? '#222222' : '#FFFFFF' }
               ]}
+              onPress={() => handleProjectPress(project, index)}
             >
               <View style={[styles.projectIconContainer, { backgroundColor: index === activeProjectIndex ? 'rgba(255, 255, 255, 0.15)' : '#F1F1F1' }]}>
                 <MaterialIcons 
@@ -848,50 +924,101 @@ const HomeScreen = ({ navigation }) => {
             </TouchableOpacity>
           ))}
           
-          {/* See All Card */}
-          <TouchableOpacity style={styles.seeAllCard}>
-            <View style={styles.seeAllContent}>
-              <Text style={styles.seeAllText}>See All</Text>
-              <MaterialIcons name="arrow-forward" size={22} color="#666666" />
+          {/* Replace See All Card with More button */}
+          <TouchableOpacity 
+            style={styles.moreCard}
+            onPress={() => navigation.navigate('ServiceCategoryScreen', { 
+              category: {
+                id: 'all',
+                name: 'All Services',
+                icon: 'local-laundry-service',
+                color: theme.colors.primary
+              }
+            })}
+          >
+            <View style={styles.moreContent}>
+              <Text style={styles.moreText}>More</Text>
+              <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
         </ScrollView>
         
-        {/* Tasks Section */}
+        {/* Recent Orders Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Tasks</Text>
-          <TouchableOpacity>
+          <Text style={styles.sectionTitle}>Recent Orders</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('OrderDetailScreen', {
+            orderId: 'LDY123456',
+            service: { name: 'Wash & Fold' },
+            pickupDate: 'Today',
+            pickupTime: '10:30 AM - 12:30 PM',
+            status: 'Processing',
+            items: [
+              { name: 'T-Shirts', quantity: 3, price: 15.99 },
+              { name: 'Pants', quantity: 2, price: 19.99 }
+            ],
+            timeline: [
+              { status: 'Order Placed', time: '10:30 AM', completed: true },
+              { status: 'Processing', time: 'In Progress', completed: false },
+              { status: 'Ready for Delivery', time: 'Upcoming', completed: false },
+              { status: 'Delivered', time: 'Upcoming', completed: false }
+            ],
+            totalPrice: 45.99
+          })}>
             <Text style={styles.sectionLink}>View all</Text>
           </TouchableOpacity>
         </View>
         
-        <View style={styles.tasksContainer}>
-          {tasks.map((task, index) => (
-            <View key={task.id} style={styles.taskItem}>
-              <TouchableOpacity style={styles.taskCheckbox}>
-                {task.completed ? (
-                  <View style={styles.taskCheckboxChecked}>
-                    <Feather name="check" size={14} color="#FFFFFF" />
-                  </View>
-                ) : (
-                  <View style={styles.taskCheckboxUnchecked} />
-                )}
-              </TouchableOpacity>
-              <Text 
-                style={[
-                  styles.taskText,
-                  task.completed && styles.taskTextCompleted
-                ]}
-                numberOfLines={2}
-              >
-                {task.title}
-              </Text>
-              {index === 0 && (
-                <View style={styles.taskDot} />
-              )}
+        <TouchableOpacity 
+          style={styles.recentOrderCard}
+          onPress={() => navigation.navigate('OrderDetailScreen', {
+            orderId: 'LDY123456',
+            service: { name: 'Wash & Fold' },
+            pickupDate: 'Today',
+            pickupTime: '10:30 AM - 12:30 PM',
+            status: 'Processing',
+            items: [
+              { name: 'T-Shirts', quantity: 3, price: 15.99 },
+              { name: 'Pants', quantity: 2, price: 19.99 }
+            ],
+            timeline: [
+              { status: 'Order Placed', time: '10:30 AM', completed: true },
+              { status: 'Processing', time: 'In Progress', completed: false },
+              { status: 'Ready for Delivery', time: 'Upcoming', completed: false },
+              { status: 'Delivered', time: 'Upcoming', completed: false }
+            ],
+            totalPrice: 45.99
+          })}
+        >
+          <View style={styles.recentOrderHeader}>
+            <View>
+              <Text style={styles.orderNumber}>#LDY123456</Text>
+              <Text style={styles.orderDate}>Today, 10:30 AM</Text>
             </View>
-          ))}
-        </View>
+            <View style={styles.statusContainer}>
+              <View style={[styles.statusIndicator, { backgroundColor: '#FFA500' }]} />
+              <Text style={[styles.statusText, { color: '#FFA500' }]}>Processing</Text>
+            </View>
+          </View>
+          
+          <View style={styles.orderSummary}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Items</Text>
+              <Text style={styles.summaryValue}>5</Text>
+            </View>
+            
+            <View style={styles.summaryDivider} />
+            
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Total</Text>
+              <Text style={styles.summaryValue}>$45.99</Text>
+            </View>
+            
+            <TouchableOpacity style={styles.viewOrderButton}>
+              <Text style={styles.viewOrderText}>Track Order</Text>
+              <MaterialIcons name="chevron-right" size={16} color="#222222" />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -921,6 +1048,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 4,
+    zIndex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -947,13 +1075,14 @@ const styles = StyleSheet.create({
   },
   profileContainer: {
     marginLeft: 15,
+    paddingRight: 6,
   },
   profileImage: {
     width: 55, // Larger profile image
     height: 55, // Larger profile image
     borderRadius: 16, // Rounded square corners
-    borderWidth: 2,
-    borderColor: '#333333',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
   },
   profileImageFallback: {
     width: 55, // Match profile image size
@@ -962,8 +1091,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#333333',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
   },
   profileInitials: {
     ...getTextStyle('medium', 'md', '#FFFFFF'),
@@ -976,17 +1105,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+    backgroundColor: 'transparent',
+    elevation: 10,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14, // Less rounded corners
-    height: 54, // Increased height
+    borderRadius: 14,
+    height: 54,
     paddingHorizontal: 14,
-    // Remove shadow styles
     width: '88%',
     alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   searchIconContainer: {
     marginRight: 10,
@@ -1020,25 +1155,27 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 0, // Removed paddingTop to reduce the gap
-    paddingBottom: 80,
+    paddingBottom: 100, // Increased to provide enough space for the navbar
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 15,
-    marginTop: 15,
+    marginBottom: 10,
+    marginTop: 10,
   },
   sectionTitle: {
     ...getTextStyle('bold', 'lg', '#222'),
   },
   sectionLink: {
     ...getTextStyle('medium', 'sm', '#888'),
+    fontSize: 13, // Slightly smaller font
   },
   projectsContainer: {
     paddingHorizontal: 15,
     paddingBottom: 10,
+    marginTop: 8,
   },
   projectCard: {
     width: 190, // Increased width
@@ -1138,8 +1275,8 @@ const styles = StyleSheet.create({
   },
   promoContainer: {
     marginHorizontal: 15,
-    marginTop: 10,
-    marginBottom: 25,
+    marginTop: 5,
+    marginBottom: 20,
   },
   promoCard: {
     width: width - 30, // Full width minus margins
@@ -1170,7 +1307,8 @@ const styles = StyleSheet.create({
     paddingTop: 25,
     paddingRight: 10,
     zIndex: 2,
-    width: '60%',
+    width: '70%',
+    justifyContent: 'center',
   },
   promoTitle: {
     ...getTextStyle('regular', 'sm', '#FFFFFF'),
@@ -1191,11 +1329,12 @@ const styles = StyleSheet.create({
   },
   promoImageContainer: {
     position: 'absolute',
-    right: 10,
-    bottom: 10,
+    right: 20,
+    bottom: 35,
     width: 120,
     height: 120,
     zIndex: 3,
+    alignSelf: 'center',
   },
   promoImage: {
     width: '100%',
@@ -1231,11 +1370,95 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 25,
-    marginTop: 18,
+    marginTop: 10,
   },
   promoActionButtonText: {
     ...getTextStyle('medium', 'sm', '#FFFFFF'),
     fontSize: 13,
+  },
+  recentOrderCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10,
+  },
+  recentOrderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  orderNumber: {
+    ...getTextStyle('bold', 'md', '#222'),
+    fontSize: 16,
+  },
+  orderDate: {
+    ...getTextStyle('medium', 'sm', '#888'),
+    fontSize: 14,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 5,
+  },
+  statusText: {
+    ...getTextStyle('medium', 'sm', '#222'),
+    fontSize: 14,
+  },
+  orderSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    ...getTextStyle('medium', 'sm', '#888'),
+    marginRight: 10,
+  },
+  summaryValue: {
+    ...getTextStyle('bold', 'md', '#222'),
+    fontSize: 16,
+  },
+  summaryDivider: {
+    width: 1,
+    height: '100%',
+    backgroundColor: '#DDD',
+    marginHorizontal: 10,
+  },
+  viewOrderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewOrderText: {
+    ...getTextStyle('medium', 'sm', '#222'),
+    marginRight: 5,
+  },
+  moreCard: {
+    width: 110,
+    height: 210,
+    backgroundColor: '#222222',
+    borderRadius: 25,
+    marginHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  moreContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreText: {
+    ...getTextStyle('medium', 'md', '#FFFFFF'),
+    marginBottom: 8,
+    fontSize: 16,
   },
 });
 

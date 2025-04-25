@@ -35,8 +35,26 @@ import CategoryScreen from './screens/CategoryScreen';
 import CalendarScreen from './screens/CalendarScreen';
 import CartScreen from './screens/CartScreen';
 
+// New Screens for the flows
+import RedeemScreen from './screens/RedeemScreen';
+import OffersScreen from './screens/OffersScreen';
+import ServiceWithOffersScreen from './screens/ServiceWithOffersScreen';
+import ServiceScreen from './screens/ServiceScreen';
+import ClothesScreen from './screens/ClothesScreen';
+import PaymentScreen from './screens/PaymentScreen';
+import PaymentSuccessScreen from './screens/PaymentSuccessScreen';
+import RecentOrdersScreen from './screens/RecentOrdersScreen';
+
+// New Laundry Service Screens
+import ServiceCategoryScreen from './screens/ServiceCategoryScreen';
+import ServiceDetailScreen from './screens/ServiceDetailScreen';
+import BookingScreen from './screens/BookingScreen';
+import BookingConfirmationScreen from './screens/BookingConfirmationScreen';
+import OrderDetailScreen from './screens/OrderDetailScreen';
+
 // Import BottomTabNavigator
 import BottomTabNavigator from './navigation/BottomTabNavigator';
+import OrdersNavigator from './navigation/OrdersNavigator';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -96,7 +114,13 @@ const AppNavigator = () => (
     screenOptions={{
       headerShown: false,
       animation: 'slide_from_right',
-      contentStyle: { backgroundColor: '#FFFFFF' },
+      contentStyle: { backgroundColor: '#f8f8f8' },
+      animationEnabled: true,
+      cardStyleInterpolator: ({ current: { progress } }) => ({
+        cardStyle: {
+          opacity: progress,
+        },
+      }),
     }}
   >
     <AppStack.Screen 
@@ -104,9 +128,11 @@ const AppNavigator = () => (
       component={BottomTabNavigator}
       options={{ animation: 'fade', headerShown: false }}
     />
+    
+    {/* Payment screen is separate - no bottom navigation */}
     <AppStack.Screen
-      name="CategoryScreen"
-      component={CategoryScreen}
+      name="PaymentScreen"
+      component={PaymentScreen}
       options={{ animation: 'slide_from_right' }}
     />
   </AppStack.Navigator>
