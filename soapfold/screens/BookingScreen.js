@@ -8,12 +8,25 @@ import {
   ScrollView,
   StatusBar,
   TextInput,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import ScreenContainer from '../components/ScreenContainer';
+import Constants from 'expo-constants';
 
+// Modern approach to detect Expo environment
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+let RazorpayCheckout;
+if (!isExpoGo) {
+  try {
+    RazorpayCheckout = require('react-native-razorpay').default;
+  } catch (error) {
+    console.log('Razorpay import error:', error);
+  }
+}
 const BookingScreen = ({ navigation, route }) => {
   const { service, quantity = 1, totalPrice = 14.99 } = route.params || {};
   
@@ -21,6 +34,8 @@ const BookingScreen = ({ navigation, route }) => {
   const [selectedTime, setSelectedTime] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
   
   // Laundry items state
   const [itemCounts, setItemCounts] = useState({
@@ -87,12 +102,153 @@ const BookingScreen = ({ navigation, route }) => {
     const extraItemFee = extraItems * (service?.price || 14.99) * 0.5; // 50% of base price per additional item type
     
     // Delivery fee
-    const deliveryFee = 3.99;
+    const deliveryFee = 5.00; // Updated to match the summary display
     
     return (basePrice + extraItemFee + deliveryFee).toFixed(2);
   };
   
   const dates = generateDates();
+
+  // Define the items to be passed to payment
+  const getFormattedItems = () => {
+    return {
+      baseItem: { name: service?.name || 'Wash & Fold', quantity, price: totalPrice },
+      additionalItems: Object.entries(itemCounts)
+        .filter(([_, count]) => count > 0)
+        .map(([item, count]) => ({
+          name: item.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+          count,
+          price: (service?.price || 14.99) * 0.5 * count
+        }))
+    };
+  };
+
+  // Define test mode flag - using only __DEV__ to avoid Platform.constants errors
+  const isTestMode = __DEV__;
+
+  const handleTestPayment = () => {
+    Alert.alert(
+      'Test Payment Mode',
+      'This is a test payment. In production, this will use Razorpay.',
+      [
+        {
+          text: 'Simulate Success',
+          onPress: () => {
+            const testPaymentData = {
+              paymentId: 'test_' + Date.now(),
+              // orderId: 'test_order_' + Date.now(),
+              signature: 'test_signature',
+              amount: calculateFinalPrice(),
+              items: getFormattedItems(),
+              service: service?.name || 'Wash & Fold',
+              timestamp: new Date().toISOString()
+            };
+            
+            navigation.navigate('PaymentSuccessScreen', {
+              ...testPaymentData,
+              totalAmount: calculateFinalPrice()
+            });
+          }
+        },
+        {
+          text: 'Simulate Failure',
+          onPress: () => {
+            Alert.alert('Payment Failed', 'This is a simulated payment failure');
+          }
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+
+  const handleRazorpayPayment = async () => {
+    try {
+      setIsProcessing(true);
+      const finalPrice = calculateFinalPrice();
+      const amountInPaise = Math.round(finalPrice * 100);
+      
+      if (amountInPaise < 100) {
+        alert('Amount must be at least ₹1');
+        return;
+      }
+
+      const options = {
+        description: `Payment for ${service?.name || 'Wash & Fold'}`,
+        image: 'https://i.imgur.com/3g7nmJC.png',
+        currency: 'INR',
+        key: 'rzp_test_KhGe6qjulyJzhZ',
+        amount: amountInPaise,
+        name: 'SoapFold',
+        // order_id: `order_${Math.floor(Math.random() * 1000000000)}`,
+        prefill: {
+          email: 'arsacskasha@gmail.com',
+          contact: '994080029',
+          name: 'Arsac'
+        },
+        theme: { color: '#000000' },
+        // notes: {
+        //   serviceName: service?.name || 'Wash & Fold',
+        //   items: JSON.stringify(getFormattedItems())
+        // },
+        // retry: {
+        //   enabled: true,
+        //   max_count: 1
+        // },
+        // send_sms_hash: true,
+        // remember_customer: true,
+        // timeout: 300
+      };
+
+
+      console.log('Initiating Razorpay payment with options:', options);
+      // const data = await RazorpayCheckout.open(options);
+      try {
+        const data = await RazorpayCheckout.open(options);
+        console.log('Razorpay success response:', data);
+      } catch (err) {
+        console.error('Razorpay error response:', err);  // This will help us debug
+      }    
+      
+      const paymentData = {
+        paymentId: data.razorpay_payment_id,
+        orderId: data.razorpay_order_id,
+        signature: data.razorpay_signature,
+        amount: finalPrice,
+        items: getFormattedItems(),
+        service: service?.name || 'Wash & Fold',
+        timestamp: new Date().toISOString()
+      };
+
+      navigation.navigate('PaymentSuccessScreen', {
+        ...paymentData,
+        totalAmount: finalPrice
+      });
+
+    } catch (error) {
+      console.error('Payment Error Details:', error);
+      
+      if (error.code === 'PAYMENT_CANCELLED') {
+        alert('Payment was cancelled by user');
+      } else if (error.code === 'NETWORK_ERROR') {
+        alert('Network error occurred. Please check your internet connection');
+      } else if (error.description) {
+        alert(`Payment failed: ${error.description}`);
+      } else {
+        alert('Payment failed. Please try again later');
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+
+  // const handlePayment = isTestMode ? handleTestPayment : handleRazorpayPayment;
+  const handlePayment = handleRazorpayPayment;
+  console.log("HandlePayment ",handlePayment);
   
   return (
     <ScreenContainer>
@@ -283,19 +439,11 @@ const BookingScreen = ({ navigation, route }) => {
               (!selectedDate || !selectedTime || !address) ? styles.disabledButton : {}
             ]}
             disabled={!selectedDate || !selectedTime || !address}
-            onPress={() => navigation.navigate('RazorpayScreen', {
-              serviceTitle: service,
-              cartItems: itemCounts,
-              totalItems,
-              pickupDate: selectedDate,
-              pickupTime: selectedTime,
-              address,
-              notes,
-              totalPrice: calculateFinalPrice()
-            })}
+            onPress={handlePayment}
           >
             <Text style={styles.continueButtonText}>
-              Continue to Pay
+            {isProcessing ? 'Processing...' : `Pay ₹${calculateFinalPrice()}`}
+
             </Text>
           </TouchableOpacity>
         </View>

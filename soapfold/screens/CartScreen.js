@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, FlatList, StyleSheet, ScrollView, StatusBar, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, Image, FlatList, StyleSheet, ScrollView, StatusBar, SafeAreaView, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 
@@ -177,10 +177,10 @@ const CartScreen = ({ route, navigation }) => {
             <TouchableOpacity
               disabled={totalPrice === 0}
               style={[styles.verifyButton, totalPrice === 0 && styles.verifyButtonDisabled]}
-              onPress={() => navigation.navigate('RazorpayScreen', {
-                cartItems,
-                totalPrice,
-                serviceTitle: serviceTitle || 'Laundry Service'
+              onPress={() => navigation.navigate('BookingScreen', {
+                service: serviceTitle || 'Laundry Service',
+                quantity: cartItems.length,
+                totalPrice
               })}
             >
               <Text style={styles.verifyText}>Verify Order</Text>

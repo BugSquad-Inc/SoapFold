@@ -32,7 +32,6 @@ import ServiceCategoryScreen from '../screens/ServiceCategoryScreen';
 import ServiceDetailScreen from '../screens/ServiceDetailScreen';
 import BookingScreen from '../screens/BookingScreen';
 import BookingConfirmationScreen from '../screens/BookingConfirmationScreen';
-import RazorpayScreen from '../screens/RazorpayScreen';
 
 const { width } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
@@ -490,7 +489,6 @@ const HomeStack = () => (
     <Stack.Screen name="BookingScreen" component={BookingScreen} />
     <Stack.Screen name="BookingConfirmationScreen" component={BookingConfirmationScreen} />
     <Stack.Screen name="OrderDetailScreen" component={OrderDetailScreen} />
-    <Stack.Screen name="RazorpayScreen" component={RazorpayScreen} />
   </Stack.Navigator>
 );
 
