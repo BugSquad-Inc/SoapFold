@@ -43,9 +43,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "13c5810a-25f8-4319-85ee-d316c53131c4"
       },
-      "firebaseApiKey": "FIREBASE_API_KEY"
-    }
+      "firebaseApiKey": "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI"
+    },
+    "owner": "arsacskasha"
   }
 }

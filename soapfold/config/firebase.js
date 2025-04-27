@@ -15,7 +15,7 @@ const firebaseConfig = {
   projectId: "soapfold-app",
   storageBucket: "soapfold-app.appspot.com",
   messagingSenderId: "681509346490",
-  appId: "1:681509346490:web:placeholder123456",
+  appId: "1:681509346490:web:5f6c23d544bbf2f0e0a123",
   // Explicitly disable Firestore
   databaseURL: "none", // Force no database initialization
   useFirestore: false // Custom flag to ensure we don't use Firestore 
