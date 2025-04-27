@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PhoneInput from 'react-native-phone-number-input';
 import { auth } from '../config/firebase';
 import { PhoneAuthProvider, RecaptchaVerifier } from 'firebase/auth';
+import { theme } from '../utils/theme';
 
 export default function PhoneSignInScreen({ navigation }) {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -46,65 +47,67 @@ export default function PhoneSignInScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.content}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Text style={styles.backText}>←</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.title}>Enter phone number</Text>
-        <Text style={styles.subtitle}>
-          We'll send you a verification code
-        </Text>
-
-        <View style={styles.inputContainer}>
-          <PhoneInput
-            defaultCode="IN"
-            layout="first"
-            onChangeFormattedText={text => setPhoneNumber(text)}
-            withDarkTheme
-            withShadow
-            autoFocus
-            containerStyle={styles.phoneInput}
-            textContainerStyle={styles.phoneTextContainer}
-            textInputStyle={styles.phoneTextInput}
-            codeTextStyle={styles.phoneCodeText}
-          />
-        </View>
-
-        <View id="recaptcha-container" style={styles.recaptchaContainer} />
-
-        <TouchableOpacity
-          style={[
-            styles.continueButton,
-            (!phoneNumber || loading) && styles.continueButtonDisabled
-          ]}
-          onPress={handleSendCode}
-          disabled={!phoneNumber || loading}
+    <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : null}
+          style={styles.keyboardAvoid}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
         >
-          <Text style={styles.continueButtonText}>
-            {loading ? 'Sending...' : 'Continue'}
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+            >
+              <Text style={styles.backText}>←</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.title}>Enter phone number</Text>
+          <Text style={styles.subtitle}>
+            We'll send you a verification code
           </Text>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+          <View style={styles.inputContainer}>
+            <PhoneInput
+              defaultCode="IN"
+              layout="first"
+              onChangeFormattedText={text => setPhoneNumber(text)}
+              withDarkTheme
+              withShadow
+              autoFocus
+              containerStyle={styles.phoneInput}
+              textContainerStyle={styles.phoneTextContainer}
+              textInputStyle={styles.phoneTextInput}
+              codeTextStyle={styles.phoneCodeText}
+            />
+          </View>
+
+          <View id="recaptcha-container" style={styles.recaptchaContainer} />
+
+          <TouchableOpacity
+            style={[
+              styles.continueButton,
+              (!phoneNumber || loading) && styles.continueButtonDisabled
+            ]}
+            onPress={handleSendCode}
+            disabled={!phoneNumber || loading}
+          >
+            <Text style={styles.continueButtonText}>
+              {loading ? 'Sending...' : 'Continue'}
+            </Text>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#000',
   },
-  content: {
+  keyboardAvoid: {
     flex: 1,
     padding: 20,
   },
@@ -113,20 +116,27 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backText: {
-    color: '#fff',
-    fontSize: 24,
+    color: '#000',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#000',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#333',
     marginBottom: 32,
   },
   inputContainer: {
@@ -134,35 +144,36 @@ const styles = StyleSheet.create({
   },
   phoneInput: {
     width: '100%',
-    backgroundColor: '#1c1c1e',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 12,
   },
   phoneTextContainer: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 12,
   },
   phoneTextInput: {
-    color: '#fff',
+    color: '#000',
     fontSize: 16,
   },
   phoneCodeText: {
-    color: '#fff',
+    color: '#000',
     fontSize: 16,
   },
   recaptchaContainer: {
     display: 'none',
   },
   continueButton: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.primary,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 25,
     alignItems: 'center',
+    height: 52,
   },
   continueButtonDisabled: {
     opacity: 0.5,
   },
   continueButtonText: {
-    color: '#000',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },

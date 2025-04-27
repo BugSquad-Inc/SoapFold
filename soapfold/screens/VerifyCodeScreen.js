@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../config/firebase';
 import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
+import { theme } from '../utils/theme';
 
 export default function VerifyCodeScreen({ route, navigation }) {
   const { phoneNumber, verificationId } = route.params;
@@ -70,75 +71,77 @@ export default function VerifyCodeScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.content}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
+    <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : null}
+          style={styles.keyboardAvoid}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+            >
+              <Text style={styles.backText}>←</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.title}>Enter code</Text>
+          <Text style={styles.subtitle}>
+            We sent a verification code to your phone{'\n'}
+            {phoneNumber}
+          </Text>
+
+          <View style={styles.codeContainer}>
+            {code.map((digit, index) => (
+              <TextInput
+                key={index}
+                ref={ref => inputs.current[index] = ref}
+                style={styles.codeInput}
+                value={digit}
+                onChangeText={text => handleCodeChange(text, index)}
+                onKeyPress={e => handleKeyPress(e, index)}
+                keyboardType="number-pad"
+                maxLength={1}
+                selectTextOnFocus
+                autoFocus={index === 0}
+              />
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.continueButton,
+              (!code.every(digit => digit) || loading) && styles.continueButtonDisabled
+            ]}
+            onPress={handleVerifyCode}
+            disabled={!code.every(digit => digit) || loading}
           >
-            <Text style={styles.backText}>←</Text>
+            <Text style={styles.continueButtonText}>
+              {loading ? 'Verifying...' : 'Continue'}
+            </Text>
           </TouchableOpacity>
-        </View>
 
-        <Text style={styles.title}>Enter code</Text>
-        <Text style={styles.subtitle}>
-          We sent a verification code to your phone{'\n'}
-          {phoneNumber}
-        </Text>
-
-        <View style={styles.codeContainer}>
-          {code.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={ref => inputs.current[index] = ref}
-              style={styles.codeInput}
-              value={digit}
-              onChangeText={text => handleCodeChange(text, index)}
-              onKeyPress={e => handleKeyPress(e, index)}
-              keyboardType="number-pad"
-              maxLength={1}
-              selectTextOnFocus
-              autoFocus={index === 0}
-            />
-          ))}
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.continueButton,
-            (!code.every(digit => digit) || loading) && styles.continueButtonDisabled
-          ]}
-          onPress={handleVerifyCode}
-          disabled={!code.every(digit => digit) || loading}
-        >
-          <Text style={styles.continueButtonText}>
-            {loading ? 'Verifying...' : 'Continue'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.resendButton}
-          onPress={handleResendCode}
-        >
-          <Text style={styles.resendButtonText}>
-            You didn't receive any code? Resend Code
-          </Text>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          <TouchableOpacity
+            style={styles.resendButton}
+            onPress={handleResendCode}
+          >
+            <Text style={styles.resendButtonText}>
+              You didn't receive any code? Resend Code
+            </Text>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#000',
   },
-  content: {
+  keyboardAvoid: {
     flex: 1,
     padding: 20,
   },
@@ -147,20 +150,27 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backText: {
-    color: '#fff',
-    fontSize: 24,
+    color: '#000',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#000',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#333',
     marginBottom: 32,
   },
   codeContainer: {
@@ -172,24 +182,27 @@ const styles = StyleSheet.create({
     width: 45,
     height: 60,
     borderRadius: 12,
-    backgroundColor: '#1c1c1e',
-    color: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    color: '#000',
     fontSize: 24,
     textAlign: 'center',
     marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
   },
   continueButton: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.primary,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 25,
     alignItems: 'center',
     marginBottom: 16,
+    height: 52,
   },
   continueButtonDisabled: {
     opacity: 0.5,
   },
   continueButtonText: {
-    color: '#000',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -198,7 +211,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   resendButtonText: {
-    color: '#007AFF',
+    color: theme.colors.secondary,
     fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 }); 

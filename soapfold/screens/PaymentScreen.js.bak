@@ -1,0 +1,377 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+  Image,
+  StatusBar,
+  Alert,
+  FlatList
+} from 'react-native';
+import { MaterialIcons, Feather, FontAwesome, Ionicons } from '@expo/vector-icons';
+import { theme, getTextStyle } from '../utils/theme';
+import ScreenContainer from '../components/ScreenContainer';
+import { useFocusEffect } from '@react-navigation/native';
+
+const PaymentScreen = ({ navigation, route }) => {
+  const { 
+    service, 
+    items = {}, 
+    totalItems = 1,
+    pickupDate = '15 Jun',
+    pickupTime = '9:00 AM - 11:00 AM',
+    address = '',
+    notes = '',
+    totalPrice = 29.99 
+  } = route.params || {};
+  
+  // Sample prices lookup
+  const samplePrices = {
+    'Shirt': 4.99,
+    'Pants': 7.99,
+    'Bedsheet': 12.99,
+    'Towel': 3.99,
+    'Dress': 9.99,
+    'Suit': 15.99,
+    'Jacket': 8.99,
+    'Sweater': 6.99,
+    'Jeans': 7.99,
+    'T-shirt': 3.99,
+    'Blouse': 5.99,
+    'Skirt': 6.99
+  };
+  
+  // Sample order items if not provided
+  const orderItems = Object.keys(items).length > 0 
+    ? Object.entries(items).map(([name, qty]) => ({ 
+        name, 
+        quantity: qty,
+        price: samplePrices[name] || 4.99 // Add price from sample prices or use default
+      }))
+    : [
+        { name: 'Shirt', quantity: 2, price: 4.99 },
+        { name: 'Pants', quantity: 1, price: 7.99 },
+        { name: 'Bedsheet', quantity: 1, price: 12.99 },
+        { name: 'Towel', quantity: 2, price: 3.99 }
+      ];
+
+  // Filter only items that have a quantity > 0
+  const filteredOrderItems = orderItems.filter(item => item.quantity > 0);
+
+  // Calculate the subtotal based on actual order items
+  const calculateSubtotal = () => {
+    return filteredOrderItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  // Calculate the final total price
+  const subtotal = calculateSubtotal();
+  const deliveryFee = 5.00;
+  const finalTotal = subtotal + deliveryFee;
+
+  // Handle payment submission
+  const handleContinueToPayment = () => {
+    // Navigate to payment method screen or confirmation screen
+    navigation.navigate('BookingConfirmationScreen', {
+      bookingId: `LDY${Math.floor(100000 + Math.random() * 900000)}`,
+      service,
+      pickupDate,
+      pickupTime,
+      address,
+      totalPrice: finalTotal
+    });
+  };
+  
+  // Render a single order item
+  const renderOrderItem = ({ item }) => (
+    <View style={styles.orderItemRow}>
+      <View style={styles.orderItemInfo}>
+        <Text style={styles.orderItemName}>{item.name}</Text>
+        <Text style={styles.orderItemQuantity}>Qty: {item.quantity} × ${item.price.toFixed(2)}</Text>
+      </View>
+      <Text style={styles.orderItemPrice}>
+        ${(item.price * item.quantity).toFixed(2)}
+      </Text>
+    </View>
+  );
+  
+  // Make bottom tab bar visible for this screen
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarVisible: true
+    });
+  }, [navigation]);
+  
+  return (
+    <View style={styles.mainContainer}>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Order Review</Text>
+          <View style={styles.headerRight} />
+        </View>
+        
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.container}>
+            {/* Order Items Section */}
+            <View style={styles.orderItemsSection}>
+              <Text style={styles.sectionTitle}>Order Items</Text>
+              
+              <FlatList
+                data={filteredOrderItems}
+                renderItem={renderOrderItem}
+                keyExtractor={(item, index) => `${item.name}-${index}`}
+                scrollEnabled={false}
+              />
+              
+              <View style={styles.divider} />
+            </View>
+            
+            {/* Service Details Section */}
+            <View style={styles.serviceSection}>
+              <Text style={styles.sectionTitle}>Service Details</Text>
+              
+              <View style={styles.serviceRow}>
+                <MaterialIcons name="local-laundry-service" size={20} color="#555" />
+                <Text style={styles.serviceLabel}>Service Type:</Text>
+                <Text style={styles.serviceValue}>{service?.name || 'Wash & Fold'}</Text>
+              </View>
+              
+              <View style={styles.serviceRow}>
+                <MaterialIcons name="event" size={20} color="#555" />
+                <Text style={styles.serviceLabel}>Pickup Date:</Text>
+                <Text style={styles.serviceValue}>{pickupDate}</Text>
+              </View>
+              
+              <View style={styles.serviceRow}>
+                <MaterialIcons name="access-time" size={20} color="#555" />
+                <Text style={styles.serviceLabel}>Pickup Time:</Text>
+                <Text style={styles.serviceValue}>{pickupTime}</Text>
+              </View>
+              
+              <View style={styles.serviceRow}>
+                <MaterialIcons name="location-on" size={20} color="#555" />
+                <Text style={styles.serviceLabel}>Address:</Text>
+                <Text style={styles.serviceValue} numberOfLines={2}>
+                  {address || '123 Main St, Apt 4B, New York, NY 10001'}
+                </Text>
+              </View>
+              
+              {notes ? (
+                <View style={styles.serviceRow}>
+                  <MaterialIcons name="sticky-note-2" size={20} color="#555" />
+                  <Text style={styles.serviceLabel}>Notes:</Text>
+                  <Text style={styles.serviceValue} numberOfLines={2}>{notes}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        </ScrollView>
+        
+        {/* Order Summary and Continue Button */}
+        <View style={styles.footer}>
+          {/* Order Summary */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>Order Summary</Text>
+            
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotal:</Text>
+              <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Delivery Fee:</Text>
+              <Text style={styles.summaryValue}>${deliveryFee.toFixed(2)}</Text>
+            </View>
+            
+            <View style={styles.divider} />
+            
+            <View style={styles.summaryRow}>
+              <Text style={styles.totalLabel}>Total Amount:</Text>
+              <Text style={styles.totalValue}>${finalTotal.toFixed(2)}</Text>
+            </View>
+          </View>
+          
+          {/* Continue Button */}
+          <TouchableOpacity 
+            style={styles.payButton}
+            onPress={handleContinueToPayment}
+          >
+            <Text style={styles.payButtonText}>
+              Continue to Pay
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f1f1',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerRight: {
+    width: 40,
+  },
+  container: {
+    padding: 16,
+    paddingBottom: 240, // Increased to accommodate both the footer and navbar
+  },
+  // Order Items Section
+  orderItemsSection: {
+    marginBottom: 24,
+  },
+  orderItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f1f1',
+  },
+  orderItemInfo: {
+    flex: 1,
+  },
+  orderItemName: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  orderItemQuantity: {
+    fontSize: 14,
+    color: '#666',
+  },
+  orderItemPrice: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Service Section
+  serviceSection: {
+    marginBottom: 24,
+  },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  serviceLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 10,
+    marginRight: 8,
+    width: 100,
+  },
+  serviceValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  // Order Summary
+  summaryCard: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#ddd',
+    marginVertical: 12,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 65, // Position above the bottom navigation bar
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f1f1',
+    backgroundColor: '#fff',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  payButton: {
+    backgroundColor: theme.colors.primary,
+    height: 50,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  payButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
+
+export default PaymentScreen; 

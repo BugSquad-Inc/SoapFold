@@ -5,65 +5,51 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  TextInput,
   ScrollView,
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
+  Switch,
   Platform,
+  Modal,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { updateProfile, signOut } from 'firebase/auth';
-import * as ImagePicker from 'expo-image-picker';
+import { MaterialIcons, Feather } from '@expo/vector-icons';
+import { auth, getUserDataFromLocalStorage } from '../config/firebase';
+import { signOut } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { uploadToCloudinary } from '../utils/imageUpload';
+import { theme } from '../utils/theme';
+import { useTheme } from '../utils/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [localImageUri, setLocalImageUri] = useState(null);
-  
-  // Editable fields
-  const [displayName, setDisplayName] = useState('');
-  const [location, setLocation] = useState('');
-  
+  const { isDarkMode, setDarkMode, theme: activeTheme } = useTheme();
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [modalAnimation] = useState(new Animated.Value(0));
+
+  // Fetch user data
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const currentUser = auth.currentUser;
         if (currentUser) {
-          // Try to get cached user data first
-          try {
-            const cachedUserData = await AsyncStorage.getItem('@userData');
-            if (cachedUserData) {
-              const userData = JSON.parse(cachedUserData);
-              setUser(userData);
-              setDisplayName(userData.displayName || '');
-              setLocation(userData.location || '');
-              setLocalImageUri(userData.photoURL || null);
-              console.log('Using cached user data in profile');
-            }
-          } catch (cacheError) {
-            console.log('No cached user data available in profile');
-          }
-          
-          // Then fetch from Firestore
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
+          // Get user data from AsyncStorage
+          const userData = await getUserDataFromLocalStorage();
+          if (userData) {
             setUser(userData);
-            setDisplayName(userData.displayName || '');
-            setLocation(userData.location || '');
-            setLocalImageUri(userData.photoURL || null);
-            
-            // Update cache
-            await AsyncStorage.setItem('@userData', JSON.stringify(userData));
+            console.log('Using user data from AsyncStorage in profile');
+          } else {
+            // If no user data found, create basic user data from auth
+            const basicUserData = {
+              uid: currentUser.uid,
+              displayName: currentUser.displayName || 'User',
+              email: currentUser.email,
+              photoURL: currentUser.photoURL,
+            };
+            setUser(basicUserData);
+            console.log('Created basic user data from auth in profile');
           }
         }
         setLoading(false);
@@ -74,258 +60,75 @@ const ProfileScreen = ({ navigation }) => {
     };
 
     fetchUserData();
-    
-    // Request permissions on component mount
-    (async () => {
-      if (Platform.OS !== 'web') {
-        const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-        const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        
-        if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
-          Alert.alert('Permission Required', 'Sorry, we need camera and photo library permissions to make this work!');
-        }
-      }
-    })();
   }, []);
 
-  const handleImageSelection = () => {
-    if (!editing) return;
-    
-    // Check if cloudinary is configured properly
-    import('../config/cloudinary').then((module) => {
-      const cloudinaryConfig = module.default;
-      
-      if (cloudinaryConfig.cloudName === 'YOUR_CLOUD_NAME_HERE' || 
-          cloudinaryConfig.uploadPreset === 'YOUR_UPLOAD_PRESET_HERE') {
-        Alert.alert(
-          'Cloudinary Setup Required',
-          'Please configure your Cloudinary settings in config/cloudinary.js:\n\n' +
-          '1. Create a free account at cloudinary.com\n' +
-          '2. Create an upload preset in Settings > Upload\n' +
-          '3. Update cloudName, uploadPreset and apiUrl with your details',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-      
-      Alert.alert(
-        'Change Profile Photo',
-        'Choose an option',
-        [
-          {
-            text: 'Take Photo',
-            onPress: takePhoto,
-          },
-          {
-            text: 'Choose from Library',
-            onPress: pickImage,
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ],
-        { cancelable: true }
-      );
+  // Toggle dark mode
+  const toggleDarkMode = async (value) => {
+    setDarkMode(value);
+  };
+
+  // Handle navigation to edit profile
+  const goToEditProfile = () => {
+    navigation.navigate('EditProfile', { user });
+  };
+
+  // Show the logout modal
+  const showLogoutModal = () => {
+    setLogoutModalVisible(true);
+    Animated.timing(modalAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Hide the logout modal
+  const hideLogoutModal = () => {
+    Animated.timing(modalAnimation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setLogoutModalVisible(false);
     });
   };
-  
-  const takePhoto = async () => {
-    try {
-      // Use string value 'images' directly instead of MediaType.Images
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-      });
-      
-      // Handle both the new and old API response format
-      if (!result.canceled) {
-        if (result.assets && result.assets[0]) {
-          setLocalImageUri(result.assets[0].uri);
-        } else if (result.uri) {
-          // For backward compatibility with older Expo versions
-          setLocalImageUri(result.uri);
-        }
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
-    }
-  };
-  
-  const pickImage = async () => {
-    try {
-      // Use string value 'images' directly instead of MediaType.Images
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-      });
-      
-      // Handle both the new and old API response format
-      if (!result.canceled) {
-        if (result.assets && result.assets[0]) {
-          setLocalImageUri(result.assets[0].uri);
-        } else if (result.uri) {
-          // For backward compatibility with older Expo versions
-          setLocalImageUri(result.uri);
-        }
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
-    }
-  };
-  
-  const uploadImage = async (uri) => {
-    if (!uri) return null;
-    
-    try {
-      setUploadingImage(true);
-      console.log('Starting image upload process using Cloudinary');
-      
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        console.error('No authenticated user found when trying to upload image');
-        setUploadingImage(false);
-        return null;
-      }
-      
-      // Define folder with user ID for organization
-      const folder = `users/${currentUser.uid}`;
-      
-      // Upload image to Cloudinary
-      const imageUrl = await uploadToCloudinary(uri, folder);
-      
-      if (!imageUrl) {
-        throw new Error('Failed to get image URL from Cloudinary');
-      }
-      
-      console.log('Image upload complete:', imageUrl);
-      setUploadingImage(false);
-      return imageUrl;
-    } catch (error) {
-      console.error('Error in image upload:', error);
-      Alert.alert('Upload Failed', error.message || 'Failed to upload image. Please try again.');
-      setUploadingImage(false);
-      return null;
-    }
-  };
 
-  const handleSaveProfile = async () => {
-    if (!displayName.trim()) {
-      Alert.alert('Error', 'Name cannot be empty');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        // Define photoURL with a default value of current photoURL or null
-        let photoURL = user?.photoURL || null;
-        
-        // Upload new image if changed
-        if (localImageUri && localImageUri !== user?.photoURL) {
-          try {
-            const uploadedImageUrl = await uploadImage(localImageUri);
-            if (uploadedImageUrl) {
-              photoURL = uploadedImageUrl;
-            }
-          } catch (uploadError) {
-            console.error('Error during image upload:', uploadError);
-            // Continue with the update but without changing the photo
-          }
-        }
-        
-        // Update auth profile with safe values
-        await updateProfile(currentUser, {
-          displayName: displayName,
-          ...(photoURL && { photoURL })
-        });
-        
-        // Create updated user data without undefined fields
-        const updatedUserData = {
-          displayName: displayName,
-          location: location || '',
-          updatedAt: new Date().toISOString(),
-        };
-        
-        // Only add photoURL if it exists
-        if (photoURL) {
-          updatedUserData.photoURL = photoURL;
-        }
-        
-        console.log('Updating user doc with data:', updatedUserData);
-        
-        // Update Firestore
-        await updateDoc(doc(db, 'users', currentUser.uid), updatedUserData);
-        
-        // Update local state
-        const newUserData = {
-          ...user,
-          ...updatedUserData
-        };
-        
-        setUser(newUserData);
-        
-        // Update cache
-        await AsyncStorage.setItem('@userData', JSON.stringify(newUserData));
-        
-        Alert.alert('Success', 'Profile updated successfully');
-        setEditing(false);
-      }
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  // Handle logout
   const handleLogout = async () => {
     try {
-      // Clear ALL user data from AsyncStorage first
-      const keys = ['@userData', '@user', '@authUser', '@userToken'];
+      // Hide the modal first
+      hideLogoutModal();
+      
+      // Wait for animation to complete
+      setTimeout(async () => {
+        // Clear user data from AsyncStorage, including onboarding status
+        // to redirect user to onboarding screen
+        const keys = ['@userData', '@user', '@authUser', '@userToken', '@hasSeenOnboarding'];
       await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));
+        console.log('Cleared AsyncStorage including @hasSeenOnboarding to show onboarding after logout');
       
       // Then sign out from Firebase
+        if (auth) {
       await signOut(auth);
-      
-      console.log('User signed out and local storage cleared');
-      
-      // Reset navigation to Auth stack instead of just navigating
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Auth' }]
-      });
+        }
+        
+        // The auth state listener in App.js will handle navigation automatically
+      }, 300);
     } catch (error) {
       console.error('Error signing out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
     }
   };
 
-  const confirmLogout = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Sign Out',
-          onPress: handleLogout,
-          style: 'destructive',
-        },
-      ],
-      { cancelable: true }
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={activeTheme.colors.primary} />
+        </View>
+      </SafeAreaView>
     );
-  };
+  }
 
   // Helper to get user's initials
   const getUserInitials = () => {
@@ -342,90 +145,30 @@ const ProfileScreen = ({ navigation }) => {
     return (firstInitial + lastInitial).toUpperCase();
   };
   
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FFCA28" />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Modal animations
+  const translateY = modalAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [300, 0],
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoidContainer}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => {
-              if (editing) {
-                Alert.alert(
-                  'Discard Changes',
-                  'Are you sure you want to discard your changes?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Discard', onPress: () => {
-                      setEditing(false);
-                      setDisplayName(user?.displayName || '');
-                      setLocation(user?.location || '');
-                      setLocalImageUri(user?.photoURL || null);
-                      navigation.goBack();
-                    }}
-                  ]
-                );
-              } else {
-                navigation.goBack();
-              }
-            }}
-          >
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          
-          <Text style={styles.headerTitle}>Profile</Text>
-          
-          {editing ? (
-            <TouchableOpacity 
-              style={styles.saveButton} 
-              onPress={handleSaveProfile}
-              disabled={saving || uploadingImage}
-            >
-              {saving || uploadingImage ? (
-                <ActivityIndicator size="small" color="#FFCA28" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save</Text>
-              )}
+    <SafeAreaView style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
+      <View style={[styles.header, { borderBottomColor: activeTheme.colors.border }]}>
+        <Text style={[styles.profileHeaderText, { color: activeTheme.colors.text }]}>Profile</Text>
+        <TouchableOpacity style={styles.settingsButton}>
+          <MaterialIcons name="settings" size={24} color={activeTheme.colors.icon} />
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              style={styles.editButton} 
-              onPress={() => setEditing(true)}
-            >
-              <MaterialIcons name="edit" size={20} color="#FFCA28" />
-            </TouchableOpacity>
-          )}
         </View>
         
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.profileSection}>
-            <TouchableOpacity 
-              style={styles.avatarContainer}
-              onPress={handleImageSelection}
-              disabled={!editing}
-            >
-              {localImageUri ? (
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={[styles.profileSection, { backgroundColor: activeTheme.colors.cardBackground }]}>
+          <View style={styles.avatarContainer}>
+            {user?.photoURL ? (
                 <Image 
-                  source={{ uri: localImageUri }} 
-                  style={styles.avatar}
-                  onError={() => {
-                    console.log('Error loading profile image');
-                    setLocalImageUri(null);
+                source={{ uri: user.photoURL }} 
+                style={styles.avatarImage}
+                onError={(e) => {
+                  console.log('Error loading profile image:', e);
                   }}
                 />
               ) : (
@@ -433,82 +176,107 @@ const ProfileScreen = ({ navigation }) => {
                   <Text style={styles.avatarText}>{getUserInitials()}</Text>
                 </View>
               )}
-              
-              {editing && (
-                <View style={styles.editImageButton}>
-                  <MaterialIcons name="camera-alt" size={20} color="#FFFFFF" />
-                </View>
-              )}
+            <TouchableOpacity style={styles.editIconContainer} onPress={goToEditProfile}>
+              <MaterialIcons name="edit" size={18} color="#FFFFFF" />
             </TouchableOpacity>
-            
-            <View style={styles.infoContainer}>
-              {editing ? (
-                <TextInput
-                  style={styles.nameInput}
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  placeholder="Enter your name"
-                  placeholderTextColor="#999"
-                />
-              ) : (
-                <Text style={styles.nameText}>{user?.displayName || 'User'}</Text>
-              )}
-              <Text style={styles.emailText}>{user?.email || ''}</Text>
-            </View>
           </View>
           
-          <View style={styles.divider} />
-          
-          <View style={styles.detailsSection}>
-            <Text style={styles.sectionTitle}>Personal Details</Text>
-            
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Email</Text>
-              <Text style={styles.fieldValue}>{user?.email || 'Not provided'}</Text>
-            </View>
-            
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Location</Text>
-              {editing ? (
-                <TextInput
-                  style={styles.fieldInput}
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder="Enter your location"
-                  placeholderTextColor="#999"
-                />
-              ) : (
-                <Text style={styles.fieldValue}>{user?.location || 'Not provided'}</Text>
-              )}
-            </View>
-            
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Member Since</Text>
-              <Text style={styles.fieldValue}>
-                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
-              </Text>
-            </View>
-          </View>
-          
-          <TouchableOpacity 
-            style={styles.logoutButton} 
-            onPress={confirmLogout}
-          >
-            <MaterialIcons name="logout" size={20} color="#FFFFFF" />
-            <Text style={styles.logoutText}>Sign Out</Text>
+          <Text style={[styles.userName, { color: activeTheme.colors.text }]}>{user?.displayName || 'User'}</Text>
+          <Text style={[styles.userEmail, { color: activeTheme.colors.lightText }]}>{user?.email || ''}</Text>
+        </View>
+
+        <View style={[styles.menuSection, { backgroundColor: activeTheme.colors.cardBackground }]}>
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={goToEditProfile}>
+            <MaterialIcons name="person-outline" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Edit Profile</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
           </TouchableOpacity>
+          
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={() => navigation.navigate('NotificationSettings')}>
+            <MaterialIcons name="notifications-none" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Notification</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
+          </TouchableOpacity>
+          
+          <View style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]}>
+            <MaterialIcons name="dark-mode" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Dark Mode</Text>
+            <Switch
+              value={isDarkMode}
+              onValueChange={toggleDarkMode}
+              trackColor={{ false: '#DDDDDD', true: activeTheme.colors.switch }}
+              thumbColor={'#FFFFFF'}
+              ios_backgroundColor="#DDDDDD"
+              style={styles.switch}
+            />
+          </View>
+          
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={() => navigation.navigate('PrivacyPolicy')}>
+            <MaterialIcons name="lock-outline" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Privacy Policy</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={() => navigation.navigate('HelpCenter')}>
+            <MaterialIcons name="help-outline" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Help Center</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={() => navigation.navigate('InviteFriends')}>
+            <MaterialIcons name="people-outline" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Invite Friends</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={showLogoutModal}>
+            <MaterialIcons name="logout" size={24} color="#FF3B30" style={styles.menuIcon} />
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        animationType="none"
+        transparent={true}
+        visible={logoutModalVisible}
+        onRequestClose={hideLogoutModal}>
+        <View style={styles.modalOverlay}>
+          <Animated.View 
+            style={[
+              styles.modalContainer, 
+              { transform: [{ translateY: translateY }] }
+            ]}>
+            <LinearGradient
+              colors={['#FFFFFF', '#FFFFFF']}
+              style={styles.modalGradient}>
+              <Text style={styles.logoutTitle}>Logout</Text>
+              <Text style={styles.logoutConfirmText}>Are you sure you want to log out?</Text>
+              
+              <View style={styles.logoutButtonsContainer}>
+                <TouchableOpacity 
+                  style={styles.cancelButton} 
+                  onPress={hideLogoutModal}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.confirmLogoutButton} 
+                  onPress={handleLogout}>
+                  <Text style={styles.confirmLogoutButtonText}>Yes, Logout</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  keyboardAvoidContainer: {
     flex: 1,
   },
   loadingContainer: {
@@ -520,146 +288,160 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#222',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  profileHeaderText: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
-  backButton: {
-    padding: 8,
+  settingsButton: {
+    padding: 6,
   },
-  editButton: {
-    padding: 8,
-  },
-  saveButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(255, 202, 40, 0.2)',
-    borderRadius: 6,
-  },
-  saveButtonText: {
-    color: '#FFCA28',
-    fontWeight: '600',
-  },
-  scrollContent: {
-    padding: 20,
+  scrollView: {
+    flex: 1,
   },
   profileSection: {
     alignItems: 'center',
-    marginBottom: 30,
+    padding: 16,
+    marginBottom: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
   },
   avatarContainer: {
-    marginBottom: 16,
     position: 'relative',
+    marginBottom: 12,
   },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: '#FFCA28',
+  avatarImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
   },
   avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#333',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#E1E1E1',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFCA28',
-  },
-  editImageButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#FFCA28',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#000',
   },
   avatarText: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#777777',
   },
-  infoContainer: {
-    alignItems: 'center',
-  },
-  nameText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  nameInput: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-    textAlign: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFCA28',
-    minWidth: 200,
-  },
-  emailText: {
-    fontSize: 14,
-    color: '#999',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#222',
-    marginVertical: 20,
-  },
-  detailsSection: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 20,
-  },
-  fieldContainer: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    color: '#999',
-    marginBottom: 4,
-  },
-  fieldValue: {
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  fieldInput: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFCA28',
-    paddingVertical: 4,
-  },
-  logoutButton: {
-    flexDirection: 'row',
+  editIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#8E44AD',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#444',
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 20,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+  },
+  menuSection: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  menuIcon: {
+    marginRight: 16,
+    width: 26,
+  },
+  menuText: {
+    flex: 1,
+    fontSize: 16,
+  },
+  switch: {
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }]
+  },
+  logoutItem: {
+    borderBottomWidth: 0,
   },
   logoutText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#FF3B30',
+  },
+  // Logout Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  modalGradient: {
+    paddingHorizontal: 20,
+    paddingVertical: 25,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 25,
+  },
+  logoutTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  logoutConfirmText: {
+    fontSize: 16,
+    color: '#000000',
+    marginBottom: 25,
+    textAlign: 'center',
+  },
+  logoutButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    flex: 1,
+    marginRight: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#000000',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#000000',
+    fontWeight: '600',
+  },
+  confirmLogoutButton: {
+    backgroundColor: '#000000',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    flex: 1.5,
+    alignItems: 'center',
+  },
+  confirmLogoutButtonText: {
+    fontSize: 16,
     color: '#FFFFFF',
-    marginLeft: 8,
     fontWeight: '600',
   },
 });

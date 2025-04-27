@@ -26,8 +26,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.soapfold.app",
-      "googleServicesFile": "./android/app/google-services.json"
+      "package": "com.soapfold.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -44,9 +43,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "13c5810a-25f8-4319-85ee-d316c53131c4"
       },
-      "firebaseApiKey": "FIREBASE_API_KEY"
-    }
+      "firebaseApiKey": "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI"
+    },
+    "owner": "arsacskasha"
   }
 }

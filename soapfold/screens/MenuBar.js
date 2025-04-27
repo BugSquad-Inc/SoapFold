@@ -10,14 +10,17 @@ const MenuBar = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      console.log('Starting logout process from MenuBar...');
       
-      // Clear user data from AsyncStorage
+      // Clear user data from AsyncStorage but keep onboarding status
       await AsyncStorage.removeItem('@userData');
       await AsyncStorage.removeItem('@user');
       
-      // Navigate to Onboarding screen
-      navigation.navigate('Onboarding');
+      await signOut(auth);
+      console.log('User signed out from MenuBar');
+      
+      // The auth state listener in App.js will handle navigation automatically
+      // No need to navigate here as the auth state change will trigger App.js to show the Auth stack
     } catch (error) {
       console.error('Error signing out:', error);
     }

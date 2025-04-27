@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
-const OnboardingScreen = ({ navigation }) => {
+const OnboardingScreen = ({ navigation, markOnboardingAsSeen }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef(null);
 
@@ -24,19 +24,19 @@ const OnboardingScreen = ({ navigation }) => {
       id: '1',
       title: 'Spotless Laundry at Your Fingertips',
       image: require('../assets/onboarding1.jpg'),
-      backgroundColor: '#000000'
+      backgroundColor: '#f8f8f8'
     },
     {
       id: '2',
       title: 'Fast Pickup & Delivery when you need it most',
       image: require('../assets/onboarding2.jpg'),
-      backgroundColor: '#000000'
+      backgroundColor: '#f8f8f8'
     },
     {
       id: '3',
-      title: 'Start Your Journey with SoapFold!',
+      title: 'Start Your Journey with SoapFold! Tap the button to continue',
       image: require('../assets/onboarding3.jpg'),
-      backgroundColor: '#000000'
+      backgroundColor: '#f8f8f8'
     }
   ];
 
@@ -64,37 +64,55 @@ const OnboardingScreen = ({ navigation }) => {
         {/* Black blur background box with rounded corners */}
         <View style={styles.bottomBlurContainer} />
         
-        {/* App logo - only show on first screen within the FlatList */}
+        {/* App logo - only show on first screen at the top of blur */}
         {index === 0 && (
-          <Text style={styles.appNameFirstScreen}>SoapFold</Text>
+          <View style={styles.firstScreenContentContainer}>
+            <Text style={styles.appNameFirstScreen}>SoapFold</Text>
+            <Text style={styles.firstScreenTitle}>{item.title}</Text>
+          </View>
         )}
         
-        {/* Text positioned at the bottom like in the image */}
-        <View style={styles.textContainer}>
+        {/* Text positioned at top of black blur for screens 2 and 3 */}
+        {index > 0 && (
           <Text style={styles.title}>{item.title}</Text>
-        </View>
+        )}
       </View>
     );
   };
 
-  const handleNext = () => {
-    if (currentIndex < onboardingData.length - 1) {
+  const handleComplete = () => {
+    // Check if we're on the last screen
+    if (currentIndex === onboardingData.length - 1) {
+      console.log('Completing onboarding - on last screen');
+      // Mark onboarding as seen when completing
+      if (markOnboardingAsSeen) {
+        console.log('Marking onboarding as seen (complete)');
+        markOnboardingAsSeen();
+      }
+      
+      // Navigate to sign in
+      navigation.navigate('SignIn');
+    } else {
+      // If not on the last screen, go to the next screen
+      console.log('Moving to next onboarding screen:', currentIndex + 1);
       flatListRef.current.scrollToIndex({
         index: currentIndex + 1,
         animated: true
-      });
-    } else {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Auth', params: { screen: 'SignIn' } }],
       });
     }
   };
 
   const handleSkip = () => {
+    console.log('Skipping onboarding');
+    // Mark onboarding as seen when skipping
+    if (markOnboardingAsSeen) {
+      console.log('Marking onboarding as seen (skip)');
+      markOnboardingAsSeen();
+    }
+    
     navigation.reset({
       index: 0,
-      routes: [{ name: 'Auth', params: { screen: 'SignIn' } }],
+      routes: [{ name: 'SignIn' }],
     });
   };
 
@@ -179,7 +197,7 @@ const OnboardingScreen = ({ navigation }) => {
           {/* Next button - white square with black icon */}
               <TouchableOpacity
                 style={styles.nextButton}
-                onPress={handleNext}
+                onPress={handleComplete}
               >
             <MaterialIcons 
               name={currentIndex === onboardingData.length - 1 ? "check" : "chevron-right"} 
@@ -196,7 +214,7 @@ const OnboardingScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#f8f8f8',
   },
   skipButton: {
     position: 'absolute',
@@ -248,37 +266,44 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     zIndex: 1,
   },
-  appNameFirstScreen: {
+  firstScreenContentContainer: {
     position: 'absolute',
-    bottom: 200,
+    top: '72%', // Moved lower from 67% to 72%
     left: 30,
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#FFCA28',
-    zIndex: 2,
-  },
-  appNameTopCenter: {
-    position: 'absolute',
-    top: 25, // Little gap at the top
-    alignSelf: 'center',
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#FFCA28',
-    zIndex: 10,
-  },
-  textContainer: {
-    position: 'absolute',
-    bottom: 110,
-    left: 30, // Aligned with onboarding dots margin
     right: 30,
     zIndex: 2,
   },
-  title: {
+  appNameFirstScreen: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: '#FFCA28',
+    marginBottom: 12,
+  },
+  firstScreenTitle: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#FFFFFF',
     textAlign: 'left',
     lineHeight: 42,
+  },
+  textContainer: {
+    position: 'absolute',
+    bottom: 110,
+    left: 30,
+    right: 30,
+    zIndex: 2,
+  },
+  title: {
+    position: 'absolute',
+    top: '72%', // Moved lower from 67% to 72%
+    left: 30,
+    right: 30,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'left',
+    lineHeight: 42,
+    zIndex: 2,
   },
   controlsContainer: {
     position: 'absolute',
@@ -345,7 +370,7 @@ const styles = StyleSheet.create({
   },
   appNameFixed: {
     position: 'absolute',
-    top: 25,
+    top: 40, // Moved lower from 25 to 40
     alignSelf: 'center',
     fontSize: 26,
     fontWeight: 'bold',

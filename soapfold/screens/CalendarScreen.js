@@ -78,9 +78,8 @@ export default CalendarScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fef8e9',
-    paddingHorizontal: 20,
-    paddingTop: 50
+    padding: 20,
+    backgroundColor: '#f8f8f8',
   },
   header: {
     flexDirection: 'row',
