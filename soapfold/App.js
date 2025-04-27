@@ -42,7 +42,8 @@ import OffersScreen from './screens/OffersScreen';
 import ServiceWithOffersScreen from './screens/ServiceWithOffersScreen';
 import ServiceScreen from './screens/ServiceScreen';
 import ClothesScreen from './screens/ClothesScreen';
-import PaymentScreen from './screens/PaymentScreen';
+// import PaymentScreen from './screens/PaymentScreen';
+import RazorpayScreen from './screens/RazorpayScreen';
 import PaymentSuccessScreen from './screens/PaymentSuccessScreen';
 import RecentOrdersScreen from './screens/RecentOrdersScreen';
 
@@ -130,11 +131,16 @@ const AppNavigator = () => (
       options={{ animation: 'fade', headerShown: false }}
     />
     
-    {/* Payment screen is separate - no bottom navigation */}
     <AppStack.Screen
       name="PaymentScreen"
-      component={PaymentScreen}
+      component={RazorpayScreen}
       options={{ animation: 'slide_from_right' }}
+    />
+    
+    <AppStack.Screen
+      name="RazorpayScreen"
+      component={RazorpayScreen}
+      options={{ animation: 'slide_from_right', headerShown: false }}
     />
   </AppStack.Navigator>
 );

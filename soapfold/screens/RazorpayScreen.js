@@ -1,47 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Image, Platform, Alert
+  View, Text, StyleSheet, ActivityIndicator, Alert, Platform
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
-// Check if we're running in Expo Go or development build
+// Check if we're running in Expo Go, a development build, or a test environment
 const isExpoGo = Constants.appOwnership === 'expo';
+const isTestMode = isExpoGo || __DEV__; // Removed the forced "true" to allow production mode
 
 // Conditionally import RazorpayCheckout
 let RazorpayCheckout;
-if (!isExpoGo) {
-  try {
+try {
+  // Only try to import in a real device environment and when not in Expo Go
+  if (!isExpoGo && Platform.OS !== 'web') {
     RazorpayCheckout = require('react-native-razorpay').default;
-  } catch (error) {
-    console.log('Razorpay import error:', error);
+    console.log('Razorpay import successful');
+  } else {
+    console.log('Skipping Razorpay import in test environment');
   }
+} catch (error) {
+  console.error('Razorpay import error:', error);
 }
 
-const samplePrices = {
-  'Shirt': 2000,
-  'Pant': 2500,
-  'Bedsheet': 3000,
-  'Towel': 1500,
-  'Kurta': 2800,
-  'Pillow Cover': 1200,
-  'Saree': 4000,
-  'Blazer': 5000,
-  'Suit': 4500,
-  'Curtain': 3500,
-  'Sneakers': 3000,
-  'Leather Shoes': 5000,
-  'Heels': 3800,
-  'School Uniform': 3200,
-  'Hotel Linen': 4200,
-  'Corporate Wear': 5500,
-};
+// Razorpay API keys
+const RAZORPAY_KEY_TEST = 'rzp_test_KhGe6qjulyJzhZ';
+const RAZORPAY_KEY_PRODUCTION = 'rzp_live_REPLACE_WITH_YOUR_LIVE_KEY'; // Replace with your live key
+const RAZORPAY_KEY = isTestMode ? RAZORPAY_KEY_TEST : RAZORPAY_KEY_PRODUCTION;
 
-const PaymentScreen = () => {
+const RazorpayScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(true);
+  const [error, setError] = useState(null);
   
   // Add validation
   if (!route.params?.cartItems || !route.params?.totalPrice) {
@@ -50,7 +41,15 @@ const PaymentScreen = () => {
     return null;
   }
 
-  const { cartItems, totalPrice, serviceTitle } = route.params;
+  const { 
+    cartItems, 
+    totalPrice, 
+    serviceTitle, 
+    pickupDate, 
+    pickupTime, 
+    address, 
+    notes 
+  } = route.params;
 
   // Test mode payment handler
   const handleTestPayment = () => {
@@ -63,7 +62,6 @@ const PaymentScreen = () => {
           onPress: () => {
             const testPaymentData = {
               paymentId: 'test_' + Date.now(),
-              // orderId: 'test_order_' + Date.now(),
               signature: 'test_signature',
               amount: totalPrice,
               items: cartItems,
@@ -81,11 +79,13 @@ const PaymentScreen = () => {
           text: 'Simulate Failure',
           onPress: () => {
             Alert.alert('Payment Failed', 'This is a simulated payment failure');
+            navigation.goBack();
           }
         },
         {
           text: 'Cancel',
-          style: 'cancel'
+          style: 'cancel',
+          onPress: () => navigation.goBack()
         }
       ]
     );
@@ -94,67 +94,67 @@ const PaymentScreen = () => {
   // Real Razorpay payment handler
   const handleRazorpayPayment = async () => {
     try {
-      setIsProcessing(true);
+      // Check if Razorpay is available
+      if (!RazorpayCheckout) {
+        console.warn('RazorpayCheckout is not available, falling back to test mode');
+        setIsProcessing(false);
+        // Fall back to test payment if Razorpay is not available
+        handleTestPayment();
+        return;
+      }
+
       const amountInPaise = Math.round(totalPrice * 100);
       
       if (amountInPaise < 100) {
         alert('Amount must be at least ₹1');
+        navigation.goBack();
         return;
       }
 
       const options = {
-        description: `Payment for ${serviceTitle}`,
+        description: `Payment for ${serviceTitle?.name || 'Laundry Service'}`,
         image: 'https://i.imgur.com/3g7nmJC.png',
         currency: 'INR',
-        key: 'rzp_test_KhGe6qjulyJzhZ',
+        key: RAZORPAY_KEY,
         amount: amountInPaise,
         name: 'SoapFold',
-        // order_id: `order_${Math.floor(Math.random() * 1000000000)}`,
         prefill: {
           email: 'arsacskasha@gmail.com',
           contact: '994080029',
           name: 'Arsac'
         },
-        theme: { color: '#000000' },
-        // notes: {
-        //   serviceTitle: serviceTitle,
-        //   items: JSON.stringify(cartItems)
-        // },
-        // retry: {
-        //   enabled: true,
-        //   max_count: 1
-        // },
-        // send_sms_hash: true,
-        // remember_customer: true,
-        // timeout: 300
+        theme: { color: '#000000' }
       };
 
       console.log('Initiating Razorpay payment with options:', options);
-      // const data = await RazorpayCheckout.open(options);
+      console.log('RazorpayCheckout available:', !!RazorpayCheckout);
+      
       try {
         const data = await RazorpayCheckout.open(options);
         console.log('Razorpay success response:', data);
+        
+        const paymentData = {
+          paymentId: data.razorpay_payment_id,
+          orderId: data.razorpay_order_id,
+          signature: data.razorpay_signature,
+          amount: totalPrice,
+          items: cartItems,
+          service: serviceTitle,
+          timestamp: new Date().toISOString()
+        };
+  
+        navigation.navigate('PaymentSuccessScreen', {
+          ...paymentData,
+          totalAmount: totalPrice
+        });
       } catch (err) {
-        console.error('Razorpay error response:', err);  // This will help us debug
+        console.error('Razorpay error response:', err);
+        throw err;
       }    
-      
-      const paymentData = {
-        paymentId: data.razorpay_payment_id,
-        orderId: data.razorpay_order_id,
-        signature: data.razorpay_signature,
-        amount: totalPrice,
-        items: cartItems,
-        service: serviceTitle,
-        timestamp: new Date().toISOString()
-      };
-
-      navigation.navigate('PaymentSuccessScreen', {
-        ...paymentData,
-        totalAmount: totalPrice
-      });
 
     } catch (error) {
       console.error('Payment Error Details:', error);
+      setError(error.message || 'Payment failed');
       
       if (error.code === 'PAYMENT_CANCELLED') {
         alert('Payment was cancelled by user');
@@ -165,138 +165,79 @@ const PaymentScreen = () => {
       } else {
         alert('Payment failed. Please try again later');
       }
+      navigation.goBack();
     } finally {
       setIsProcessing(false);
     }
   };
 
   // Choose appropriate payment handler based on environment
-  const handlePayment = isExpoGo ? handleTestPayment : handleRazorpayPayment;
-  console.log("HandlePayment ",handlePayment);
+  const handlePayment = isTestMode ? handleTestPayment : handleRazorpayPayment;
+
+  // Auto-initiate payment when component mounts
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handlePayment();
+    }, 500); // Short delay for better user experience
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Payment Error: {error}</Text>
+        <Text style={styles.retryText} onPress={() => navigation.goBack()}>
+          Go back and try again
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Ionicons name="arrow-back" size={24} onPress={() => navigation.goBack()} />
-        <Text style={styles.headerText}>Payment</Text>
-        <FontAwesome name="user-circle" size={24} color="#555" />
-      </View>
-
-      {/* Order Summary */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Order Summary</Text>
-        {Object.entries(cartItems).map(([itemName, quantity], index) => {
-          const unitPrice = samplePrices[itemName] || 0;
-          const price = quantity * unitPrice;
-          return (
-            <View key={index} style={styles.itemRow}>
-              <Text style={styles.itemName}>{itemName}</Text>
-              <Text style={styles.itemPrice}>₹{price.toLocaleString()}</Text>
-            </View>
-          );
-        })}
-        <View style={styles.totalRow}>
-          <Text style={styles.totalText}>Total</Text>
-          <Text style={styles.totalText}>₹{totalPrice.toLocaleString()}</Text>
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.primaryButton, isProcessing && styles.buttonDisabled]} 
-          onPress={handlePayment}
-          disabled={isProcessing}
-        >
-          <Text style={styles.primaryButtonText}>
-            {isProcessing ? 'Processing...' : `Pay ₹${totalPrice.toLocaleString()}`}
-          </Text>
-        </TouchableOpacity>
-        
-        {isExpoGo && (
-          <Text style={styles.testModeText}>
-            Running in Test Mode (Expo Go)
-          </Text>
-        )}
-      </View>
+      <ActivityIndicator size="large" color="#000" />
+      <Text style={styles.loadingText}>Initializing payment...</Text>
+      {isTestMode && (
+        <Text style={styles.testModeText}>
+          Running in Test Mode
+        </Text>
+      )}
     </View>
   );
 };
 
-export default PaymentScreen;
+export default RazorpayScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fef8e9',
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  headerText: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  sectionCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 6,
-  },
-  itemName: {
-    fontSize: 14,
-  },
-  itemPrice: {
-    fontSize: 14,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 8,
-  },
-  totalText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  primaryButton: {
-    backgroundColor: '#000',
-    paddingVertical: 14,
-    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
+    padding: 20
   },
-  primaryButtonText: {
-    color: '#fff',
+  loadingText: {
+    marginTop: 20,
     fontSize: 16,
+    color: '#333'
   },
-  buttonDisabled: {
-    opacity: 0.7,
-    backgroundColor: '#666',
+  errorText: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 20
+  },
+  retryText: {
+    fontSize: 16,
+    color: 'blue',
+    textDecorationLine: 'underline'
   },
   testModeText: {
+    position: 'absolute',
+    bottom: 20,
     textAlign: 'center',
-    marginTop: 10,
     color: '#666',
-    fontSize: 12,
+    fontSize: 12
   }
 });

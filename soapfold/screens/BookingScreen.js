@@ -246,7 +246,7 @@ const BookingScreen = ({ navigation, route }) => {
             
             {/* Booking Summary */}
             <View style={styles.summaryContainer}>
-              <Text style={styles.summaryTitle}>Booking Summary</Text>
+              <Text style={styles.summaryTitle}>Order Summary</Text>
               
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Service ({quantity} kg):</Text>
@@ -262,7 +262,7 @@ const BookingScreen = ({ navigation, route }) => {
               
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Delivery Fee:</Text>
-                <Text style={styles.summaryValue}>$3.99</Text>
+                <Text style={styles.summaryValue}>$5.00</Text>
               </View>
               
               <View style={styles.divider} />
@@ -283,9 +283,9 @@ const BookingScreen = ({ navigation, route }) => {
               (!selectedDate || !selectedTime || !address) ? styles.disabledButton : {}
             ]}
             disabled={!selectedDate || !selectedTime || !address}
-            onPress={() => navigation.navigate('PaymentScreen', {
-              service,
-              items: itemCounts,
+            onPress={() => navigation.navigate('RazorpayScreen', {
+              serviceTitle: service,
+              cartItems: itemCounts,
               totalItems,
               pickupDate: selectedDate,
               pickupTime: selectedTime,
@@ -295,7 +295,7 @@ const BookingScreen = ({ navigation, route }) => {
             })}
           >
             <Text style={styles.continueButtonText}>
-              Continue - ${calculateFinalPrice()}
+              Continue to Pay
             </Text>
           </TouchableOpacity>
         </View>
