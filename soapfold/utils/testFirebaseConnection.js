@@ -1,6 +1,6 @@
-import { auth, db } from '../config/firebase';
+import { auth, storage } from '../config/firebase';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { collection, getDocs, limit, query } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Tests Firebase connectivity by attempting an anonymous sign-in
@@ -22,25 +22,45 @@ export const testFirebaseConnection = async () => {
     await signInAnonymously(auth);
     console.log("Anonymous auth successful");
     
-    // Try to access Firestore
-    if (db) {
-      try {
-        const testQuery = query(collection(db, 'users'), limit(1));
-        await getDocs(testQuery);
-        console.log("Firestore access successful");
-      } catch (firestoreError) {
-        console.error("Firestore access error:", firestoreError);
-        return { 
-          success: true, 
-          message: "Auth connection successful, but Firestore access failed. This might be due to security rules." 
-        };
-      }
+    // Check if storage is initialized
+    if (!storage) {
+      return {
+        success: false,
+        message: "Firebase Storage is not initialized. It might not be exported from firebase.js."
+      };
     }
     
-    return { 
-      success: true, 
-      message: "Firebase connection successful." 
-    };
+    // Log what storage actually is to diagnose issues
+    console.log("Firebase Storage instance type:", typeof storage);
+    
+    // Test AsyncStorage
+    try {
+      console.log("Testing AsyncStorage...");
+      const testData = { test: true, timestamp: Date.now() };
+      await AsyncStorage.setItem('@testConnection', JSON.stringify(testData));
+      
+      const retrievedData = await AsyncStorage.getItem('@testConnection');
+      if (!retrievedData) {
+        return {
+          success: false,
+          message: "AsyncStorage test failed: Could not retrieve test data"
+        };
+      }
+      
+      // Clean up test data
+      await AsyncStorage.removeItem('@testConnection');
+      
+      return { 
+        success: true, 
+        message: "Firebase connection and AsyncStorage access successful." 
+      };
+    } catch (storageError) {
+      console.error("AsyncStorage access error:", storageError);
+      return { 
+        success: false, 
+        message: `AsyncStorage access failed: ${storageError.message}` 
+      };
+    }
     
   } catch (error) {
     console.error("Firebase connection test failed:", error);

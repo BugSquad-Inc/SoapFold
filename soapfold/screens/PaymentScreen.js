@@ -350,14 +350,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-});
-
-export default PaymentScreen; 
-    padding: 16,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    marginBottom: 12,
-  },
   selectedPaymentOption: {
     backgroundColor: `${theme.colors.primary}20`,
     borderWidth: 1,
@@ -433,28 +425,7 @@ export default PaymentScreen;
   saveCardText: {
     fontSize: 14,
     color: '#666',
-  },
-  footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f1f1',
-  },
-  payButton: {
-    backgroundColor: theme.colors.primary,
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  payButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  }
 });
 
 export default PaymentScreen; 

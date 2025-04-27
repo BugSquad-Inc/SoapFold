@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, Platform, Text, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
-import { auth, db } from './config/firebase';
+import { auth, storage, saveUserToLocalStorage, saveUserDataToLocalStorage, getUserFromLocalStorage, getUserDataFromLocalStorage, clearUserFromLocalStorage } from './config/firebase';
 import { useState, useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { store } from './store';
@@ -14,7 +14,6 @@ import * as WebBrowser from 'expo-web-browser';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import FirebaseVerifier from './components/FirebaseVerifier';
 import { useLoadFonts } from './utils/fonts';
 import { theme } from './utils/theme';
@@ -43,7 +42,7 @@ import OffersScreen from './screens/OffersScreen';
 import ServiceWithOffersScreen from './screens/ServiceWithOffersScreen';
 import ServiceScreen from './screens/ServiceScreen';
 import ClothesScreen from './screens/ClothesScreen';
-import RazorpayScreen from './screens/RazorpayScreen';
+import PaymentScreen from './screens/PaymentScreen';
 import PaymentSuccessScreen from './screens/PaymentSuccessScreen';
 import RecentOrdersScreen from './screens/RecentOrdersScreen';
 
@@ -133,8 +132,8 @@ const AppNavigator = () => (
     
     {/* Payment screen is separate - no bottom navigation */}
     <AppStack.Screen
-      name="RazorpayScreen"
-      component={RazorpayScreen}
+      name="PaymentScreen"
+      component={PaymentScreen}
       options={{ animation: 'slide_from_right' }}
     />
   </AppStack.Navigator>
@@ -170,11 +169,16 @@ export default function App() {
     const checkFirebaseAuth = async () => {
       try {
         console.log("Checking Firebase auth initialization...");
+        console.log("Auth object type:", typeof auth);
+        console.log("Auth object available:", !!auth);
+        
         if (auth) {
           console.log("Firebase auth is initialized");
+          console.log("Current auth implementation:", auth.name || "Unknown");
           setAuthInitialized(true);
         } else {
           console.error("Firebase auth is not initialized");
+          console.error("Firebase import status:", JSON.stringify(require('./config/firebase')));
           Alert.alert(
             "Initialization Error",
             "There was a problem setting up the app. Please restart the app."
@@ -182,6 +186,7 @@ export default function App() {
         }
       } catch (error) {
         console.error("Error checking Firebase auth:", error);
+        console.error("Error details:", JSON.stringify(error, null, 2));
       } finally {
         // Even if auth failed, we'll move forward and handle errors later
         setAuthInitialized(true);
@@ -217,57 +222,39 @@ export default function App() {
           
           if (user) {
             try {
-              // Check if user exists in Firestore
-              if (!db) {
-                console.error("Firestore is not initialized");
-                setUserInfo(user);
-                setLoading(false);
-                return;
-              }
-              
-              const userDocRef = doc(db, 'users', user.uid);
-              const userDoc = await getDoc(userDocRef);
+              // Check if user exists in AsyncStorage
+              const existingUserData = await getUserDataFromLocalStorage();
               
               let userData;
               
-              if (userDoc.exists()) {
-                // User exists in Firestore, use that data
-                userData = userDoc.data();
-                console.log('User data from Firestore:', userData.displayName);
-                
-                // Update lastLogin
-                await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
-              } else {
-                // User doesn't exist in Firestore yet (might be from Google Sign-In)
-                // Create a user document
+              if (existingUserData && existingUserData.uid === user.uid) {
+                // User exists in AsyncStorage, update lastLogin
                 userData = {
+                  ...existingUserData,
+                  lastLogin: new Date().toISOString()
+                };
+                console.log('User data from AsyncStorage:', userData.displayName);
+              } else {
+                // User doesn't exist in AsyncStorage yet (might be from Google Sign-In)
+                // Create a new user record
+                userData = {
+                  uid: user.uid,
                   displayName: user.displayName || user.email.split('@')[0],
                   email: user.email,
                   photoURL: user.photoURL,
-                  createdAt: serverTimestamp(),
-                  lastLogin: serverTimestamp(),
+                  createdAt: new Date().toISOString(),
+                  lastLogin: new Date().toISOString(),
                   location: 'Default Location'
                 };
                 
-                console.log('Creating new user in Firestore:', userData.displayName);
-                await setDoc(userDocRef, userData);
+                console.log('Creating new user in AsyncStorage:', userData.displayName);
               }
               
-              // Cache the user data
-              await AsyncStorage.setItem('@userData', JSON.stringify({
-                ...userData,
-                // Convert timestamps for storage
-                createdAt: userData.createdAt instanceof Date ? userData.createdAt.toISOString() : new Date().toISOString(),
-                lastLogin: new Date().toISOString()
-              }));
+              // Save the user data
+              await saveUserDataToLocalStorage(userData);
               
               // Also save the user auth object for persistence
-              await AsyncStorage.setItem('@user', JSON.stringify({
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
-                photoURL: user.photoURL,
-              }));
+              await saveUserToLocalStorage(user);
               
               // Set the authenticated user
               setUserInfo(user);
@@ -279,8 +266,7 @@ export default function App() {
           } else {
             // User is signed out
             setUserInfo(null);
-            await AsyncStorage.removeItem('@user');
-            await AsyncStorage.removeItem('@userData');
+            await clearUserFromLocalStorage();
             
             // Keep onboarding as seen after logout, don't clear this value
             // This ensures users who have seen onboarding won't see it again after logout
@@ -422,40 +408,37 @@ export default function App() {
             console.log('Google sign in successful:', result.user.email);
             
             try {
-              // Check if user exists in Firestore
-              const userDocRef = doc(db, 'users', result.user.uid);
-              const userDoc = await getDoc(userDocRef);
+              // Check if user exists in AsyncStorage
+              const existingUserData = await getUserDataFromLocalStorage();
               
-              if (!userDoc.exists()) {
-                // Create a new user document for Google Sign-In
+              if (!existingUserData || existingUserData.uid !== result.user.uid) {
+                // Create a new user record for Google Sign-In
                 const userData = {
+                  uid: result.user.uid,
                   displayName: result.user.displayName || result.user.email.split('@')[0],
                   email: result.user.email,
                   photoURL: result.user.photoURL,
-                  createdAt: serverTimestamp(),
-                  lastLogin: serverTimestamp(),
-                  location: 'Cembung Dafur, Yogyakarta'
+                  createdAt: new Date().toISOString(),
+                  lastLogin: new Date().toISOString(),
+                  location: 'Default Location'
                 };
                 
-                console.log('Creating Google user in Firestore:', userData.displayName);
-                await setDoc(userDocRef, userData);
-                
-                // Cache the user data
-                await AsyncStorage.setItem('@userData', JSON.stringify({
-                  ...userData,
-                  createdAt: new Date().toISOString(),
-                  lastLogin: new Date().toISOString()
-                }));
+                console.log('Creating Google user in AsyncStorage:', userData.displayName);
+                await saveUserDataToLocalStorage(userData);
               } else {
                 // Update lastLogin for existing user
-                await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
+                const updatedUserData = {
+                  ...existingUserData,
+                  lastLogin: new Date().toISOString()
+                };
+                await saveUserDataToLocalStorage(updatedUserData);
               }
             } catch (error) {
               console.error('Error handling Google sign-in user data:', error);
             }
             
             setUserInfo(result.user);
-            await AsyncStorage.setItem('@user', JSON.stringify(result.user));
+            await saveUserToLocalStorage(result.user);
           })
           .catch((error) => {
             console.error('Error signing in with Google:', error.message);

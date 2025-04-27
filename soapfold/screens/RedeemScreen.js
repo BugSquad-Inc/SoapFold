@@ -50,20 +50,8 @@ const RedeemScreen = ({ route, navigation }) => {
   ];
 
   const handleServiceSelect = (service) => {
-    // Calculate price from the string (removing 'Rp ' and ','s)
-    const priceString = service.discountedPrice.replace('Rp ', '').replace(',', '');
-    const price = parseInt(priceString, 10);
-    
-    // Create cartItems object for direct checkout
-    const cartItems = {
-      [service.name]: 1
-    };
-    
-    // Navigate directly to RazorpayScreen with the selected service
-    navigation.navigate('RazorpayScreen', {
-      cartItems,
-      totalPrice: price,
-      serviceTitle: service.name,
+    navigation.navigate('ServiceWithOffersScreen', {
+      service,
       promotion
     });
   };

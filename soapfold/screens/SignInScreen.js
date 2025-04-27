@@ -81,29 +81,31 @@ const SignInScreen = ({ navigation }) => {
     
     try {
       console.log(`Attempting to sign in with email: ${email}`);
+      console.log('Firebase auth status:', auth ? 'Initialized' : 'Not initialized');
       
       // Check if Firebase auth is initialized
       if (!auth) {
         throw new Error('Firebase Authentication is not initialized');
       }
       
-      // Simulate preloading resources (remove this in production)
-      // In a real app, you would preload images, data, etc. here
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Calling signInWithEmailAndPassword...');
       
-      // Attempt to sign in
+      // Attempt to sign in with Firebase Authentication
       await signInWithEmailAndPassword(auth, email.trim(), password);
       console.log('Sign-in successful');
+      
+      // The authentication state listener in App.js will handle saving user data
+      // to AsyncStorage and navigation to the home screen
       
       // Keep loading animation while we transition to home screen
       // (don't reset isLoading or isPreloading as we're leaving this screen)
       
-      // Navigation is handled by authStateChanged listener in App.js
     } catch (error) {
       setIsLoading(false);
       setIsPreloading(false);
-      console.error('Sign-in error:', error.code, error.message);
-      console.error('Error details:', error);
+      console.error('Sign-in error code:', error.code);
+      console.error('Sign-in error message:', error.message);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
       
       // Provide more user-friendly error messages
       switch(error.code) {
@@ -146,38 +148,22 @@ const SignInScreen = ({ navigation }) => {
 
   // Function to handle Google sign-in
   const handleGoogleSignIn = async () => {
-    // Start preloading animation immediately
-    startPreloadingAnimation();
-    setIsLoading(true);
-    
-    try {
-      const result = await promptAsync();
-      
-      if (result.type === 'success') {
-        const { id_token } = result.params;
-        const credential = GoogleAuthProvider.credential(id_token);
-        
-        // Simulate preloading resources (remove this in production)
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        await signInWithCredential(auth, credential);
-        
-        // Keep loading animation while we transition to home screen
-        // (don't reset isLoading or isPreloading as we're leaving this screen)
-      } else {
-        setIsLoading(false);
-        setIsPreloading(false);
-      }
-    } catch (error) {
-      setIsLoading(false);
-      setIsPreloading(false);
-      Alert.alert('Error', error.message);
-    }
+    // Show message that Google Sign-in is disabled
+    Alert.alert(
+      "Feature Disabled",
+      "Google Sign-in is currently disabled. Please use email login.",
+      [{ text: "OK" }]
+    );
   };
 
   // Function to navigate to phone sign-in screen
   const handlePhoneSignIn = () => {
-    navigation.navigate('PhoneSignIn');
+    // Show message that Phone Sign-in is disabled
+    Alert.alert(
+      "Feature Disabled",
+      "Phone Sign-in is currently disabled. Please use email login.",
+      [{ text: "OK" }]
+    );
   };
 
   return (
@@ -560,3 +546,5 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
+
+export default SignInScreen;

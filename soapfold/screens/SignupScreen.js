@@ -19,9 +19,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons, Entypo } from '@expo/vector-icons';
-import { auth, db } from '../config/firebase';
+import { auth, saveUserToLocalStorage, saveUserDataToLocalStorage } from '../config/firebase';
 import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithCredential, sendEmailVerification } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
@@ -195,37 +195,22 @@ const SignUpScreen = ({ navigation }) => {
 
   // Handle Google sign-in with preloading
   const handleGoogleSignIn = async () => {
-    try {
-      setIsLoading(true);
-      startPreloadingAnimation();
-      
-      const result = await promptAsync();
-      
-      if (result.type === 'success') {
-        const { id_token } = result.params;
-        const credential = GoogleAuthProvider.credential(id_token);
-        
-        // Simulate preloading resources
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        await signInWithCredential(auth, credential);
-        
-        // Keep loading animation while we transition to home screen
-        // (don't reset isLoading or isPreloading as we're leaving this screen)
-      } else {
-        setIsLoading(false);
-        setIsPreloading(false);
-      }
-    } catch (error) {
-      setIsLoading(false);
-      setIsPreloading(false);
-      Alert.alert('Error', error.message);
-    }
+    // Show message that Google Sign-in is disabled
+    Alert.alert(
+      "Feature Disabled",
+      "Google Sign-in is currently disabled. Please use email registration.",
+      [{ text: "OK" }]
+    );
   };
 
   // Handle phone sign-in
   const handlePhoneSignIn = () => {
-    navigation.navigate('PhoneSignIn');
+    // Show message that Phone Sign-in is disabled
+    Alert.alert(
+      "Feature Disabled",
+      "Phone Sign-in is currently disabled. Please use email registration.",
+      [{ text: "OK" }]
+    );
   };
 
   // Complete registration function
@@ -270,27 +255,24 @@ const SignUpScreen = ({ navigation }) => {
       await sendEmailVerification(userCredential.user);
       console.log('Verification email sent successfully');
       
-      // Make sure Firestore is initialized
-      if (!db) {
-        console.error('Firestore is not initialized');
-        return;
-      }
-      
-      // Save user data to Firestore
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
+      // Save user data to AsyncStorage
+      const userData = {
         uid: userCredential.user.uid,
         firstName: firstName,
         lastName: lastName,
         displayName: `${firstName} ${lastName}`,
         email: email,
         photoURL: photoURL || '',
-        createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp(),
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
         phoneNumber: userCredential.user.phoneNumber || '',
         emailVerified: false // Initially email is not verified
-      });
+      };
       
-      console.log('User data saved to Firestore successfully');
+      await saveUserDataToLocalStorage(userData);
+      await saveUserToLocalStorage(userCredential.user);
+      
+      console.log('User data saved to AsyncStorage successfully');
       
       // Start polling for email verification
       let verificationCheckCount = 0;
@@ -328,18 +310,23 @@ const SignUpScreen = ({ navigation }) => {
             // Email is verified!
             console.log('Email verification confirmed');
             
-            // Update emailVerified in Firestore
-            await setDoc(doc(db, 'users', updatedUser.uid), 
-              { emailVerified: true }, 
-              { merge: true }
-            );
+            // Update emailVerified in AsyncStorage
+            const storedUserData = await AsyncStorage.getItem('@userData');
+            if (storedUserData) {
+              const parsedUserData = JSON.parse(storedUserData);
+              const updatedUserData = {
+                ...parsedUserData,
+                emailVerified: true
+              };
+              await AsyncStorage.setItem('@userData', JSON.stringify(updatedUserData));
+            }
             
             // Update loading screen text
             setPreloaderText("Verification successful! Redirecting...");
             
             // Show verification success briefly, then navigate home without a button
             setTimeout(() => {
-      setIsLoading(false);
+              setIsLoading(false);
               setIsPreloading(false);
               
               // Navigate to the appropriate screen after verification
@@ -403,7 +390,7 @@ const SignUpScreen = ({ navigation }) => {
           Alert.alert('Error', 'Network error. Please check your internet connection.');
           break;
         default:
-      Alert.alert('Error', error.message);
+          Alert.alert('Error', error.message);
       }
     }
   };
@@ -1063,3 +1050,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 });
+
+export default SignUpScreen;

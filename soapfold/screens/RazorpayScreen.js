@@ -38,7 +38,7 @@ const samplePrices = {
   'Corporate Wear': 5500,
 };
 
-const RazorpayScreen = () => {
+const PaymentScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -221,7 +221,7 @@ const RazorpayScreen = () => {
   );
 };
 
-export default RazorpayScreen;
+export default PaymentScreen;
 
 const styles = StyleSheet.create({
   container: {

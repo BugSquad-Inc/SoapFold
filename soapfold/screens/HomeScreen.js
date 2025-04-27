@@ -16,8 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
-import { auth, db } from '../config/firebase';
-import { collection, getDocs, query, where, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, verifyFirebaseInitialized, saveUserDataToLocalStorage } from '../config/firebase';
 import { signOut } from 'firebase/auth';
 import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -84,6 +83,11 @@ const HomeScreen = ({ navigation }) => {
   const fetchUserData = async () => {
     try {
       console.log('Fetching user data on screen focus or load');
+      
+      // Verify Firebase services are initialized
+      const firebaseStatus = verifyFirebaseInitialized();
+      console.log('Firebase status:', firebaseStatus);
+      
       // Try local storage first for immediate display
       const cachedUserData = await AsyncStorage.getItem('@userData');
       if (cachedUserData) {
@@ -92,82 +96,36 @@ const HomeScreen = ({ navigation }) => {
         setUserData(userData);
       }
 
-      // Get the email
-      const userEmail = auth.currentUser?.email || (cachedUserData ? JSON.parse(cachedUserData).email : null);
-      console.log('User email:', userEmail);
-      
-      if (!userEmail) {
-        console.log('No user email found in auth or cache');
-        setLoading(false);
-        return;
-      }
-      
-      // Try to get data from Firestore using email if auth user isn't ready
-      if (!auth.currentUser) {
-        console.log('Auth not ready, trying Firestore query by email');
-        if (userEmail) {
-          const usersRef = collection(db, 'users');
-          const q = query(usersRef, where('email', '==', userEmail));
-          const querySnapshot = await getDocs(q);
-          
-          if (!querySnapshot.empty) {
-            const userData = querySnapshot.docs[0].data();
-            const userId = querySnapshot.docs[0].id;
-            console.log('Found user by email query:', userData);
-            setUserData(userData);
-            await AsyncStorage.setItem('@userData', JSON.stringify(userData));
-            setLoading(false);
-            return;
-          }
-        }
-      }
-      
-      // Continue with normal flow if auth is ready
-      const currentUser = auth.currentUser;
+      // Get the current user
+      const currentUser = auth?.currentUser;
       if (currentUser) {
-        // Then fetch from Firestore for up-to-date data
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        
-        if (userDoc.exists()) {
-          // User data exists in Firestore
-          const userData = userDoc.data();
-          console.log('Firestore user data:', userData);
+        // If we have cached user data, update it with any newer info from auth
+        if (cachedUserData) {
+          let userData = JSON.parse(cachedUserData);
+          let needsUpdate = false;
           
-          // Check Google provider data for name if it exists
-          const googleProvider = currentUser.providerData.find(
-            provider => provider.providerId === 'google.com'
-          );
-          
-          // If displayName is not set or is default 'User', try to update it from auth sources
-          if (!userData.displayName || userData.displayName === 'User') {
-            // First try the direct auth displayName
-            if (currentUser.displayName) {
-              userData.displayName = currentUser.displayName;
-              console.log('Using auth displayName:', currentUser.displayName);
-            } 
-            // Then try Google provider data if available
-            else if (googleProvider && googleProvider.displayName) {
-              userData.displayName = googleProvider.displayName;
-              console.log('Using Google provider displayName:', googleProvider.displayName);
-            }
-            
-            // Update Firestore with the new displayName if we found one
-            if (userData.displayName && userData.displayName !== 'User') {
-              console.log('Updating Firestore with displayName:', userData.displayName);
-              await updateDoc(doc(db, 'users', currentUser.uid), {
-                displayName: userData.displayName
-              });
-            }
+          // Check if we need to update displayName
+          if ((!userData.displayName || userData.displayName === 'User') && 
+              currentUser.displayName && currentUser.displayName !== 'User') {
+            userData.displayName = currentUser.displayName;
+            needsUpdate = true;
           }
           
-          // Set user data in state
-          setUserData(userData);
+          // Check if we need to update photoURL
+          if ((!userData.photoURL || userData.photoURL === '') && 
+              currentUser.photoURL && currentUser.photoURL !== '') {
+            userData.photoURL = currentUser.photoURL;
+            needsUpdate = true;
+          }
           
-          // Cache the updated data
-          await AsyncStorage.setItem('@userData', JSON.stringify(userData));
+          // If updates needed, save back to AsyncStorage
+          if (needsUpdate) {
+            await saveUserDataToLocalStorage(userData);
+            setUserData(userData);
+          }
         } else {
+          // No cached user data, create new user data from auth
           console.log('No user document exists, creating default user');
-          // Create basic user data if doesn't exist
           
           // Check for name in Google provider data
           const googleProvider = currentUser.providerData.find(
@@ -191,10 +149,12 @@ const HomeScreen = ({ navigation }) => {
           }
           
           const defaultUser = {
+            uid: currentUser.uid,
             displayName: displayName || 'User',
             email: currentUser.email,
             photoURL: currentUser.photoURL,
-            createdAt: serverTimestamp(),
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
             location: 'Cembung Dafur, Yogyakarta'
           };
           
@@ -203,22 +163,22 @@ const HomeScreen = ({ navigation }) => {
           // Set user data in state
           setUserData(defaultUser);
           
-          // Save the default user data to Firestore
-          try {
-            await setDoc(doc(db, 'users', currentUser.uid), defaultUser);
-            // Cache the data
-            await AsyncStorage.setItem('@userData', JSON.stringify(defaultUser));
-          } catch (saveError) {
-            console.error('Error saving default user data:', saveError);
-          }
+          // Save the default user data to AsyncStorage
+          await saveUserDataToLocalStorage(defaultUser);
         }
       }
-      setLoading(false);
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        setLoading(false);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      // Use cached data if we have it
+      const cachedUserData = await AsyncStorage.getItem('@userData');
+      if (cachedUserData) {
+        setUserData(JSON.parse(cachedUserData));
+        console.log('Using cached user data due to error');
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Initial animation and data fetch
   useEffect(() => {
@@ -268,7 +228,7 @@ const HomeScreen = ({ navigation }) => {
 
   // Get user's first name with multiple fallbacks
   const getUserFirstName = () => {
-    // First try from user state (which comes from Firestore)
+    // First try from user state
     if (userData?.displayName && userData.displayName !== 'User') {
       return userData.displayName.split(/\s+/)[0];
     }

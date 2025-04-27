@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { auth, getUserDataFromLocalStorage, clearUserFromLocalStorage } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../utils/theme';
 
@@ -15,9 +14,19 @@ const DashboardScreen = ({ navigation }) => {
       try {
         const user = auth.currentUser;
         if (user) {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            setUserData(userDoc.data());
+          // Get user data from AsyncStorage
+          const userData = await getUserDataFromLocalStorage();
+          if (userData) {
+            setUserData(userData);
+          } else {
+            // Fallback to basic data if no detailed data found
+            setUserData({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName || user.email?.split('@')[0] || 'User',
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+            });
           }
         }
       } catch (error) {
@@ -34,10 +43,8 @@ const DashboardScreen = ({ navigation }) => {
     try {
       console.log('Starting logout process from DashboardScreen...');
       
-      // Clear user data from AsyncStorage, but keep onboarding status
-      const keys = ['@userData', '@user', '@authUser', '@userToken'];
-      await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));
-      console.log('AsyncStorage items removed (keeping @hasSeenOnboarding)');
+      // Clear user data from AsyncStorage using the helper
+      await clearUserFromLocalStorage();
       
       // Sign out from Firebase
       await signOut(auth);

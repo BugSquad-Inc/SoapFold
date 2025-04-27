@@ -15,8 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { auth, getUserDataFromLocalStorage } from '../config/firebase';
 import { signOut } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../utils/theme';
@@ -36,26 +35,21 @@ const ProfileScreen = ({ navigation }) => {
       try {
         const currentUser = auth.currentUser;
         if (currentUser) {
-          // Try to get cached user data first
-          try {
-            const cachedUserData = await AsyncStorage.getItem('@userData');
-            if (cachedUserData) {
-              const userData = JSON.parse(cachedUserData);
-              setUser(userData);
-              console.log('Using cached user data in profile');
-            }
-          } catch (cacheError) {
-            console.log('No cached user data available in profile');
-          }
-          
-          // Then fetch from Firestore
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
+          // Get user data from AsyncStorage
+          const userData = await getUserDataFromLocalStorage();
+          if (userData) {
             setUser(userData);
-            
-            // Update cache
-            await AsyncStorage.setItem('@userData', JSON.stringify(userData));
+            console.log('Using user data from AsyncStorage in profile');
+          } else {
+            // If no user data found, create basic user data from auth
+            const basicUserData = {
+              uid: currentUser.uid,
+              displayName: currentUser.displayName || 'User',
+              email: currentUser.email,
+              photoURL: currentUser.photoURL,
+            };
+            setUser(basicUserData);
+            console.log('Created basic user data from auth in profile');
           }
         }
         setLoading(false);
