@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, FlatList, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Image, FlatList, StyleSheet, ScrollView, StatusBar, SafeAreaView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const imageMap = {
   'Shirt': require('../assets/images/ironing.jpg'),
@@ -40,7 +41,16 @@ const samplePrices = {
   'Corporate Wear': 5500,
 };
 
-const CartScreen = ({ route }) => {
+// Empty cart component
+const EmptyCart = () => (
+  <View style={styles.emptyCartContainer}>
+    <MaterialIcons name="shopping-cart" size={80} color="#ddd" />
+    <Text style={styles.emptyCartText}>Your cart is empty</Text>
+    <Text style={styles.emptyCartSubtext}>Add items to your cart to get started</Text>
+  </View>
+);
+
+const CartScreen = ({ route, navigation }) => {
   const { serviceTitle } = route.params;
   const [cartItems, setCartItems] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -126,9 +136,22 @@ const CartScreen = ({ route }) => {
   };
 
   return (
-    <View style={styles.wrapper}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.container}>
-        <Text style={styles.title}>{serviceTitle}</Text>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Cart</Text>
+          <TouchableOpacity style={styles.clearButton} onPress={() => setCartItems({})}>
+            <Text style={styles.clearButtonText}>Clear All</Text>
+          </TouchableOpacity>
+        </View>
+
         <FlatList
           data={filterItems()}
           renderItem={renderItem}
@@ -136,49 +159,74 @@ const CartScreen = ({ route }) => {
           numColumns={2}
           contentContainerStyle={[
             styles.grid,
-            { paddingBottom: 100 + insets.bottom }
+            { paddingBottom: 80 + insets.bottom }
           ]}
           ListHeaderComponent={renderTabs}
+          ListEmptyComponent={EmptyCart}
         />
-      </View>
 
-      <View style={[
-        styles.footer,
-        { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }
-      ]}>
-        <View style={styles.totalContainer}>
-          <Text style={styles.totalLabel}>Total:</Text>
-          <Text style={styles.totalAmount}>Rp {totalPrice.toLocaleString()}</Text>
-        </View>
-        <TouchableOpacity
-          disabled={totalPrice === 0}
-          style={[styles.verifyButton, totalPrice === 0 && styles.verifyButtonDisabled]}
-          onPress={() => console.log('Verify order clicked')}
-        >
-          <Text style={styles.verifyText}>Verify Order</Text>
-        </TouchableOpacity>
+        {totalPrice > 0 && (
+          <View style={[
+            styles.footer,
+            { paddingBottom: insets.bottom + 10 }
+          ]}>
+            <View style={styles.totalContainer}>
+              <Text style={styles.totalLabel}>Total:</Text>
+              <Text style={styles.totalAmount}>Rp {totalPrice.toLocaleString()}</Text>
+            </View>
+            <TouchableOpacity
+              disabled={totalPrice === 0}
+              style={[styles.verifyButton, totalPrice === 0 && styles.verifyButtonDisabled]}
+              onPress={() => navigation.navigate('RazorpayScreen', {
+                cartItems,
+                totalPrice,
+                serviceTitle: serviceTitle || 'Laundry Service'
+              })}
+            >
+              <Text style={styles.verifyText}>Verify Order</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
-export default CartScreen;
-
 const styles = StyleSheet.create({
-  wrapper: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f8f8',
   },
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
-    paddingHorizontal: 12,
-    paddingTop: 12,
+    paddingTop: 0,
   },
-  title: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginTop: 0,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginVertical: 8,
+    paddingHorizontal: 10,
+  },
+  clearButton: {
+    padding: 8,
+  },
+  clearButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -268,10 +316,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   footer: {
-    padding: 12,
-    borderTopWidth: 1,
-    borderColor: '#eee',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    padding: 16,
+    paddingBottom: 16,
+    marginBottom: 60,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    zIndex: 999,
   },
   totalContainer: {
     flexDirection: 'row',
@@ -300,4 +360,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  emptyCartContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 40,
+  },
+  emptyCartText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyCartSubtext: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
 });
+
+export default CartScreen;

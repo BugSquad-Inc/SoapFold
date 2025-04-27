@@ -149,7 +149,7 @@ const SignUpScreen = ({ navigation }) => {
       }
       return;
     }
-    
+
     const nextIndex = currentStep + 1;
     setCurrentStep(nextIndex);
     flatListRef.current.scrollToIndex({
@@ -163,7 +163,7 @@ const SignUpScreen = ({ navigation }) => {
       navigation.goBack();
       return;
     }
-    
+
     const prevIndex = currentStep - 1;
     setCurrentStep(prevIndex);
     flatListRef.current.scrollToIndex({
@@ -471,7 +471,7 @@ const SignUpScreen = ({ navigation }) => {
                     <MaterialIcons 
                       name="person" 
                       size={28} 
-                      color={firstName ? "#000000" : isFirstNameFocused ? "#FF0000" : "#DDDDDD"} 
+                      color={firstName ? "#000000" : isFirstNameFocused ? "#000000" : "#DDDDDD"} 
                     />
                   </View>
                 </View>
@@ -497,7 +497,7 @@ const SignUpScreen = ({ navigation }) => {
                     <MaterialIcons 
                       name="person" 
                       size={28} 
-                      color={lastName ? "#000000" : isLastNameFocused ? "#FF0000" : "#DDDDDD"} 
+                      color={lastName ? "#000000" : isLastNameFocused ? "#000000" : "#DDDDDD"} 
                     />
                   </View>
                 </View>
@@ -571,7 +571,7 @@ const SignUpScreen = ({ navigation }) => {
                     <MaterialIcons 
                       name="email" 
                       size={28} 
-                      color={email ? "#000000" : isEmailFocused ? "#FF0000" : "#DDDDDD"} 
+                      color={email ? "#000000" : isEmailFocused ? "#000000" : "#DDDDDD"} 
                     />
                   </View>
               </View>
@@ -599,7 +599,7 @@ const SignUpScreen = ({ navigation }) => {
                   <MaterialIcons
                     name={showPassword ? "visibility" : "visibility-off"}
                         size={28}
-                        color={password ? "#000000" : isPasswordFocused ? "#FF0000" : "#DDDDDD"}
+                        color={password ? "#000000" : isPasswordFocused ? "#000000" : "#DDDDDD"}
                   />
                 </TouchableOpacity>
                   </View>
@@ -627,7 +627,7 @@ const SignUpScreen = ({ navigation }) => {
                   <MaterialIcons
                     name={showConfirmPassword ? "visibility" : "visibility-off"}
                         size={28}
-                        color={confirmPassword ? "#000000" : isConfirmPasswordFocused ? "#FF0000" : "#DDDDDD"}
+                        color={confirmPassword ? "#000000" : isConfirmPasswordFocused ? "#000000" : "#DDDDDD"}
                       />
                     </TouchableOpacity>
                   </View>
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)', // Semi-transparent white background
   },
   inputContainerFocused: {
-    borderColor: theme.colors.secondary,
+    borderColor: '#000000',
   },
   input: {
     flex: 1,
@@ -976,6 +976,7 @@ const styles = StyleSheet.create({
     ...getTextStyle('medium', 'sm', theme.colors.secondary),
     fontSize: 14,
     fontWeight: 'bold',
+    color: '#000000',
   },
   bottomButtonContainer: {
     flexDirection: 'row',
@@ -1062,5 +1063,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 });
-
-export default SignUpScreen; 

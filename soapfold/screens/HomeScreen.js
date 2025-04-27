@@ -8,7 +8,6 @@ import {
   Image,
   Dimensions,
   Animated,
-  StatusBar,
   FlatList,
   ActivityIndicator,
   Alert,
@@ -24,6 +23,8 @@ import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { theme, getTextStyle } from '../utils/theme';
+import { useTheme } from '../utils/ThemeContext';
+import ThemedStatusBar from '../components/ThemedStatusBar';
 
 const { width, height } = Dimensions.get('window');
 
@@ -57,6 +58,7 @@ const HomeScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeProjectIndex, setActiveProjectIndex] = useState(0);
+  const { isDarkMode, theme: activeTheme } = useTheme();
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -452,8 +454,8 @@ const HomeScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+      <View style={[styles.loadingContainer, { backgroundColor: activeTheme.colors.background }]}>
+        <ActivityIndicator size="large" color={activeTheme.colors.primary} />
       </View>
     );
   }
@@ -650,7 +652,7 @@ const HomeScreen = ({ navigation }) => {
 
     // Render carousel item
     const renderPromoItem = ({ item }) => {
-      return (
+  return (
         <View style={[styles.promoCard, { backgroundColor: item.backgroundColor }]}>
           <View style={styles.promoContentContainer}>
             <View style={styles.promoTextContainer}>
@@ -658,7 +660,7 @@ const HomeScreen = ({ navigation }) => {
               <Text style={[styles.promoSubtitle, {color: item.accentColor}]}>{item.subtitle}</Text>
               <Text style={styles.promoDescription}>{item.description}</Text>
               
-              <TouchableOpacity 
+            <TouchableOpacity
                 style={[styles.promoActionButton, {backgroundColor: item.accentColor, marginTop: 10, marginBottom: 4}]}
                 onPress={() => {
                   // Navigate to OffersScreen instead of CategoryScreen
@@ -670,7 +672,7 @@ const HomeScreen = ({ navigation }) => {
               >
                 <Text style={styles.promoActionButtonText}>Redeem Now</Text>
                 <Feather name="arrow-right-circle" size={16} color="#FFFFFF" style={{marginLeft: 5}} />
-              </TouchableOpacity>
+            </TouchableOpacity>
             </View>
             
             <View style={[styles.accentShape, {backgroundColor: item.accentColor}]} />
@@ -682,7 +684,7 @@ const HomeScreen = ({ navigation }) => {
                 resizeMode="cover"
               />
             </View>
-          </View>
+        </View>
         </View>
       );
     };
@@ -762,12 +764,17 @@ const HomeScreen = ({ navigation }) => {
     });
   };
 
+  // Function to handle "View All" for recent orders
+  const handleViewAllOrders = () => {
+    navigation.navigate('CalendarScreen');
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#222222" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: activeTheme.colors.background }]}>
+      <ThemedStatusBar backgroundColor="#222222" barStyle="light-content" />
       
-      {/* Black background container for top section */}
-      <View style={styles.topSectionContainer}>
+      {/* Background container for top section */}
+      <View style={[styles.topSectionContainer, { backgroundColor: activeTheme.colors.topSection }]}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTextContainer}>
@@ -792,7 +799,7 @@ const HomeScreen = ({ navigation }) => {
               <View style={styles.profileImageFallback}>
                 <Text style={styles.profileInitials}>
                   {firstName.charAt(0).toUpperCase()}
-                </Text>
+          </Text>
               </View>
             )}
           </TouchableOpacity>
@@ -800,14 +807,14 @@ const HomeScreen = ({ navigation }) => {
         
         {/* Search Bar positioned to overlap the bottom of the black container */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
+          <View style={[styles.searchBar, { backgroundColor: activeTheme.colors.cardBackground }]}>
             <View style={styles.searchIconContainer}>
-              <Feather name="search" size={16} color="#999999" />
+              <Feather name="search" size={16} color={activeTheme.colors.placeholder} />
             </View>
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: activeTheme.colors.text }]}
               placeholder="Find laundry services..."
-              placeholderTextColor="#999999"
+              placeholderTextColor={activeTheme.colors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onSubmitEditing={() => {
@@ -821,19 +828,19 @@ const HomeScreen = ({ navigation }) => {
             />
             <View style={styles.filterButtonContainer}>
               <TouchableOpacity 
-                style={styles.filterButton}
+                style={[styles.filterButton, { backgroundColor: activeTheme.colors.topSection }]}
                 onPress={() => navigation.navigate('CategoryScreen', {
                   category: 'Filter',
                   showFilters: true
                 })}
               >
                 <MaterialIcons name="tune" size={18} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+          </TouchableOpacity>
+        </View>
           </View>
         </View>
       </View>
-
+      
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -861,7 +868,7 @@ const HomeScreen = ({ navigation }) => {
               id: 'all',
               name: 'All Services',
               icon: 'local-laundry-service',
-              color: theme.colors.primary
+              color: activeTheme.colors.primary
             }
           })}>
             <Text style={styles.sectionLink}>View all</Text>
@@ -884,11 +891,11 @@ const HomeScreen = ({ navigation }) => {
           scrollEventThrottle={16}
         >
           {projects.map((project, index) => (
-            <TouchableOpacity 
+              <TouchableOpacity 
               key={project.id} 
               style={[
                 styles.projectCard, 
-                { backgroundColor: index === activeProjectIndex ? '#222222' : '#FFFFFF' }
+                { backgroundColor: index === activeProjectIndex ? activeTheme.colors.primary : '#FFFFFF' }
               ]}
               onPress={() => handleProjectPress(project, index)}
             >
@@ -904,7 +911,7 @@ const HomeScreen = ({ navigation }) => {
                   size={24} 
                   color={index === activeProjectIndex ? '#FFFFFF' : '#222222'} 
                 />
-              </View>
+                </View>
               <Text style={[styles.projectTitle, { color: index === activeProjectIndex ? '#FFFFFF' : '#222222' }]}>
                 {project.title}
               </Text>
@@ -921,8 +928,8 @@ const HomeScreen = ({ navigation }) => {
                   color={index === activeProjectIndex ? '#FFFFFF' : '#222222'} 
                 />
               </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))}
           
           {/* Replace See All Card with More button */}
           <TouchableOpacity 
@@ -932,42 +939,25 @@ const HomeScreen = ({ navigation }) => {
                 id: 'all',
                 name: 'All Services',
                 icon: 'local-laundry-service',
-                color: theme.colors.primary
+                color: activeTheme.colors.primary
               }
             })}
           >
             <View style={styles.moreContent}>
               <Text style={styles.moreText}>More</Text>
               <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" />
-            </View>
+          </View>
           </TouchableOpacity>
         </ScrollView>
         
-        {/* Recent Orders Section */}
-        <View style={styles.sectionHeader}>
+        {/* If there are recent orders shown */}
+          <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Orders</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('OrderDetailScreen', {
-            orderId: 'LDY123456',
-            service: { name: 'Wash & Fold' },
-            pickupDate: 'Today',
-            pickupTime: '10:30 AM - 12:30 PM',
-            status: 'Processing',
-            items: [
-              { name: 'T-Shirts', quantity: 3, price: 15.99 },
-              { name: 'Pants', quantity: 2, price: 19.99 }
-            ],
-            timeline: [
-              { status: 'Order Placed', time: '10:30 AM', completed: true },
-              { status: 'Processing', time: 'In Progress', completed: false },
-              { status: 'Ready for Delivery', time: 'Upcoming', completed: false },
-              { status: 'Delivered', time: 'Upcoming', completed: false }
-            ],
-            totalPrice: 45.99
-          })}>
-            <Text style={styles.sectionLink}>View all</Text>
-          </TouchableOpacity>
-        </View>
-        
+          <TouchableOpacity onPress={handleViewAllOrders}>
+            <Text style={styles.viewAllText}>View all</Text>
+            </TouchableOpacity>
+          </View>
+
         <TouchableOpacity 
           style={styles.recentOrderCard}
           onPress={() => navigation.navigate('OrderDetailScreen', {
@@ -993,30 +983,30 @@ const HomeScreen = ({ navigation }) => {
             <View>
               <Text style={styles.orderNumber}>#LDY123456</Text>
               <Text style={styles.orderDate}>Today, 10:30 AM</Text>
-            </View>
+              </View>
             <View style={styles.statusContainer}>
               <View style={[styles.statusIndicator, { backgroundColor: '#FFA500' }]} />
               <Text style={[styles.statusText, { color: '#FFA500' }]}>Processing</Text>
-            </View>
+              </View>
           </View>
           
           <View style={styles.orderSummary}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Items</Text>
               <Text style={styles.summaryValue}>5</Text>
-            </View>
+                </View>
             
             <View style={styles.summaryDivider} />
             
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Total</Text>
               <Text style={styles.summaryValue}>$45.99</Text>
-            </View>
+                </View>
             
             <TouchableOpacity style={styles.viewOrderButton}>
               <Text style={styles.viewOrderText}>Track Order</Text>
               <MaterialIcons name="chevron-right" size={16} color="#222222" />
-            </TouchableOpacity>
+              </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -1025,7 +1015,7 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#f8f8f8',
   },
@@ -1169,8 +1159,9 @@ const styles = StyleSheet.create({
     ...getTextStyle('bold', 'lg', '#222'),
   },
   sectionLink: {
-    ...getTextStyle('medium', 'sm', '#888'),
-    fontSize: 13, // Slightly smaller font
+    color: '#888888',
+    fontSize: 14,
+    fontWeight: '600',
   },
   projectsContainer: {
     paddingHorizontal: 15,
@@ -1459,6 +1450,11 @@ const styles = StyleSheet.create({
     ...getTextStyle('medium', 'md', '#FFFFFF'),
     marginBottom: 8,
     fontSize: 16,
+  },
+  viewAllText: {
+    color: '#888888',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

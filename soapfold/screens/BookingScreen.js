@@ -283,15 +283,14 @@ const BookingScreen = ({ navigation, route }) => {
               (!selectedDate || !selectedTime || !address) ? styles.disabledButton : {}
             ]}
             disabled={!selectedDate || !selectedTime || !address}
-            onPress={() => navigation.navigate('PaymentScreen', {
-              service,
-              items: itemCounts,
-              totalItems,
+            onPress={() => navigation.navigate('RazorpayScreen', {
+              cartItems: itemCounts,
+              totalPrice: calculateFinalPrice(),
+              serviceTitle: service?.name || 'Laundry Service',
               pickupDate: selectedDate,
               pickupTime: selectedTime,
               address,
-              notes,
-              totalPrice: calculateFinalPrice()
+              notes
             })}
           >
             <Text style={styles.continueButtonText}>

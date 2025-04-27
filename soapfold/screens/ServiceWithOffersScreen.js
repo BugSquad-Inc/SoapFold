@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, SafeAreaView, StatusBar } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -111,6 +111,8 @@ const ServiceWithOffersScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity 
@@ -120,7 +122,7 @@ const ServiceWithOffersScreen = ({ route, navigation }) => {
             <MaterialIcons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{service.name}</Text>
-          <View style={styles.placeholder} />
+          <View style={styles.rightSpace} />
         </View>
         
         <View style={styles.promoContainer}>
@@ -136,7 +138,7 @@ const ServiceWithOffersScreen = ({ route, navigation }) => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.listContainer,
-            { paddingBottom: 100 + insets.bottom } // Add safe area insets + footer height
+            { paddingBottom: 80 + insets.bottom } // Reduced padding for footer
           ]}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
@@ -144,7 +146,7 @@ const ServiceWithOffersScreen = ({ route, navigation }) => {
         
         <View style={[
           styles.footer,
-          { bottom: insets.bottom > 0 ? insets.bottom : 16 } // Adjust footer position based on safe area
+          { paddingBottom: 16 }
         ]}>
           <View style={styles.summaryContainer}>
             <Text style={styles.summaryText}>
@@ -185,7 +187,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    marginTop: 0,
+    marginBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     backgroundColor: '#fff',
@@ -194,10 +198,11 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
+    paddingHorizontal: 10,
   },
-  placeholder: {
+  rightSpace: {
     width: 40,
   },
   promoContainer: {
@@ -284,18 +289,21 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#eee',
     padding: 16,
-    elevation: 5,
+    paddingBottom: 16,
+    marginBottom: 60,
+    elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
+    zIndex: 999,
   },
   summaryContainer: {
     flexDirection: 'row',
@@ -328,4 +336,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ServiceWithOffersScreen; 
+export default ServiceWithOffersScreen;

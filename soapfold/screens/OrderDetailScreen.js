@@ -194,13 +194,33 @@ const OrderDetailScreen = ({ route, navigation }) => {
   );
 };
 
+// Function to determine the color based on order status
+const getStatusColor = (status) => {
+  switch(status) {
+    case 'Pending':
+      return '#FFA500'; // Orange
+    case 'In Progress':
+      return '#007AFF'; // Blue
+    case 'Ready for Pickup':
+      return '#32CD32'; // Green
+    case 'Delivered':
+      return '#00C851'; // Green
+    case 'Cancelled':
+      return '#FF3B30'; // Red
+    default:
+      return '#007AFF'; // Default blue
+  }
+};
+
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    marginTop: 8,
+    marginBottom: 8,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
@@ -209,8 +229,9 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
+    paddingHorizontal: 10,
   },
   moreButton: {
     padding: 8,
@@ -446,4 +467,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OrderDetailScreen; 
+export default OrderDetailScreen;

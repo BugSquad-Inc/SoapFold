@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 import { MaterialIcons, Feather, FontAwesome, Ionicons } from '@expo/vector-icons';
 import { theme, getTextStyle } from '../utils/theme';
 import ScreenContainer from '../components/ScreenContainer';
+import { useFocusEffect } from '@react-navigation/native';
 
 const PaymentScreen = ({ navigation, route }) => {
   const { 
@@ -60,6 +61,16 @@ const PaymentScreen = ({ navigation, route }) => {
   // Filter only items that have a quantity > 0
   const filteredOrderItems = orderItems.filter(item => item.quantity > 0);
 
+  // Calculate the subtotal based on actual order items
+  const calculateSubtotal = () => {
+    return filteredOrderItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  // Calculate the final total price
+  const subtotal = calculateSubtotal();
+  const deliveryFee = 5.00;
+  const finalTotal = subtotal + deliveryFee;
+
   // Handle payment submission
   const handleContinueToPayment = () => {
     // Navigate to payment method screen or confirmation screen
@@ -69,7 +80,7 @@ const PaymentScreen = ({ navigation, route }) => {
       pickupDate,
       pickupTime,
       address,
-      totalPrice
+      totalPrice: finalTotal
     });
   };
   
@@ -78,7 +89,7 @@ const PaymentScreen = ({ navigation, route }) => {
     <View style={styles.orderItemRow}>
       <View style={styles.orderItemInfo}>
         <Text style={styles.orderItemName}>{item.name}</Text>
-        <Text style={styles.orderItemQuantity}>Qty: {item.quantity}</Text>
+        <Text style={styles.orderItemQuantity}>Qty: {item.quantity} × ${item.price.toFixed(2)}</Text>
       </View>
       <Text style={styles.orderItemPrice}>
         ${(item.price * item.quantity).toFixed(2)}
@@ -86,8 +97,15 @@ const PaymentScreen = ({ navigation, route }) => {
     </View>
   );
   
+  // Make bottom tab bar visible for this screen
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarVisible: true
+    });
+  }, [navigation]);
+  
   return (
-    <ScreenContainer>
+    <View style={styles.mainContainer}>
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         
@@ -168,19 +186,19 @@ const PaymentScreen = ({ navigation, route }) => {
             
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal:</Text>
-              <Text style={styles.summaryValue}>${(totalPrice - 5).toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
             </View>
             
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Delivery Fee:</Text>
-              <Text style={styles.summaryValue}>$5.00</Text>
+              <Text style={styles.summaryValue}>${deliveryFee.toFixed(2)}</Text>
             </View>
             
             <View style={styles.divider} />
             
             <View style={styles.summaryRow}>
               <Text style={styles.totalLabel}>Total Amount:</Text>
-              <Text style={styles.totalValue}>${totalPrice}</Text>
+              <Text style={styles.totalValue}>${finalTotal.toFixed(2)}</Text>
             </View>
           </View>
           
@@ -195,11 +213,15 @@ const PaymentScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    </ScreenContainer>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#fff',
@@ -225,7 +247,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 16,
-    paddingBottom: 180, // Add extra padding to ensure content doesn't get hidden behind the fixed footer
+    paddingBottom: 240, // Increased to accommodate both the footer and navbar
   },
   // Order Items Section
   orderItemsSection: {
@@ -322,7 +344,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 65, // Position above the bottom navigation bar
     left: 0,
     right: 0,
     paddingHorizontal: 16,
@@ -343,112 +365,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 0,
-  },
-  payButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
-
-export default PaymentScreen; 
-    padding: 16,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  selectedPaymentOption: {
-    backgroundColor: `${theme.colors.primary}20`,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-  },
-  paymentIconContainer: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    marginRight: 12,
-  },
-  paymentLabel: {
-    fontSize: 16,
-    color: '#333',
-  },
-  selectedPaymentLabel: {
-    fontWeight: '600',
-    color: theme.colors.primary,
-  },
-  cardDetailsContainer: {
-    marginBottom: 24,
-  },
-  cardDetailsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  cardTypeContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  cardTypeIcon: {
-    width: 60,
-    height: 40,
-    marginRight: 12,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  saveCardContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  saveCardText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f1f1',
-  },
-  payButton: {
-    backgroundColor: theme.colors.primary,
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
+    marginBottom: 10,
   },
   payButtonText: {
     color: '#FFF',

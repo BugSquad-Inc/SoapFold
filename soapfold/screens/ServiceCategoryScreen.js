@@ -175,6 +175,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f1f1',
+    marginTop: 0,
   },
   headerTitle: {
     fontSize: 18,
@@ -276,4 +277,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ServiceCategoryScreen; 
+export default ServiceCategoryScreen;

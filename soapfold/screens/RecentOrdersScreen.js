@@ -239,7 +239,7 @@ const RecentOrdersScreen = ({ navigation, route }) => {
           <MaterialIcons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Orders</Text>
-        <View style={styles.rightPlaceholder} />
+        <View style={styles.rightSpace} />
       </View>
 
       {loading ? (
@@ -270,18 +270,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#fff',
+    marginTop: 8,
+    marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff',
   },
   backButton: {
     padding: 8,
   },
-  rightPlaceholder: {
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    paddingHorizontal: 10,
+  },
+  rightSpace: {
     width: 40,
   },
   listContent: {
@@ -294,45 +297,62 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
   highlightedOrderCard: {
     borderWidth: 2,
     borderColor: theme.colors.primary,
+    backgroundColor: '#fafafa',
   },
   orderCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
   },
   orderNumber: {
-    ...getTextStyle('bold', 'md', '#222222'),
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#222222',
   },
   orderDate: {
-    ...getTextStyle('regular', 'sm', '#666666'),
-    marginTop: 2,
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 4,
   },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: 5,
+    marginRight: 6,
   },
   statusText: {
-    ...getTextStyle('medium', 'sm', '#FFA500'),
+    fontSize: 12,
+    fontWeight: '600',
   },
   orderSummary: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginVertical: 12,
+    backgroundColor: '#f7f7f7',
+    borderRadius: 10,
+    padding: 10,
   },
   summaryItem: {
     flex: 1,
@@ -340,36 +360,48 @@ const styles = StyleSheet.create({
   },
   summaryDivider: {
     width: 1,
-    height: '100%',
-    backgroundColor: '#EEEEEE',
+    height: '80%',
+    backgroundColor: '#e0e0e0',
+    alignSelf: 'center',
   },
   summaryLabel: {
-    ...getTextStyle('regular', 'sm', '#888888'),
-    marginBottom: 3,
+    fontSize: 11,
+    color: '#888888',
+    marginBottom: 4,
   },
   summaryValue: {
-    ...getTextStyle('medium', 'sm', '#222222'),
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#222222',
   },
   totalAmount: {
-    ...getTextStyle('bold', 'md', theme.colors.primary),
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
   },
   expandedDetails: {
-    marginTop: 10,
+    marginTop: 15,
+    backgroundColor: '#fafafa',
+    borderRadius: 10,
+    padding: 12,
   },
   sectionDivider: {
     height: 1,
     backgroundColor: '#EEEEEE',
-    marginVertical: 15,
+    marginVertical: 12,
   },
   deliveryAddressSection: {
-    marginBottom: 5,
+    marginBottom: 8,
   },
   sectionTitle: {
-    ...getTextStyle('bold', 'sm', '#222222'),
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#222222',
     marginBottom: 8,
   },
   deliveryAddress: {
-    ...getTextStyle('regular', 'sm', '#666666'),
+    fontSize: 12,
+    color: '#666666',
     lineHeight: 18,
   },
   orderItemsSection: {
@@ -378,55 +410,70 @@ const styles = StyleSheet.create({
   orderItemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   orderItemInfo: {
     flex: 1,
   },
   orderItemName: {
-    ...getTextStyle('medium', 'sm', '#222222'),
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#222222',
   },
   orderItemQuantity: {
-    ...getTextStyle('regular', 'xs', '#888888'),
-    marginTop: 2,
+    fontSize: 12,
+    color: '#888888',
+    marginTop: 3,
   },
   orderItemPrice: {
-    ...getTextStyle('medium', 'sm', '#222222'),
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#222222',
   },
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 10,
+    marginTop: 15,
   },
   trackButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#222222',
     paddingVertical: 10,
     paddingHorizontal: 15,
-    borderRadius: 25,
+    borderRadius: 8,
     flex: 1,
     marginRight: 10,
+    elevation: 2,
   },
   trackButtonText: {
-    ...getTextStyle('bold', 'sm', '#FFFFFF'),
-    marginLeft: 5,
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginLeft: 6,
   },
   reorderButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#222222',
     paddingVertical: 10,
     paddingHorizontal: 15,
-    borderRadius: 25,
+    borderRadius: 8,
     flex: 1,
     marginRight: 10,
+    elevation: 2,
   },
   reorderButtonText: {
-    ...getTextStyle('bold', 'sm', '#FFFFFF'),
-    marginLeft: 5,
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginLeft: 6,
   },
   supportButton: {
     flexDirection: 'row',
@@ -435,19 +482,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     paddingVertical: 10,
     paddingHorizontal: 15,
-    borderRadius: 25,
+    borderRadius: 8,
     flex: 1,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   supportButtonText: {
-    ...getTextStyle('bold', 'sm', '#222222'),
-    marginLeft: 5,
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#222222',
+    marginLeft: 6,
   },
   expandButtonContainer: {
     alignItems: 'center',
-    marginTop: 5,
+    marginTop: 12,
   },
   expandButton: {
-    padding: 5,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -461,4 +517,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RecentOrdersScreen; 
+export default RecentOrdersScreen;

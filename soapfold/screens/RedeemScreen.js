@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, SafeAreaView, StatusBar } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -50,94 +50,102 @@ const RedeemScreen = ({ route, navigation }) => {
   ];
 
   const handleServiceSelect = (service) => {
-    navigation.navigate('ServiceWithOffersScreen', {
-      service,
+    // Calculate price from the string (removing 'Rp ' and ','s)
+    const priceString = service.discountedPrice.replace('Rp ', '').replace(',', '');
+    const price = parseInt(priceString, 10);
+    
+    // Create cartItems object for direct checkout
+    const cartItems = {
+      [service.name]: 1
+    };
+    
+    // Navigate directly to RazorpayScreen with the selected service
+    navigation.navigate('RazorpayScreen', {
+      cartItems,
+      totalPrice: price,
+      serviceTitle: service.name,
       promotion
     });
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => navigation.goBack()}
-          >
-            <MaterialIcons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Redeem Offer</Text>
-          <View style={styles.placeholder} />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Redeem Offer</Text>
+        <View style={styles.rightSpace} />
+      </View>
+      
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={{
+          ...styles.contentContainer,
+          paddingBottom: insets.bottom + 56 // Add safe area insets + space for navbar
+        }}
+      >
+        {/* Promotion Banner */}
+        <View style={[styles.promotionBanner, { backgroundColor: promotion.backgroundColor }]}>
+          <View style={styles.promotionContent}>
+            <Text style={styles.promotionTitle}>{promotion.title}</Text>
+            <Text style={[styles.promotionSubtitle, { color: promotion.accentColor }]}>{promotion.subtitle}</Text>
+            <Text style={styles.promotionDesc}>{promotion.description}</Text>
+          </View>
         </View>
 
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={{
-            paddingBottom: insets.bottom + 80 // Add safe area insets + extra space for navbar
-          }}
-        >
-          {/* Promotion Banner */}
-          <View style={[styles.promotionBanner, { backgroundColor: promotion.backgroundColor }]}>
-            <View style={styles.promotionContent}>
-              <Text style={styles.promotionTitle}>{promotion.title}</Text>
-              <Text style={[styles.promotionSubtitle, { color: promotion.accentColor }]}>{promotion.subtitle}</Text>
-              <Text style={styles.promotionDesc}>{promotion.description}</Text>
-            </View>
-          </View>
+        {/* Eligible Services Section */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Eligible Services</Text>
+          <Text style={styles.sectionDesc}>Select a service to apply this offer</Text>
 
-          {/* Eligible Services Section */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Eligible Services</Text>
-            <Text style={styles.sectionDesc}>Select a service to apply this offer</Text>
-
-            {eligibleServices.map((service) => (
-              <TouchableOpacity 
-                key={service.id} 
-                style={styles.serviceCard}
-                onPress={() => handleServiceSelect(service)}
-              >
-                <Image source={service.image} style={styles.serviceImage} />
-                <View style={styles.serviceInfo}>
-                  <Text style={styles.serviceName}>{service.name}</Text>
-                  <Text style={styles.serviceDiscount}>{service.discount}</Text>
-                  <View style={styles.priceContainer}>
-                    <Text style={styles.regularPrice}>{service.regularPrice}</Text>
-                    <Text style={styles.discountedPrice}>{service.discountedPrice}</Text>
-                  </View>
+          {eligibleServices.map((service) => (
+            <TouchableOpacity 
+              key={service.id} 
+              style={styles.serviceCard}
+              onPress={() => handleServiceSelect(service)}
+            >
+              <Image source={service.image} style={styles.serviceImage} />
+              <View style={styles.serviceInfo}>
+                <Text style={styles.serviceName}>{service.name}</Text>
+                <Text style={styles.serviceDiscount}>{service.discount}</Text>
+                <View style={styles.priceContainer}>
+                  <Text style={styles.regularPrice}>{service.regularPrice}</Text>
+                  <Text style={styles.discountedPrice}>{service.discountedPrice}</Text>
                 </View>
-                <MaterialIcons name="chevron-right" size={24} color="#777" />
-              </TouchableOpacity>
-            ))}
-          </View>
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color="#777" />
+            </TouchableOpacity>
+          ))}
+        </View>
 
-          {/* Terms and Conditions */}
-          <View style={styles.termsContainer}>
-            <Text style={styles.termsTitle}>Terms & Conditions</Text>
-            <Text style={styles.termsText}>• Valid until December 31, 2023</Text>
-            <Text style={styles.termsText}>• Cannot be combined with other offers</Text>
-            <Text style={styles.termsText}>• Valid for first-time users only</Text>
-            <Text style={styles.termsText}>• Subject to availability</Text>
-          </View>
-        </ScrollView>
-      </View>
+        {/* Terms and Conditions */}
+        <View style={styles.termsContainer}>
+          <Text style={styles.termsTitle}>Terms & Conditions</Text>
+          <Text style={styles.termsText}>• Valid until December 31, 2023</Text>
+          <Text style={styles.termsText}>• Cannot be combined with other offers</Text>
+          <Text style={styles.termsText}>• Valid for first-time users only</Text>
+          <Text style={styles.termsText}>• Subject to availability</Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8f8f8',
-  },
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16, 
+    marginTop: 0,
+    marginBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     backgroundColor: '#fff',
@@ -146,11 +154,9 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-  },
-  placeholder: {
-    width: 40,
+    paddingHorizontal: 10,
   },
   scrollView: {
     flex: 1,
@@ -256,6 +262,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#777',
     marginBottom: 4,
+  },
+  rightSpace: {
+    width: 40,
+  },
+  contentContainer: {
+    // No paddingBottom here - it's applied dynamically in the component
   },
 });
 

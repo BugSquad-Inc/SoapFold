@@ -10,6 +10,8 @@ import {
   Alert,
   Switch,
   Platform,
+  Modal,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
@@ -18,11 +20,15 @@ import { doc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../utils/theme';
+import { useTheme } from '../utils/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { isDarkMode, setDarkMode, theme: activeTheme } = useTheme();
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [modalAnimation] = useState(new Animated.Value(0));
 
   // Fetch user data
   useEffect(() => {
@@ -60,28 +66,11 @@ const ProfileScreen = ({ navigation }) => {
     };
 
     fetchUserData();
-    
-    // Check dark mode preference
-    const checkDarkMode = async () => {
-      try {
-        const darkModeValue = await AsyncStorage.getItem('@darkMode');
-        setIsDarkMode(darkModeValue === 'true');
-      } catch (error) {
-        console.error('Error fetching dark mode preference:', error);
-      }
-    };
-    
-    checkDarkMode();
   }, []);
 
   // Toggle dark mode
   const toggleDarkMode = async (value) => {
-    setIsDarkMode(value);
-    try {
-      await AsyncStorage.setItem('@darkMode', value ? 'true' : 'false');
-    } catch (error) {
-      console.error('Error saving dark mode preference:', error);
-    }
+    setDarkMode(value);
   };
 
   // Handle navigation to edit profile
@@ -89,19 +78,48 @@ const ProfileScreen = ({ navigation }) => {
     navigation.navigate('EditProfile', { user });
   };
 
+  // Show the logout modal
+  const showLogoutModal = () => {
+    setLogoutModalVisible(true);
+    Animated.timing(modalAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Hide the logout modal
+  const hideLogoutModal = () => {
+    Animated.timing(modalAnimation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setLogoutModalVisible(false);
+    });
+  };
+
   // Handle logout
   const handleLogout = async () => {
     try {
-      // Clear user data from AsyncStorage, but keep onboarding status
-      const keys = ['@userData', '@user', '@authUser', '@userToken'];
+      // Hide the modal first
+      hideLogoutModal();
+      
+      // Wait for animation to complete
+      setTimeout(async () => {
+        // Clear user data from AsyncStorage, including onboarding status
+        // to redirect user to onboarding screen
+        const keys = ['@userData', '@user', '@authUser', '@userToken', '@hasSeenOnboarding'];
       await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));
+        console.log('Cleared AsyncStorage including @hasSeenOnboarding to show onboarding after logout');
       
       // Then sign out from Firebase
-      if (auth) {
-        await signOut(auth);
-      }
-      
-      // The auth state listener in App.js will handle navigation automatically
+        if (auth) {
+      await signOut(auth);
+        }
+        
+        // The auth state listener in App.js will handle navigation automatically
+      }, 300);
     } catch (error) {
       console.error('Error signing out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
@@ -110,9 +128,9 @@ const ProfileScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8E44AD" />
+          <ActivityIndicator size="large" color={activeTheme.colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -132,91 +150,133 @@ const ProfileScreen = ({ navigation }) => {
     
     return (firstInitial + lastInitial).toUpperCase();
   };
+  
+  // Modal animations
+  const translateY = modalAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [300, 0],
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.profileHeaderText}>Profile</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
+      <View style={[styles.header, { borderBottomColor: activeTheme.colors.border }]}>
+        <Text style={[styles.profileHeaderText, { color: activeTheme.colors.text }]}>Profile</Text>
         <TouchableOpacity style={styles.settingsButton}>
-          <MaterialIcons name="settings" size={24} color="#888" />
-        </TouchableOpacity>
-      </View>
-
+          <MaterialIcons name="settings" size={24} color={activeTheme.colors.icon} />
+            </TouchableOpacity>
+        </View>
+        
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileSection}>
+        <View style={[styles.profileSection, { backgroundColor: activeTheme.colors.cardBackground }]}>
           <View style={styles.avatarContainer}>
             {user?.photoURL ? (
-              <Image 
+                <Image 
                 source={{ uri: user.photoURL }} 
                 style={styles.avatarImage}
                 onError={(e) => {
                   console.log('Error loading profile image:', e);
-                }}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{getUserInitials()}</Text>
-              </View>
-            )}
+                  }}
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarText}>{getUserInitials()}</Text>
+                </View>
+              )}
             <TouchableOpacity style={styles.editIconContainer} onPress={goToEditProfile}>
               <MaterialIcons name="edit" size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
           
-          <Text style={styles.userName}>{user?.displayName || 'User'}</Text>
-          <Text style={styles.userEmail}>{user?.email || ''}</Text>
+          <Text style={[styles.userName, { color: activeTheme.colors.text }]}>{user?.displayName || 'User'}</Text>
+          <Text style={[styles.userEmail, { color: activeTheme.colors.lightText }]}>{user?.email || ''}</Text>
         </View>
 
-        <View style={styles.menuSection}>
-          <TouchableOpacity style={styles.menuItem} onPress={goToEditProfile}>
-            <MaterialIcons name="person-outline" size={24} color="#555" style={styles.menuIcon} />
-            <Text style={styles.menuText}>Edit Profile</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#CCCCCC" />
+        <View style={[styles.menuSection, { backgroundColor: activeTheme.colors.cardBackground }]}>
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={goToEditProfile}>
+            <MaterialIcons name="person-outline" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Edit Profile</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('NotificationSettings')}>
-            <MaterialIcons name="notifications-none" size={24} color="#555" style={styles.menuIcon} />
-            <Text style={styles.menuText}>Notification</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#CCCCCC" />
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={() => navigation.navigate('NotificationSettings')}>
+            <MaterialIcons name="notifications-none" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Notification</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
           </TouchableOpacity>
           
-          <View style={styles.menuItem}>
-            <MaterialIcons name="dark-mode" size={24} color="#555" style={styles.menuIcon} />
-            <Text style={styles.menuText}>Dark Mode</Text>
+          <View style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]}>
+            <MaterialIcons name="dark-mode" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Dark Mode</Text>
             <Switch
               value={isDarkMode}
               onValueChange={toggleDarkMode}
-              trackColor={{ false: '#DDDDDD', true: '#9C27B0' }}
+              trackColor={{ false: '#DDDDDD', true: activeTheme.colors.switch }}
               thumbColor={'#FFFFFF'}
               ios_backgroundColor="#DDDDDD"
               style={styles.switch}
             />
           </View>
           
-          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('PrivacyPolicy')}>
-            <MaterialIcons name="lock-outline" size={24} color="#555" style={styles.menuIcon} />
-            <Text style={styles.menuText}>Privacy Policy</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#CCCCCC" />
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={() => navigation.navigate('PrivacyPolicy')}>
+            <MaterialIcons name="lock-outline" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Privacy Policy</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('HelpCenter')}>
-            <MaterialIcons name="help-outline" size={24} color="#555" style={styles.menuIcon} />
-            <Text style={styles.menuText}>Help Center</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#CCCCCC" />
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={() => navigation.navigate('HelpCenter')}>
+            <MaterialIcons name="help-outline" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Help Center</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('InviteFriends')}>
-            <MaterialIcons name="people-outline" size={24} color="#555" style={styles.menuIcon} />
-            <Text style={styles.menuText}>Invite Friends</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#CCCCCC" />
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: activeTheme.colors.divider }]} onPress={() => navigation.navigate('InviteFriends')}>
+            <MaterialIcons name="people-outline" size={24} color={activeTheme.colors.icon} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: activeTheme.colors.text }]}>Invite Friends</Text>
+            <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.icon} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={handleLogout}>
+          <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={showLogoutModal}>
             <MaterialIcons name="logout" size={24} color="#FF3B30" style={styles.menuIcon} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+        </ScrollView>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        animationType="none"
+        transparent={true}
+        visible={logoutModalVisible}
+        onRequestClose={hideLogoutModal}>
+        <View style={styles.modalOverlay}>
+          <Animated.View 
+            style={[
+              styles.modalContainer, 
+              { transform: [{ translateY: translateY }] }
+            ]}>
+            <LinearGradient
+              colors={['#FFFFFF', '#FFFFFF']}
+              style={styles.modalGradient}>
+              <Text style={styles.logoutTitle}>Logout</Text>
+              <Text style={styles.logoutConfirmText}>Are you sure you want to log out?</Text>
+              
+              <View style={styles.logoutButtonsContainer}>
+                <TouchableOpacity 
+                  style={styles.cancelButton} 
+                  onPress={hideLogoutModal}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.confirmLogoutButton} 
+                  onPress={handleLogout}>
+                  <Text style={styles.confirmLogoutButtonText}>Yes, Logout</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -224,7 +284,6 @@ const ProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
@@ -237,11 +296,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 15,
+    borderBottomWidth: 1,
   },
   profileHeaderText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
   },
   settingsButton: {
     padding: 6,
@@ -253,6 +312,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     marginBottom: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
   },
   avatarContainer: {
     position: 'relative',
@@ -290,23 +352,23 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: '#777',
   },
   menuSection: {
     marginHorizontal: 16,
     marginBottom: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   menuIcon: {
     marginRight: 16,
@@ -315,7 +377,6 @@ const styles = StyleSheet.create({
   menuText: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
   },
   switch: {
     transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }]
@@ -327,6 +388,67 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#FF3B30',
+  },
+  // Logout Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  modalGradient: {
+    paddingHorizontal: 20,
+    paddingVertical: 25,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 25,
+  },
+  logoutTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  logoutConfirmText: {
+    fontSize: 16,
+    color: '#000000',
+    marginBottom: 25,
+    textAlign: 'center',
+  },
+  logoutButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    flex: 1,
+    marginRight: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#000000',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#000000',
+    fontWeight: '600',
+  },
+  confirmLogoutButton: {
+    backgroundColor: '#000000',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    flex: 1.5,
+    alignItems: 'center',
+  },
+  confirmLogoutButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
 

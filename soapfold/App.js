@@ -18,6 +18,8 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import FirebaseVerifier from './components/FirebaseVerifier';
 import { useLoadFonts } from './utils/fonts';
 import { theme } from './utils/theme';
+import { ThemeProvider } from './utils/ThemeContext';
+import ThemedStatusBar from './components/ThemedStatusBar';
 
 // Auth Screens
 import OnboardingScreen from './screens/OnboardingScreen';
@@ -41,7 +43,7 @@ import OffersScreen from './screens/OffersScreen';
 import ServiceWithOffersScreen from './screens/ServiceWithOffersScreen';
 import ServiceScreen from './screens/ServiceScreen';
 import ClothesScreen from './screens/ClothesScreen';
-import PaymentScreen from './screens/PaymentScreen';
+import RazorpayScreen from './screens/RazorpayScreen';
 import PaymentSuccessScreen from './screens/PaymentSuccessScreen';
 import RecentOrdersScreen from './screens/RecentOrdersScreen';
 
@@ -131,8 +133,8 @@ const AppNavigator = () => (
     
     {/* Payment screen is separate - no bottom navigation */}
     <AppStack.Screen
-      name="PaymentScreen"
-      component={PaymentScreen}
+      name="RazorpayScreen"
+      component={RazorpayScreen}
       options={{ animation: 'slide_from_right' }}
     />
   </AppStack.Navigator>
@@ -466,38 +468,44 @@ export default function App() {
     }
   }, [response]);
 
-  if (loading || !fontsLoaded) {
+  if (!authInitialized || !fontsLoaded || loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
+        <ActivityIndicator size="large" color="#8E44AD" />
       </View>
     );
   }
 
   return (
-    <ErrorBoundary>
-      <Provider store={store}>
+    <ThemeProvider>
+      <ErrorBoundary>
         <SafeAreaProvider>
-          <StatusBar style="light" />
-          {showFirebaseVerifier && <FirebaseVerifier />}
-          <NavigationContainer>
-            <RootStack.Navigator screenOptions={{ headerShown: false }}>
-              {userInfo ? (
-                <RootStack.Screen name="App" component={AppNavigator} />
-              ) : (
-                <RootStack.Screen name="Auth">
-                  {(props) => <AuthNavigator 
-                    {...props} 
-                    promptAsync={promptAsync} 
-                    hasSeenOnboarding={hasSeenOnboarding}
-                    markOnboardingAsSeen={markOnboardingAsSeen} 
-                  />}
-                </RootStack.Screen>
-              )}
-            </RootStack.Navigator>
-          </NavigationContainer>
+          <ThemedStatusBar />
+          <Provider store={store}>
+            <NavigationContainer>
+              {showFirebaseVerifier && <FirebaseVerifier onDismiss={() => setShowFirebaseVerifier(false)} />}
+              <RootStack.Navigator screenOptions={{ headerShown: false }}>
+                {userInfo ? (
+                  // User is signed in
+                  <RootStack.Screen name="App" component={AppNavigator} />
+                ) : (
+                  // No user is signed in
+                  <RootStack.Screen name="Auth">
+                    {(props) => (
+                      <AuthNavigator 
+                        {...props} 
+                        promptAsync={promptAsync} 
+                        hasSeenOnboarding={hasSeenOnboarding}
+                        markOnboardingAsSeen={markOnboardingAsSeen}
+                      />
+                    )}
+                  </RootStack.Screen>
+                )}
+              </RootStack.Navigator>
+            </NavigationContainer>
+          </Provider>
         </SafeAreaProvider>
-      </Provider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }

@@ -270,6 +270,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     backgroundColor: '#fff',
+    marginTop: 0,
   },
   headerTitle: {
     fontSize: 18,
@@ -382,4 +383,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default NotificationScreen; 
+export default NotificationScreen;

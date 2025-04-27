@@ -224,7 +224,7 @@ const SignInScreen = ({ navigation }) => {
                     <MaterialIcons 
                       name="email" 
                       size={30} 
-                      color={email ? "#000000" : isEmailFocused ? "#FF0000" : "#DDDDDD"} 
+                      color={email ? "#000000" : isEmailFocused ? "#000000" : "#DDDDDD"} 
                       style={styles.inputIcon} 
                     />
                   </View>
@@ -252,7 +252,7 @@ const SignInScreen = ({ navigation }) => {
                       <MaterialIcons
                         name={showPassword ? "visibility" : "visibility-off"}
                         size={30}
-                        color={password ? "#000000" : isPasswordFocused ? "#FF0000" : "#DDDDDD"}
+                        color={password ? "#000000" : isPasswordFocused ? "#000000" : "#DDDDDD"}
                       />
                     </TouchableOpacity>
                   </View>
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)', // Semi-transparent white background
   },
   inputContainerFocused: {
-    borderColor: theme.colors.secondary,
+    borderColor: '#000000',
   },
   input: {
     flex: 1,
@@ -459,6 +459,7 @@ const styles = StyleSheet.create({
     ...getTextStyle('medium', 'sm', theme.colors.secondary),
     fontSize: 14, // Slightly larger text
     fontWeight: 'bold', // Make it bold as requested
+    color: '#000000', // Change to black
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -512,6 +513,7 @@ const styles = StyleSheet.create({
     ...getTextStyle('medium', 'sm', theme.colors.secondary),
     fontSize: 14,
     fontWeight: 'bold',
+    color: '#000000', // Change to black
   },
   bottomButtonContainer: {
     paddingHorizontal: 24,
@@ -558,5 +560,3 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
-
-export default SignInScreen; 

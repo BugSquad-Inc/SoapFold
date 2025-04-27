@@ -32,6 +32,7 @@ import ServiceCategoryScreen from '../screens/ServiceCategoryScreen';
 import ServiceDetailScreen from '../screens/ServiceDetailScreen';
 import BookingScreen from '../screens/BookingScreen';
 import BookingConfirmationScreen from '../screens/BookingConfirmationScreen';
+import RazorpayScreen from '../screens/RazorpayScreen';
 
 const { width } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
@@ -432,14 +433,12 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
             
             if (route.name === 'HomeScreen') {
               iconName = 'cottage'; // Stylish house/home icon
-            } else if (route.name === 'CalendarScreen') {
+            } else if (route.name === 'Orders') {
               iconName = 'receipt-long'; // Orders icon
-            } else if (route.name === 'CategoryScreen') {
+            } else if (route.name === 'NotificationScreen') {
               iconName = isFocused ? 'notifications-active' : 'notifications-none'; // Active/inactive notification icon
             } else if (route.name === 'ProfileScreen') {
               iconName = 'person-outline'; // Outlined person icon
-            } else if (route.name === 'Orders') {
-              iconName = 'receipt-long'; // Receipt icon for orders
             }
 
             // Regular nav items with active state
@@ -458,7 +457,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                   />
                   
                   {/* Show notification badge for notification tab if there are unread notifications */}
-                  {route.name === 'CategoryScreen' && unreadCount > 0 && (
+                  {route.name === 'NotificationScreen' && unreadCount > 0 && (
                     <View style={styles.badgeContainer}>
                       <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
                     </View>
@@ -491,6 +490,7 @@ const HomeStack = () => (
     <Stack.Screen name="BookingScreen" component={BookingScreen} />
     <Stack.Screen name="BookingConfirmationScreen" component={BookingConfirmationScreen} />
     <Stack.Screen name="OrderDetailScreen" component={OrderDetailScreen} />
+    <Stack.Screen name="RazorpayScreen" component={RazorpayScreen} />
   </Stack.Navigator>
 );
 
@@ -515,13 +515,15 @@ const BottomTabNavigator = () => {
       }}
     >
       <Tab.Screen name="HomeScreen" component={HomeStack} />
-      <Tab.Screen name="CalendarScreen" component={OrderScreenNavigator} options={{ title: 'Orders' }} />
+      <Tab.Screen name="Orders" component={OrderScreenNavigator} options={{ title: 'Orders' }} />
       <Tab.Screen name="CartScreen" component={CartScreen} />
-      <Tab.Screen name="CategoryScreen" component={NotificationScreen} options={{ title: 'Notifications' }} />
+      <Tab.Screen name="NotificationScreen" component={NotificationScreen} options={{ title: 'Notifications' }} />
       <Tab.Screen name="ProfileScreen" component={ProfileScreen} />
     </Tab.Navigator>
   );
 };
+
+export default BottomTabNavigator;
 
 const styles = StyleSheet.create({
   container: {
@@ -717,6 +719,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 4,
   },
-});
-
-export default BottomTabNavigator; 
+}); 
