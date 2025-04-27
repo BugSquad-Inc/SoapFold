@@ -26,8 +26,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.soapfold.app",
-      "googleServicesFile": "./android/app/google-services.json"
+      "package": "com.soapfold.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"

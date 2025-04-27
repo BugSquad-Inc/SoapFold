@@ -1,22 +1,22 @@
 import { initializeApp } from "firebase/app";
-import { initializeAuth, getReactNativePersistence, PhoneAuthProvider } from "firebase/auth";
+import { getAuth, initializeAuth, PhoneAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getReactNativePersistence } from "firebase/auth/react-native";
+import { Alert } from "react-native";
 import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
-import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
-const API_KEY = "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI".trim(); // Ensure no trailing spaces
+const API_KEY = "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI";
 
 const firebaseConfig = {
   apiKey: API_KEY,
-  authDomain: "soapfold.firebaseapp.com",
-  projectId: "soapfold",
-  storageBucket: "soapfold.appspot.com",
-  messagingSenderId: "192181548467",
-  appId: "1:192181548467:web:8gek6h4l6na8roqafikh5id12qojo8ii"
+  authDomain: "soapfold-app.firebaseapp.com",
+  projectId: "soapfold-app",
+  storageBucket: "soapfold-app.appspot.com",
+  messagingSenderId: "681509346490",
+  appId: "1:681509346490:web:placeholder123456"
 };
 
 // Initialize Firebase
@@ -47,10 +47,6 @@ try {
     }
   } catch (authError) {
     console.error('Firebase auth initialization error:', authError);
-    console.error('Error name:', authError.name);
-    console.error('Error message:', authError.message);
-    console.error('Error code:', authError.code);
-    console.error('Error stack:', authError.stack);
     
     // Fallback to regular auth without persistence if there's an issue
     try {
