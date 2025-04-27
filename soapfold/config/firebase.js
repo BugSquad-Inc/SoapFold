@@ -3,7 +3,7 @@ import { getAuth, initializeAuth, PhoneAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getReactNativePersistence } from "firebase/auth/react-native";
+import { getReactNativePersistence } from "@firebase/auth/react-native";
 import { Alert } from "react-native";
 import Constants from 'expo-constants';
 
