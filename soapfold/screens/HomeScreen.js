@@ -12,11 +12,12 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
-  Platform
+  Platform,
+  ImageBackground
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
-import { auth, verifyFirebaseInitialized, saveUserDataToLocalStorage } from '../config/firebase';
+import { auth, verifyFirebaseInitialized, saveUserDataToLocalStorage, getUserDataFromLocalStorage } from '../config/firebase';
 import { signOut } from 'firebase/auth';
 import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,6 +25,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { theme, getTextStyle } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import ThemedStatusBar from '../components/ThemedStatusBar';
+import topSectionBg from '../assets/topsection_bg.jpeg';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,7 +54,7 @@ const FoldIcon = ({ size, color }) => (
   <MaterialIcons name="layers" size={size} color={color} />
 );
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation, route }) => {
   const [userData, setUserData] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -82,47 +84,13 @@ const HomeScreen = ({ navigation }) => {
   // Fetch user data function
   const fetchUserData = async () => {
     try {
-      console.log('Fetching user data on screen focus or load');
-      
-      // Verify Firebase services are initialized
-      const firebaseStatus = verifyFirebaseInitialized();
-      console.log('Firebase status:', firebaseStatus);
-      
-      // Try local storage first for immediate display
-      const cachedUserData = await AsyncStorage.getItem('@userData');
-      if (cachedUserData) {
-        const userData = JSON.parse(cachedUserData);
-        console.log('Using cached user data immediately:', userData);
-        setUserData(userData);
-      }
-
-      // Get the current user
-      const currentUser = auth?.currentUser;
+      const currentUser = auth.currentUser;
       if (currentUser) {
-        // If we have cached user data, update it with any newer info from auth
-        if (cachedUserData) {
-          let userData = JSON.parse(cachedUserData);
-          let needsUpdate = false;
-          
-          // Check if we need to update displayName
-          if ((!userData.displayName || userData.displayName === 'User') && 
-              currentUser.displayName && currentUser.displayName !== 'User') {
-            userData.displayName = currentUser.displayName;
-            needsUpdate = true;
-          }
-          
-          // Check if we need to update photoURL
-          if ((!userData.photoURL || userData.photoURL === '') && 
-              currentUser.photoURL && currentUser.photoURL !== '') {
-            userData.photoURL = currentUser.photoURL;
-            needsUpdate = true;
-          }
-          
-          // If updates needed, save back to AsyncStorage
-          if (needsUpdate) {
-            await saveUserDataToLocalStorage(userData);
-            setUserData(userData);
-          }
+        // Get user data from AsyncStorage
+        const userData = await getUserDataFromLocalStorage();
+        if (userData) {
+          setUserData(userData);
+          console.log('Using user data from AsyncStorage in home');
         } else {
           // No cached user data, create new user data from auth
           console.log('No user document exists, creating default user');
@@ -169,12 +137,6 @@ const HomeScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
-      // Use cached data if we have it
-      const cachedUserData = await AsyncStorage.getItem('@userData');
-      if (cachedUserData) {
-        setUserData(JSON.parse(cachedUserData));
-        console.log('Using cached user data due to error');
-      }
     } finally {
       setLoading(false);
     }
@@ -198,7 +160,7 @@ const HomeScreen = ({ navigation }) => {
 
     // Initial data fetch
     fetchUserData();
-  }, []);
+  }, [route.params?.userUpdated]);
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -734,7 +696,7 @@ const HomeScreen = ({ navigation }) => {
       <ThemedStatusBar backgroundColor="#222222" barStyle="light-content" />
       
       {/* Background container for top section */}
-      <View style={[styles.topSectionContainer, { backgroundColor: activeTheme.colors.topSection }]}>
+      <ImageBackground source={topSectionBg} style={styles.topSectionContainer} imageStyle={{ borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTextContainer}>
@@ -746,7 +708,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
           <TouchableOpacity 
             style={styles.profileContainer}
-            onPress={() => navigation.navigate('ProfileScreen')}
+            onPress={() => navigation.navigate('Settings', { screen: 'EditProfile' })}
             onLongPress={resetOnboardingForDev}
             delayLongPress={1000}
           >
@@ -799,7 +761,7 @@ const HomeScreen = ({ navigation }) => {
         </View>
           </View>
         </View>
-      </View>
+      </ImageBackground>
       
       <ScrollView 
         showsVerticalScrollIndicator={false}
@@ -855,7 +817,7 @@ const HomeScreen = ({ navigation }) => {
               key={project.id} 
               style={[
                 styles.projectCard, 
-                { backgroundColor: index === activeProjectIndex ? activeTheme.colors.primary : '#FFFFFF' }
+                { backgroundColor: index === activeProjectIndex ? '#243D6E' : '#FFFFFF' }
               ]}
               onPress={() => handleProjectPress(project, index)}
             >
@@ -893,7 +855,7 @@ const HomeScreen = ({ navigation }) => {
           
           {/* Replace See All Card with More button */}
           <TouchableOpacity 
-            style={styles.moreCard}
+            style={[styles.moreCard, { backgroundColor: '#243D6E' }]}
             onPress={() => navigation.navigate('ServiceCategoryScreen', { 
               category: {
                 id: 'all',
@@ -911,12 +873,12 @@ const HomeScreen = ({ navigation }) => {
         </ScrollView>
         
         {/* If there are recent orders shown */}
-          <View style={styles.sectionHeader}>
+        <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Orders</Text>
           <TouchableOpacity onPress={handleViewAllOrders}>
             <Text style={styles.viewAllText}>View all</Text>
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity 
           style={styles.recentOrderCard}
@@ -940,33 +902,37 @@ const HomeScreen = ({ navigation }) => {
           })}
         >
           <View style={styles.recentOrderHeader}>
-            <View>
+            <View style={styles.orderInfoContainer}>
               <Text style={styles.orderNumber}>#LDY123456</Text>
               <Text style={styles.orderDate}>Today, 10:30 AM</Text>
-              </View>
-            <View style={styles.statusContainer}>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: '#FFF3E0' }]}>
               <View style={[styles.statusIndicator, { backgroundColor: '#FFA500' }]} />
               <Text style={[styles.statusText, { color: '#FFA500' }]}>Processing</Text>
-              </View>
+            </View>
+          </View>
+          
+          <View style={styles.orderItemsPreview}>
+            <View style={styles.orderItemPreview}>
+              <MaterialIcons name="checkroom" size={18} color="#666" />
+              <Text style={styles.orderItemPreviewText}>T-Shirts (3)</Text>
+            </View>
+            <View style={styles.orderItemPreview}>
+              <MaterialIcons name="checkroom" size={18} color="#666" />
+              <Text style={styles.orderItemPreviewText}>Pants (2)</Text>
+            </View>
           </View>
           
           <View style={styles.orderSummary}>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Items</Text>
-              <Text style={styles.summaryValue}>5</Text>
-                </View>
-            
-            <View style={styles.summaryDivider} />
-            
-            <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Total</Text>
-              <Text style={styles.summaryValue}>$45.99</Text>
-                </View>
+              <Text style={styles.summaryValue}>₹45.99</Text>
+            </View>
             
-            <TouchableOpacity style={styles.viewOrderButton}>
-              <Text style={styles.viewOrderText}>Track Order</Text>
-              <MaterialIcons name="chevron-right" size={16} color="#222222" />
-              </TouchableOpacity>
+            <TouchableOpacity style={styles.trackOrderButton}>
+              <Text style={styles.trackOrderText}>Track Order</Text>
+              <MaterialIcons name="arrow-forward" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -987,7 +953,7 @@ const styles = StyleSheet.create({
   },
   // New container for the black background top section
   topSectionContainer: {
-    backgroundColor: '#222222',
+    backgroundColor: '#243D6E',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingTop: Platform.OS === 'ios' ? 25 : 15,
@@ -1329,37 +1295,68 @@ const styles = StyleSheet.create({
   },
   recentOrderCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   recentOrderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  orderInfoContainer: {
+    flex: 1,
   },
   orderNumber: {
     ...getTextStyle('bold', 'md', '#222'),
     fontSize: 16,
+    marginBottom: 4,
   },
   orderDate: {
     ...getTextStyle('medium', 'sm', '#888'),
     fontSize: 14,
   },
-  statusContainer: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   statusIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
   },
   statusText: {
-    ...getTextStyle('medium', 'sm', '#222'),
+    ...getTextStyle('medium', 'sm'),
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  orderItemsPreview: {
+    marginBottom: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  orderItemPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  orderItemPreviewText: {
+    ...getTextStyle('medium', 'sm', '#666'),
     fontSize: 14,
+    marginLeft: 8,
   },
   orderSummary: {
     flexDirection: 'row',
@@ -1372,30 +1369,29 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     ...getTextStyle('medium', 'sm', '#888'),
-    marginRight: 10,
+    marginRight: 8,
   },
   summaryValue: {
     ...getTextStyle('bold', 'md', '#222'),
     fontSize: 16,
   },
-  summaryDivider: {
-    width: 1,
-    height: '100%',
-    backgroundColor: '#DDD',
-    marginHorizontal: 10,
-  },
-  viewOrderButton: {
+  trackOrderButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#222222',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
-  viewOrderText: {
-    ...getTextStyle('medium', 'sm', '#222'),
-    marginRight: 5,
+  trackOrderText: {
+    ...getTextStyle('medium', 'sm', '#FFFFFF'),
+    fontSize: 14,
+    marginRight: 6,
   },
   moreCard: {
     width: 110,
     height: 210,
-    backgroundColor: '#222222',
+    backgroundColor: '#243D6E',
     borderRadius: 25,
     marginHorizontal: 8,
     justifyContent: 'center',

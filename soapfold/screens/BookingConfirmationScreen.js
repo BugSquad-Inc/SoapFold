@@ -97,7 +97,7 @@ const BookingConfirmationScreen = ({ navigation, route }) => {
               
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total Amount</Text>
-                <Text style={styles.totalValue}>${totalPrice}</Text>
+                <Text style={styles.totalValue}>₹{totalPrice}</Text>
               </View>
             </View>
             

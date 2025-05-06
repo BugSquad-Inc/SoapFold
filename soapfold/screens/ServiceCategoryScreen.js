@@ -110,7 +110,7 @@ const ServiceCategoryScreen = ({ navigation, route }) => {
           </View>
           
           <View style={styles.servicePriceContainer}>
-            <Text style={styles.servicePrice}>${item.price}</Text>
+            <Text style={styles.servicePrice}>₹{item.price}</Text>
             <Text style={styles.serviceUnit}>{item.unit}</Text>
           </View>
         </View>
@@ -176,10 +176,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f1f1f1',
     marginTop: 0,
+    backgroundColor: '#243D6E',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#fff',
   },
   backButton: {
     padding: 8,

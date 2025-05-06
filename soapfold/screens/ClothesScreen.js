@@ -244,7 +244,7 @@ const ClothesScreen = ({ navigation, route }) => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <MaterialIcons name="arrow-back" size={24} color="#000" />
+            <MaterialIcons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{service.name}</Text>
           <View style={styles.placeholder} />
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    backgroundColor: '#fff',
+    backgroundColor: '#243D6E',
   },
   backButton: {
     padding: 8,
@@ -319,6 +319,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#fff',
   },
   placeholder: {
     width: 40,

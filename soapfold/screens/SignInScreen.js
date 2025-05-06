@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -22,16 +22,19 @@ import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } 
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { theme, getTextStyle } from '../utils/theme';
+import { LoadingContext } from '../App';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const SignInScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
+  const { setIsLoading } = useContext(LoadingContext);
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isEmailOrUsernameFocused, setIsEmailOrUsernameFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const [isPreloading, setIsPreloading] = useState(false);
   
   const emailInputRef = useRef(null);
@@ -70,79 +73,65 @@ const SignInScreen = ({ navigation }) => {
 
   // Function to handle email sign-in
   const handleSignIn = async () => {
-    if (!email || !password) {
+    if (!emailOrUsername || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    // Start preloading animation immediately
-    startPreloadingAnimation();
+    setFormLoading(true);
     setIsLoading(true);
-    
+
     try {
-      console.log(`Attempting to sign in with email: ${email}`);
-      console.log('Firebase auth status:', auth ? 'Initialized' : 'Not initialized');
-      
-      // Check if Firebase auth is initialized
-      if (!auth) {
-        throw new Error('Firebase Authentication is not initialized');
+      // First, check if the input is a username
+      const userData = await AsyncStorage.getItem('@userData');
+      let email = emailOrUsername;
+
+      if (userData) {
+        const users = JSON.parse(userData);
+        const user = users.find(u => u.username === emailOrUsername);
+        if (user) {
+          email = user.email;
+        }
       }
+
+      // Sign in with email
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
-      console.log('Calling signInWithEmailAndPassword...');
+      // Update last login
+      const updatedUserData = {
+        ...userData,
+        lastLogin: new Date().toISOString()
+      };
+      await AsyncStorage.setItem('@userData', JSON.stringify(updatedUserData));
       
-      // Attempt to sign in with Firebase Authentication
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-      console.log('Sign-in successful');
-      
-      // The authentication state listener in App.js will handle saving user data
-      // to AsyncStorage and navigation to the home screen
-      
-      // Keep loading animation while we transition to home screen
-      // (don't reset isLoading or isPreloading as we're leaving this screen)
-      
+      // Navigate to home screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
     } catch (error) {
-      setIsLoading(false);
-      setIsPreloading(false);
-      console.error('Sign-in error code:', error.code);
-      console.error('Sign-in error message:', error.message);
-      console.error('Full error object:', JSON.stringify(error, null, 2));
+      console.error('Sign-in error:', error);
+      let errorMessage = 'Failed to sign in. Please try again.';
       
-      // Provide more user-friendly error messages
-      switch(error.code) {
-        case 'auth/invalid-email':
-          Alert.alert('Error', 'The email address is not valid.');
-          break;
-        case 'auth/user-disabled':
-          Alert.alert('Error', 'This user account has been disabled.');
-          break;
+      switch (error.code) {
         case 'auth/user-not-found':
-          Alert.alert('Error', 'No account found with this email address.');
+          errorMessage = 'No account found with this email/username.';
           break;
         case 'auth/wrong-password':
-          Alert.alert('Error', 'Incorrect password. Please try again.');
+          errorMessage = 'Incorrect password.';
           break;
-        case 'auth/network-request-failed':
-          Alert.alert('Error', 'Network error. Please check your internet connection.');
+        case 'auth/invalid-email':
+          errorMessage = 'Invalid email format.';
           break;
         case 'auth/too-many-requests':
-          Alert.alert('Error', 'Too many unsuccessful login attempts. Please try again later.');
+          errorMessage = 'Too many failed attempts. Please try again later.';
           break;
-        case 'auth/api-key-not-valid-please-pass-a-valid-api-key':
-          Alert.alert(
-            'Configuration Error', 
-            'There is an issue with the app configuration. Please contact support.'
-          );
-          console.error('Invalid API key error - check your Firebase configuration');
-          break;
-        case 'auth/admin-restricted-operation':
-          Alert.alert(
-            'Authentication Error', 
-            'This authentication method has been disabled. Please try a different sign-in method or contact support.'
-          );
-          break;
-        default:
-          Alert.alert('Error', error.message);
       }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setFormLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -188,30 +177,29 @@ const SignInScreen = ({ navigation }) => {
               <Text style={styles.subtitle}>Please sign in to continue app</Text>
 
               <View style={styles.formContainer}>
-                {/* Email input */}
+                {/* Email or Username input */}
                 <View style={styles.inputWrapper}>
                   <View style={[
                     styles.inputContainer,
-                    isEmailFocused && styles.inputContainerFocused
+                    isEmailOrUsernameFocused && styles.inputContainerFocused
                   ]}>
                     <TextInput
                       ref={emailInputRef}
                       style={styles.input}
-                      placeholder="Email address"
+                      placeholder="Email or Username"
                       placeholderTextColor="#AAAAAA"
                       keyboardType="email-address"
                       autoCapitalize="none"
-                      value={email}
-                      onChangeText={setEmail}
-                      onFocus={() => setIsEmailFocused(true)}
-                      onBlur={() => setIsEmailFocused(false)}
+                      value={emailOrUsername}
+                      onChangeText={setEmailOrUsername}
+                      onFocus={() => setIsEmailOrUsernameFocused(true)}
+                      onBlur={() => setIsEmailOrUsernameFocused(false)}
                       required={true}
                     />
                     <MaterialIcons 
-                      name="email" 
-                      size={30} 
-                      color={email ? "#000000" : isEmailFocused ? "#000000" : "#DDDDDD"} 
-                      style={styles.inputIcon} 
+                      name="person" 
+                      size={28} 
+                      color={emailOrUsername ? "#000000" : isEmailOrUsernameFocused ? "#000000" : "#DDDDDD"} 
                     />
                   </View>
                 </View>
@@ -237,7 +225,7 @@ const SignInScreen = ({ navigation }) => {
                     <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                       <MaterialIcons
                         name={showPassword ? "visibility" : "visibility-off"}
-                        size={30}
+                        size={28}
                         color={password ? "#000000" : isPasswordFocused ? "#000000" : "#DDDDDD"}
                       />
                     </TouchableOpacity>
@@ -298,9 +286,9 @@ const SignInScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.actionButtonFullWidth}
               onPress={handleSignIn}
-              disabled={isLoading || isPreloading}
+              disabled={formLoading || isPreloading}
             >
-              {isLoading ? (
+              {formLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Text style={styles.actionButtonText}>LOGIN</Text>
@@ -509,7 +497,7 @@ const styles = StyleSheet.create({
   },
   actionButtonFullWidth: {
     width: '100%',
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#243D6E',
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',

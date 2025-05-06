@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     height: 50,
   },
   resetButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#243D6E',
     borderRadius: 25,
     height: 52,
     alignItems: 'center',
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   backToLoginButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: '#243D6E',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 25,

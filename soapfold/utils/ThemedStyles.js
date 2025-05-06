@@ -80,7 +80,7 @@ export const useCommonThemedStyles = () => {
       color: theme.colors.text,
     },
     button: {
-      backgroundColor: theme.colors.primary,
+      backgroundColor: '#243D6E',
       paddingVertical: 12,
       paddingHorizontal: 24,
       borderRadius: 8,

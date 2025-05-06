@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -27,15 +27,18 @@ import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
 import { theme, getTextStyle } from '../utils/theme';
 import { uploadToCloudinary } from '../utils/imageUpload';
+import { LoadingContext } from '../App';
 
 const { width } = Dimensions.get('window');
 
 WebBrowser.maybeCompleteAuthSession();
 
 const SignUpScreen = ({ navigation }) => {
+  const { setIsLoading } = useContext(LoadingContext);
   // User data state
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -43,11 +46,12 @@ const SignUpScreen = ({ navigation }) => {
   
   // UI state
   const [currentStep, setCurrentStep] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isFirstNameFocused, setIsFirstNameFocused] = useState(false);
   const [isLastNameFocused, setIsLastNameFocused] = useState(false);
+  const [isUsernameFocused, setIsUsernameFocused] = useState(false);
   const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false);
@@ -61,6 +65,7 @@ const SignUpScreen = ({ navigation }) => {
   const emailInputRef = useRef(null);
   const passwordInputRef = useRef(null);
   const confirmPasswordInputRef = useRef(null);
+  const usernameInputRef = useRef(null);
 
   // Google Sign-in configuration
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
@@ -105,7 +110,7 @@ const SignUpScreen = ({ navigation }) => {
 
   // Validation functions
   const validateFirstPage = () => {
-    if (!firstName || !lastName) {
+    if (!firstName || !lastName || !username) {
       return false;
     }
     return true;
@@ -132,6 +137,8 @@ const SignUpScreen = ({ navigation }) => {
         firstNameInputRef.current?.focus();
       } else if (!lastName.trim()) {
         lastNameInputRef.current?.focus();
+      } else if (!username.trim()) {
+        usernameInputRef.current?.focus();
       }
       return;
     }
@@ -218,16 +225,18 @@ const SignUpScreen = ({ navigation }) => {
     // Start preloading animation immediately
     startPreloadingAnimation();
     setIsLoading(true);
+    setFormLoading(true);
+    setPreloaderText('Creating your account...');
     
     try {
       // Animate to completed state (all dots filled)
       Animated.timing(progressAnimation, {
-        toValue: 3, // Step beyond the final dot
+        toValue: 3,
         duration: 300,
         useNativeDriver: false,
       }).start();
       
-      console.log(`Creating account for: ${firstName} ${lastName} (${email})`);
+      console.log(`Creating account for: ${firstName} ${lastName} (${email}) with username: ${username}`);
       
       // Check if Firebase auth is initialized
       if (!auth) {
@@ -241,141 +250,58 @@ const SignUpScreen = ({ navigation }) => {
       // Upload profile image if available
       let photoURL = null;
       if (profileImage) {
+        setPreloaderText('Uploading profile picture...');
         photoURL = await uploadToCloudinary(profileImage);
       }
       
       // Update user profile
+      setPreloaderText('Setting up your profile...');
       await updateProfile(userCredential.user, {
         displayName: `${firstName} ${lastName}`,
         photoURL: photoURL || '',
       });
       console.log('User profile updated successfully');
       
-      // Send email verification
-      await sendEmailVerification(userCredential.user);
-      console.log('Verification email sent successfully');
-      
       // Save user data to AsyncStorage
       const userData = {
         uid: userCredential.user.uid,
         firstName: firstName,
         lastName: lastName,
+        username: username,
         displayName: `${firstName} ${lastName}`,
         email: email,
         photoURL: photoURL || '',
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
         phoneNumber: userCredential.user.phoneNumber || '',
-        emailVerified: false // Initially email is not verified
+        emailVerified: true
       };
       
+      setPreloaderText('Finalizing your account...');
       await saveUserDataToLocalStorage(userData);
       await saveUserToLocalStorage(userCredential.user);
       
       console.log('User data saved to AsyncStorage successfully');
       
-      // Start polling for email verification
-      let verificationCheckCount = 0;
-      const maxVerificationChecks = 120; // Poll for up to 2 minutes (120 × 1 second)
-      
-      const checkVerificationStatus = async () => {
-        // Need to reload the user to get the latest emailVerified status
-        if (verificationCheckCount >= maxVerificationChecks) {
-          // Timeout after 2 minutes - keep loading screen
-          Alert.alert(
-            "Verification Time Expired",
-            "Please check your email to verify your account, then try signing in.",
-            [
-              { 
-                text: "OK", 
-                onPress: () => {
-                  setIsLoading(false);
-                  setIsPreloading(false);
-                  navigation.navigate('SignIn');
-                }
-              }
-            ]
-          );
-          return;
-        }
-        
-        verificationCheckCount++;
-        
-        try {
-          // Reload user to get current verification status
-          await userCredential.user.reload();
-          const updatedUser = auth.currentUser;
-          
-          if (updatedUser && updatedUser.emailVerified) {
-            // Email is verified!
-            console.log('Email verification confirmed');
-            
-            // Update emailVerified in AsyncStorage
-            const storedUserData = await AsyncStorage.getItem('@userData');
-            if (storedUserData) {
-              const parsedUserData = JSON.parse(storedUserData);
-              const updatedUserData = {
-                ...parsedUserData,
-                emailVerified: true
-              };
-              await AsyncStorage.setItem('@userData', JSON.stringify(updatedUserData));
-            }
-            
-            // Update loading screen text
-            setPreloaderText("Verification successful! Redirecting...");
-            
-            // Show verification success briefly, then navigate home without a button
-            setTimeout(() => {
-              setIsLoading(false);
-              setIsPreloading(false);
-              
-              // Navigate to the appropriate screen after verification
-              // This can be the home screen or wherever you want the user to go
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Main' }],
-              });
-            }, 1500); // Show success message for 1.5 seconds before navigating
-          } else {
-            // Not verified yet, check again in 1 second
-            console.log(`Verification check ${verificationCheckCount}/${maxVerificationChecks}: Not verified yet`);
-            setTimeout(checkVerificationStatus, 1000);
-          }
-        } catch (error) {
-          console.error('Error checking verification status:', error);
-          // Keep checking despite errors
-          setTimeout(checkVerificationStatus, 1000);
-        }
-      };
-      
-      // Update the loading screen text to indicate we're waiting for verification
-      setPreloaderText("Waiting for email verification...");
-      
-      // Start the verification status check immediately - don't wait for alert
-      checkVerificationStatus();
-      
-      // Create a more visually appealing verification alert
-      Alert.alert(
-        "Verification Email Sent",
-        "Please check your email and click the verification link.\n\nThis screen will remain active until verification is complete.",
-        [{ text: "OK" }],  // The OK button doesn't navigate anywhere - just dismisses the alert
-        { cancelable: false }
-      );
+      // Navigate to home screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
       
     } catch (error) {
       // Reset animation if error
       Animated.timing(progressAnimation, {
-        toValue: 2, // Reset to current step
+        toValue: 2,
         duration: 300,
         useNativeDriver: false,
       }).start();
       
       setIsLoading(false);
+      setFormLoading(false);
       setIsPreloading(false);
       console.error('Sign-up error:', error.code, error.message);
-      console.error('Complete error details:', error);
       
-      // Provide user-friendly error messages
       switch(error.code) {
         case 'auth/email-already-in-use':
           Alert.alert('Error', 'This email is already in use. Try signing in instead.');
@@ -429,13 +355,13 @@ const SignUpScreen = ({ navigation }) => {
   const renderStep = ({ item, index }) => {
     switch (index) {
       case 0:
-  return (
+        return (
           <View style={styles.stepContainer}>
             <View style={styles.contentContainer}>
               <Text style={styles.title}>Create Account</Text>
               <Text style={styles.subtitle}>Please enter your details</Text>
 
-            <View style={styles.formContainer}>
+              <View style={styles.formContainer}>
                 <View style={styles.inputWrapper}>
                   <View style={[
                     styles.inputContainer,
@@ -468,23 +394,50 @@ const SignUpScreen = ({ navigation }) => {
                     styles.inputContainer,
                     isLastNameFocused && styles.inputContainerFocused
                   ]}>
-                <TextInput
+                    <TextInput
                       ref={lastNameInputRef}
-                  style={styles.input}
+                      style={styles.input}
                       placeholder="Last Name"
-                  placeholderTextColor="#AAAAAA"
+                      placeholderTextColor="#AAAAAA"
                       value={lastName}
                       onChangeText={setLastName}
                       onFocus={() => setIsLastNameFocused(true)}
                       onBlur={() => setIsLastNameFocused(false)}
                       autoCapitalize="words"
-                      returnKeyType="done"
+                      returnKeyType="next"
+                      onSubmitEditing={() => usernameInputRef.current?.focus()}
                       required
                     />
                     <MaterialIcons 
                       name="person" 
                       size={28} 
                       color={lastName ? "#000000" : isLastNameFocused ? "#000000" : "#DDDDDD"} 
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <View style={[
+                    styles.inputContainer,
+                    isUsernameFocused && styles.inputContainerFocused
+                  ]}>
+                    <TextInput
+                      ref={usernameInputRef}
+                      style={styles.input}
+                      placeholder="Username"
+                      placeholderTextColor="#AAAAAA"
+                      value={username}
+                      onChangeText={setUsername}
+                      onFocus={() => setIsUsernameFocused(true)}
+                      onBlur={() => setIsUsernameFocused(false)}
+                      autoCapitalize="none"
+                      returnKeyType="done"
+                      required
+                    />
+                    <MaterialIcons 
+                      name="alternate-email" 
+                      size={28} 
+                      color={username ? "#000000" : isUsernameFocused ? "#000000" : "#DDDDDD"} 
                     />
                   </View>
                 </View>
@@ -540,15 +493,15 @@ const SignUpScreen = ({ navigation }) => {
                     styles.inputContainer,
                     isEmailFocused && styles.inputContainerFocused
                   ]}>
-                <TextInput
+                    <TextInput
                       ref={emailInputRef}
-                  style={styles.input}
-                  placeholder="Email"
-                  placeholderTextColor="#AAAAAA"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
+                      style={styles.input}
+                      placeholder="Email"
+                      placeholderTextColor="#AAAAAA"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={email}
+                      onChangeText={setEmail}
                       onFocus={() => setIsEmailFocused(true)}
                       onBlur={() => setIsEmailFocused(false)}
                       returnKeyType="next"
@@ -561,58 +514,58 @@ const SignUpScreen = ({ navigation }) => {
                       color={email ? "#000000" : isEmailFocused ? "#000000" : "#DDDDDD"} 
                     />
                   </View>
-              </View>
+                </View>
 
                 <View style={styles.inputWrapper}>
                   <View style={[
                     styles.inputContainer,
                     isPasswordFocused && styles.inputContainerFocused
                   ]}>
-                <TextInput
+                    <TextInput
                       ref={passwordInputRef}
-                  style={styles.input}
-                  placeholder="Password"
-                  placeholderTextColor="#AAAAAA"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
+                      style={styles.input}
+                      placeholder="Password"
+                      placeholderTextColor="#AAAAAA"
+                      secureTextEntry={!showPassword}
+                      value={password}
+                      onChangeText={setPassword}
                       onFocus={() => setIsPasswordFocused(true)}
                       onBlur={() => setIsPasswordFocused(false)}
                       returnKeyType="next"
                       onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
                       required
-                />
+                    />
                     <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <MaterialIcons
-                    name={showPassword ? "visibility" : "visibility-off"}
+                      <MaterialIcons
+                        name={showPassword ? "visibility" : "visibility-off"}
                         size={28}
                         color={password ? "#000000" : isPasswordFocused ? "#000000" : "#DDDDDD"}
-                  />
-                </TouchableOpacity>
+                      />
+                    </TouchableOpacity>
                   </View>
-              </View>
+                </View>
 
                 <View style={styles.inputWrapper}>
                   <View style={[
                     styles.inputContainer,
                     isConfirmPasswordFocused && styles.inputContainerFocused
                   ]}>
-                <TextInput
+                    <TextInput
                       ref={confirmPasswordInputRef}
-                  style={styles.input}
-                  placeholder="Confirm Password"
-                  placeholderTextColor="#AAAAAA"
-                  secureTextEntry={!showConfirmPassword}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                      style={styles.input}
+                      placeholder="Confirm Password"
+                      placeholderTextColor="#AAAAAA"
+                      secureTextEntry={!showConfirmPassword}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
                       onFocus={() => setIsConfirmPasswordFocused(true)}
                       onBlur={() => setIsConfirmPasswordFocused(false)}
                       returnKeyType="done"
                       required
-                />
+                    />
                     <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  <MaterialIcons
-                    name={showConfirmPassword ? "visibility" : "visibility-off"}
+                      <MaterialIcons
+                        name={showConfirmPassword ? "visibility" : "visibility-off"}
                         size={28}
                         color={confirmPassword ? "#000000" : isConfirmPasswordFocused ? "#000000" : "#DDDDDD"}
                       />
@@ -671,14 +624,14 @@ const SignUpScreen = ({ navigation }) => {
     if (currentStep === 0) {
       return (
         <View style={styles.bottomButtonContainer}>
-              <TouchableOpacity
+          <TouchableOpacity
             style={styles.actionButtonFullWidth}
             onPress={nextStep}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
+            disabled={formLoading}
+          >
+            {formLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
               <Text style={styles.actionButtonText}>NEXT</Text>
             )}
           </TouchableOpacity>
@@ -695,23 +648,23 @@ const SignUpScreen = ({ navigation }) => {
           onPress={prevStep}
         >
           <Text style={styles.backButtonText}>BACK</Text>
-              </TouchableOpacity>
+        </TouchableOpacity>
 
         {/* Next/Register button for steps 1 and 2 */}
         <TouchableOpacity
           style={styles.actionButton}
           onPress={currentStep === 2 ? completeRegistration : nextStep}
-          disabled={isLoading}
+          disabled={formLoading}
         >
-          {isLoading ? (
+          {formLoading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <Text style={styles.actionButtonText}>
               {currentStep < 2 ? 'NEXT' : 'SIGN UP'}
-                </Text>
+            </Text>
           )}
-              </TouchableOpacity>
-            </View>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -752,6 +705,7 @@ const SignUpScreen = ({ navigation }) => {
                 styles.preloaderContainer,
                 {
                   opacity: loaderOpacity,
+                  backgroundColor: '#FFFFFF'
                 }
               ]}
             >
@@ -981,14 +935,14 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary,
     borderRadius: 25,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: '#243D6E',
   },
   backButtonText: {
     ...getTextStyle('bold', 'md', theme.colors.primary),
     fontSize: 16,
   },
   actionButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#243D6E',
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1006,7 +960,7 @@ const styles = StyleSheet.create({
   },
   actionButtonFullWidth: {
     width: '100%',
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#243D6E',
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1026,28 +980,20 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.97)',
-    alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 100,
+    alignItems: 'center',
+    zIndex: 1000,
   },
   loaderContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 30,
-    borderRadius: 15,
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
   },
   preloaderText: {
-    ...getTextStyle('medium', 'md', theme.colors.primary),
     marginTop: 20,
+    fontSize: 16,
+    color: '#000000',
     textAlign: 'center',
-    paddingHorizontal: 20,
+    fontWeight: '500',
   },
 });
 

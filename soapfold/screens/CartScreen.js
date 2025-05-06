@@ -115,11 +115,11 @@ const CartScreen = ({ route, navigation }) => {
         <Image source={imageMap[item]} style={styles.image} />
         
         <Text style={styles.name}>
-          {item} {quantity > 0 ? `(x${quantity}) — Rp ${totalItemPrice.toLocaleString()}` : ''}
+          {item} {quantity > 0 ? `(x${quantity}) — ₹ ${totalItemPrice.toLocaleString()}` : ''}
         </Text>
   
         {quantity === 0 && (
-          <Text style={styles.price}>Rp {pricePerItem.toLocaleString()}</Text>
+          <Text style={styles.price}>₹ {pricePerItem.toLocaleString()}</Text>
         )}
   
         <View style={styles.quantityControls}>
@@ -144,7 +144,7 @@ const CartScreen = ({ route, navigation }) => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <MaterialIcons name="arrow-back" size={24} color="#000" />
+            <MaterialIcons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Cart</Text>
           <TouchableOpacity style={styles.clearButton} onPress={() => setCartItems({})}>
@@ -172,7 +172,7 @@ const CartScreen = ({ route, navigation }) => {
           ]}>
             <View style={styles.totalContainer}>
               <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalAmount}>Rp {totalPrice.toLocaleString()}</Text>
+              <Text style={styles.totalAmount}>₹ {totalPrice.toLocaleString()}</Text>
             </View>
             <TouchableOpacity
               disabled={totalPrice === 0}
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    backgroundColor: '#fff',
+    backgroundColor: '#243D6E',
   },
   backButton: {
     padding: 8,
@@ -220,12 +220,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     paddingHorizontal: 10,
+    color: '#fff',
   },
   clearButton: {
     padding: 8,
   },
   clearButtonText: {
-    color: '#000',
+    color: '#fff',
     fontWeight: 'bold',
   },
   tabsContainer: {

@@ -243,11 +243,11 @@ const ServiceScreen = ({ navigation, route }) => {
           <View style={styles.priceContainer}>
             {discountedPrice ? (
               <View style={styles.discountedPriceContainer}>
-                <Text style={styles.originalPrice}>${item.price}/{item.unit}</Text>
-                <Text style={styles.discountedPrice}>${discountedPrice}/{item.unit}</Text>
+                <Text style={styles.originalPrice}>₹{item.price}/{item.unit}</Text>
+                <Text style={styles.discountedPrice}>₹{discountedPrice}/{item.unit}</Text>
               </View>
             ) : (
-              <Text style={styles.servicePrice}>${item.price}/{item.unit}</Text>
+              <Text style={styles.servicePrice}>₹{item.price}/{item.unit}</Text>
             )}
             
             <TouchableOpacity style={styles.addButton}>
@@ -266,7 +266,7 @@ const ServiceScreen = ({ navigation, route }) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#222222" />
+          <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Laundry Services</Text>
         <TouchableOpacity style={styles.cartButton} onPress={() => navigation.navigate('CartScreen')}>
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#243D6E',
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
   },
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   headerTitle: {
-    ...getTextStyle('bold', 'lg', '#222222'),
+    ...getTextStyle('bold', 'lg', '#FFFFFF'),
   },
   cartButton: {
     padding: 5,
@@ -462,12 +462,10 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#243D6E',
+    padding: 8,
+    borderRadius: 8,
+    marginLeft: 8,
   },
   tabsContainer: {
     height: 50,

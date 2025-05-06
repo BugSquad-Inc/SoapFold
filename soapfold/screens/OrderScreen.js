@@ -2,22 +2,24 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useFocusEffect } from '@react-navigation/native';
 
 const OrderScreen = ({ navigation }) => {
   const [filter, setFilter] = useState('all');
   const insets = useSafeAreaInsets();
+  const [orders, setOrders] = useState([]);
   
   // Mock order data
-  const orders = [
+  const mockOrders = [
     {
       id: '1',
       orderNumber: '#ORD12345',
       date: 'June 15, 2023',
       status: 'active',
-      totalAmount: '$32.50',
+      totalAmount: '₹32.50',
       items: [
-        { id: '1', name: 'Lavender Soap', quantity: 2, price: '$12.99' },
-        { id: '2', name: 'Eucalyptus Bath Bomb', quantity: 1, price: '$6.52' }
+        { id: '1', name: 'Lavender Soap', quantity: 2, price: '₹12.99' },
+        { id: '2', name: 'Eucalyptus Bath Bomb', quantity: 1, price: '₹6.52' }
       ],
       shippingAddress: '123 Main St, Anytown, CA 12345',
       paymentMethod: 'Visa **** 1234',
@@ -27,10 +29,10 @@ const OrderScreen = ({ navigation }) => {
       orderNumber: '#ORD12346',
       date: 'June 10, 2023',
       status: 'completed',
-      totalAmount: '$45.75',
+      totalAmount: '₹45.75',
       items: [
-        { id: '3', name: 'Rose Soap', quantity: 3, price: '$15.75' },
-        { id: '4', name: 'Bamboo Wash Cloth', quantity: 2, price: '$14.25' }
+        { id: '3', name: 'Rose Soap', quantity: 3, price: '₹15.75' },
+        { id: '4', name: 'Bamboo Wash Cloth', quantity: 2, price: '₹14.25' }
       ],
       shippingAddress: '456 Elm St, Somewhere, NY 67890',
       paymentMethod: 'Mastercard **** 5678',
@@ -40,29 +42,42 @@ const OrderScreen = ({ navigation }) => {
       orderNumber: '#ORD12347',
       date: 'June 5, 2023',
       status: 'completed',
-      totalAmount: '$22.99',
+      totalAmount: '₹22.99',
       items: [
-        { id: '5', name: 'Citrus Scrub', quantity: 1, price: '$22.99' }
+        { id: '5', name: 'Citrus Scrub', quantity: 1, price: '₹22.99' }
       ],
       shippingAddress: '789 Oak St, Elsewhere, TX 23456',
       paymentMethod: 'PayPal',
     }
   ];
 
+  // Fetch orders from storage or API
+  const fetchOrders = async () => {
+    // Replace with your real fetch logic
+    // For now, just simulate with localStorage or AsyncStorage if needed
+    // setOrders(await getOrdersFromStorageOrAPI());
+    setOrders(mockOrders);
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchOrders();
+    }, [])
+  );
+
   const renderOrders = () => {
+    if (!orders || orders.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Icon name="shopping-bag" size={60} color="#243D6E" />
+          <Text style={[styles.emptyStateText, {color: '#243D6E', fontWeight: 'bold'}]}>No orders yet</Text>
+        </View>
+      );
+    }
     // Filter orders based on selected filter
     const filteredOrders = filter === 'all' 
       ? orders 
       : orders.filter(order => order.status === filter);
-
-    if (filteredOrders.length === 0) {
-      return (
-        <View style={styles.emptyState}>
-          <Icon name="shopping-bag" size={60} color="#ccc" />
-          <Text style={styles.emptyStateText}>No orders found</Text>
-        </View>
-      );
-    }
 
     return filteredOrders.map(order => (
       <TouchableOpacity 
@@ -163,7 +178,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 15,
     paddingBottom: 10,
-    backgroundColor: '#222222',
+    backgroundColor: '#243D6E',
     borderBottomWidth: 1,
     borderBottomColor: '#333',
   },

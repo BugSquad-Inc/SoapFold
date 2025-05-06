@@ -1,13 +1,37 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { theme as defaultTheme } from './theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { themes, theme as defaultTheme } from './theme';
+
+// Dark theme colors
+const darkTheme = {
+  ...defaultTheme,
+  colors: {
+    ...defaultTheme.colors,
+    primary: '#FFFFFF',
+    secondary: '#FF0000',
+    background: '#121212',
+    cardBackground: '#1E1E1E',
+    text: '#FFFFFF',
+    lightText: '#AAAAAA',
+    border: '#333333',
+    error: '#FF3B30',
+    success: '#4CAF50',
+    inputBg: '#2A2A2A',
+    statusBar: '#000000',
+    topSection: '#000000',
+    tabBar: '#121212',
+    icon: '#CCCCCC',
+    switch: '#9C27B0',
+    placeholder: '#888888',
+    divider: '#333333',
+  },
+};
 
 // Create Theme Context
 const ThemeContext = createContext({
-  isDarkMode: false,
   theme: defaultTheme,
-  toggleTheme: () => {},
-  setDarkMode: () => {}
+  isDarkMode: false,
+  toggleDarkMode: () => {},
 });
 
 // Custom hook to use theme
@@ -18,53 +42,38 @@ export const ThemeProvider = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [theme, setTheme] = useState(defaultTheme);
 
-  // Load theme preference on mount
+  // Load saved theme preference
   useEffect(() => {
     const loadThemePreference = async () => {
       try {
-        const darkModeValue = await AsyncStorage.getItem('@darkMode');
-        const isDark = darkModeValue === 'true';
-        
-        if (isDark) {
-          setIsDarkMode(true);
-          setTheme(themes.dark);
-        } else {
-          setIsDarkMode(false);
-          setTheme(themes.light);
+        const savedTheme = await AsyncStorage.getItem('@theme_preference');
+        if (savedTheme !== null) {
+          const isDark = savedTheme === 'dark';
+          setIsDarkMode(isDark);
+          setTheme(isDark ? darkTheme : defaultTheme);
         }
       } catch (error) {
         console.error('Error loading theme preference:', error);
       }
     };
-    
+
     loadThemePreference();
   }, []);
 
-  // Toggle between light and dark themes
-  const toggleTheme = async () => {
+  // Toggle dark mode
+  const toggleDarkMode = async () => {
     try {
-      const newMode = !isDarkMode;
-      setIsDarkMode(newMode);
-      setTheme(newMode ? themes.dark : themes.light);
-      await AsyncStorage.setItem('@darkMode', newMode ? 'true' : 'false');
-    } catch (error) {
-      console.error('Error saving theme preference:', error);
-    }
-  };
-
-  // Set specific theme mode
-  const setDarkMode = async (value) => {
-    try {
-      setIsDarkMode(value);
-      setTheme(value ? themes.dark : themes.light);
-      await AsyncStorage.setItem('@darkMode', value ? 'true' : 'false');
+      const newIsDarkMode = !isDarkMode;
+      setIsDarkMode(newIsDarkMode);
+      setTheme(newIsDarkMode ? darkTheme : defaultTheme);
+      await AsyncStorage.setItem('@theme_preference', newIsDarkMode ? 'dark' : 'light');
     } catch (error) {
       console.error('Error saving theme preference:', error);
     }
   };
 
   return (
-    <ThemeContext.Provider value={{ isDarkMode, theme, toggleTheme, setDarkMode }}>
+    <ThemeContext.Provider value={{ theme, isDarkMode, toggleDarkMode }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -277,7 +277,7 @@ const BookingScreen = ({ navigation, route }) => {
                 <Text style={styles.baseItemLabel}>{service?.name || 'Wash & Fold'}</Text>
                 <View style={styles.baseQuantityContainer}>
                   <Text style={styles.baseQuantityValue}>{quantity} kg</Text>
-                  <Text style={styles.baseItemPrice}>${totalPrice}</Text>
+                  <Text style={styles.baseItemPrice}>₹{totalPrice}</Text>
                 </View>
               </View>
             </View>
@@ -406,26 +406,24 @@ const BookingScreen = ({ navigation, route }) => {
               
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Service ({quantity} kg):</Text>
-                <Text style={styles.summaryValue}>${totalPrice}</Text>
+                <Text style={styles.summaryValue}>₹{totalPrice}</Text>
               </View>
               
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Additional Items:</Text>
-                <Text style={styles.summaryValue}>
-                  ${(Object.values(itemCounts).reduce((sum, count) => sum + count, 0) * (service?.price || 14.99) * 0.5).toFixed(2)}
-                </Text>
+                <Text style={styles.summaryValue}>₹{(Object.values(itemCounts).reduce((sum, count) => sum + count, 0) * (service?.price || 14.99) * 0.5).toFixed(2)}</Text>
               </View>
               
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Delivery Fee:</Text>
-                <Text style={styles.summaryValue}>$5.00</Text>
+                <Text style={styles.summaryValue}>₹5.00</Text>
               </View>
               
               <View style={styles.divider} />
               
               <View style={styles.summaryRow}>
                 <Text style={styles.totalLabel}>Total:</Text>
-                <Text style={styles.totalValue}>${calculateFinalPrice()}</Text>
+                <Text style={styles.totalValue}>₹{calculateFinalPrice()}</Text>
               </View>
             </View>
           </View>
@@ -465,10 +463,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f1f1',
+    backgroundColor: '#243D6E',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#fff',
   },
   backButton: {
     padding: 8,
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#f1f1f1',
   },
   continueButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#243D6E',
     height: 50,
     borderRadius: 8,
     justifyContent: 'center',

@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   homeButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#243D6E',
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   viewOrderButton: {
-    backgroundColor: '#222',
+    backgroundColor: '#243D6E',
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',

@@ -57,7 +57,7 @@ const CalendarScreen = () => {
       {/* CTA */}
       {selectedDate !== '' && (
         <LinearGradient
-          colors={['#ff9f1c', '#ffc93c']}
+          colors={['#243D6E', '#243D6E']}
           style={styles.button}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
