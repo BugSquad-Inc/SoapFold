@@ -48,7 +48,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
           <Text style={styles.orderItemName}>{item.name}</Text>
           <Text style={styles.orderItemQuantity}>Qty: {item.quantity}</Text>
         </View>
-        <Text style={styles.orderItemPrice}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.orderItemPrice}>₹{item.price.toFixed(2)}</Text>
       </View>
     ));
   };
@@ -126,24 +126,24 @@ const OrderDetailScreen = ({ route, navigation }) => {
           
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Subtotal</Text>
-            <Text style={styles.priceValue}>${order.amount.toFixed(2)}</Text>
+            <Text style={styles.priceValue}>₹{order.amount.toFixed(2)}</Text>
           </View>
           
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Delivery Fee</Text>
-            <Text style={styles.priceValue}>${order.deliveryFee.toFixed(2)}</Text>
+            <Text style={styles.priceValue}>₹{order.deliveryFee.toFixed(2)}</Text>
           </View>
           
           {order.promotion > 0 && (
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>Promotion</Text>
-              <Text style={[styles.priceValue, styles.discountText]}>-${order.promotion.toFixed(2)}</Text>
+              <Text style={[styles.priceValue, styles.discountText]}>-₹{order.promotion.toFixed(2)}</Text>
             </View>
           )}
           
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>${order.total.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>₹{order.total.toFixed(2)}</Text>
           </View>
         </View>
       </ScrollView>
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#222',
+    backgroundColor: '#243D6E',
     paddingVertical: 12,
     borderRadius: 8,
     marginLeft: 8,

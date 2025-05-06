@@ -8,10 +8,11 @@ import { BlurView } from 'expo-blur';
 import * as Animatable from 'react-native-animatable';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 import CategoryScreen from '../screens/CategoryScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import CartScreen from '../screens/CartScreen';
@@ -32,6 +33,11 @@ import ServiceCategoryScreen from '../screens/ServiceCategoryScreen';
 import ServiceDetailScreen from '../screens/ServiceDetailScreen';
 import BookingScreen from '../screens/BookingScreen';
 import BookingConfirmationScreen from '../screens/BookingConfirmationScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
+import HelpCenterScreen from '../screens/HelpCenterScreen';
+import AboutScreen from '../screens/AboutScreen';
+import SendFeedbackScreen from '../screens/SendFeedbackScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 
 const { width } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
@@ -370,9 +376,12 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
     return unsubscribe;
   }, [navigation]);
 
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
+
   return (
     <View style={styles.container}>
-      <View style={styles.bottomNavContainer}>
+      <View style={[styles.bottomNavContainer, { backgroundColor: isDarkMode ? '#000' : '#f8f8f8' }]}>
         <View style={styles.bottomNav}>
           {state.routes.map((route, index) => {
             const { options } = descriptors[route.key];
@@ -412,8 +421,8 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                   }}
                   activeOpacity={0.8}
                 >
-                  <View style={styles.centerNavButton}>
-                    <MaterialIcons name="add" size={32} color="#FFFFFF" />
+                  <View style={[styles.centerNavButton, { backgroundColor: isDarkMode ? '#fff' : '#243D6E', borderColor: isDarkMode ? '#fff' : '#BBBBBB' }]}>
+                    <MaterialIcons name="add" size={32} color={isDarkMode ? '#000' : '#fff'} />
                     
                     {/* Bubble animations */}
                     <Bubble delay={0} size={8} left={21} duration={1800} />
@@ -431,13 +440,13 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
             let Component = MaterialIcons;
             
             if (route.name === 'HomeScreen') {
-              iconName = 'cottage'; // Stylish house/home icon
+              iconName = 'cottage';
             } else if (route.name === 'Orders') {
-              iconName = 'receipt-long'; // Orders icon
+              iconName = 'receipt-long';
             } else if (route.name === 'NotificationScreen') {
-              iconName = isFocused ? 'notifications-active' : 'notifications-none'; // Active/inactive notification icon
-            } else if (route.name === 'ProfileScreen') {
-              iconName = 'person-outline'; // Outlined person icon
+              iconName = isFocused ? 'notifications-active' : 'notifications-none';
+            } else if (route.name === 'Settings') {
+              iconName = 'person';
             }
 
             // Regular nav items with active state
@@ -452,7 +461,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                   <Component 
                     name={iconName} 
                     size={32} // Increased icon size from 28 to 32
-                    color={isFocused ? "#222222" : "#AAAAAA"} 
+                    color={isFocused ? (isDarkMode ? '#fff' : '#243D6E') : '#AAAAAA'} 
                   />
                   
                   {/* Show notification badge for notification tab if there are unread notifications */}
@@ -473,32 +482,61 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
 // Create a stack navigator for each tab
 const HomeStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="HomeMain" component={HomeScreen} />
-    <Stack.Screen name="Orders" component={OrdersNavigator} />
-    <Stack.Screen name="CategoryScreen" component={CategoryScreen} />
-    <Stack.Screen name="RedeemScreen" component={RedeemScreen} />
-    <Stack.Screen name="OffersScreen" component={OffersScreen} />
-    <Stack.Screen name="ServiceWithOffersScreen" component={ServiceWithOffersScreen} />
-    <Stack.Screen name="ServiceScreen" component={ServiceScreen} />
-    <Stack.Screen name="ClothesScreen" component={ClothesScreen} />
-    <Stack.Screen name="PaymentSuccessScreen" component={PaymentSuccessScreen} />
-    <Stack.Screen name="RecentOrdersScreen" component={RecentOrdersScreen} />
+  <Stack.Navigator
+    screenOptions={{
+      headerShown: false,
+      animation: 'fade',
+    }}
+  >
+    <Stack.Screen name="HomeScreen" component={HomeScreen} />
     <Stack.Screen name="ServiceCategoryScreen" component={ServiceCategoryScreen} />
     <Stack.Screen name="ServiceDetailScreen" component={ServiceDetailScreen} />
+    <Stack.Screen name="OffersScreen" component={OffersScreen} />
+    <Stack.Screen name="CalendarScreen" component={CalendarScreen} />
     <Stack.Screen name="BookingScreen" component={BookingScreen} />
     <Stack.Screen name="BookingConfirmationScreen" component={BookingConfirmationScreen} />
-    <Stack.Screen name="OrderDetailScreen" component={OrderDetailScreen} />
+  </Stack.Navigator>
+);
+
+// Add SettingsStack before BottomTabNavigator
+const SettingsStack = () => (
+  <Stack.Navigator
+    screenOptions={{
+      headerShown: false,
+      animation: 'fade',
+    }}
+  >
+    <Stack.Screen name="SettingsMain" component={SettingsScreen} />
+    <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+    <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+    <Stack.Screen name="About" component={AboutScreen} />
+    <Stack.Screen name="SendFeedback" component={SendFeedbackScreen} />
+    <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+    <Stack.Screen name="NotificationSettings" component={NotificationScreen} />
   </Stack.Navigator>
 );
 
 const BottomTabNavigator = () => {
-  const colorScheme = useColorScheme();
+  // const colorScheme = useColorScheme();
+  // const isDarkMode = colorScheme === 'dark';
+  const isDarkMode = true; // FORCE DARK MODE FOR TESTING
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   
   useEffect(() => {
     // ... existing code ...
   }, []);
+
+  // Helper to hide tab bar on EditProfileScreen
+  const getTabBarStyle = (route) => {
+    const routeName = getFocusedRouteNameFromRoute(route) ?? '';
+    if (routeName === 'EditProfile') {
+      return { display: 'none' };
+    }
+    return {
+      backgroundColor: isDarkMode ? '#000' : '#f8f8f8',
+      borderTopWidth: 0,
+    };
+  };
 
   return (
     <Tab.Navigator
@@ -506,17 +544,20 @@ const BottomTabNavigator = () => {
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { 
-          display: 'none',
-          backgroundColor: '#f8f8f8' 
-        },
       }}
     >
       <Tab.Screen name="HomeScreen" component={HomeStack} />
       <Tab.Screen name="Orders" component={OrderScreenNavigator} options={{ title: 'Orders' }} />
       <Tab.Screen name="CartScreen" component={CartScreen} />
       <Tab.Screen name="NotificationScreen" component={NotificationScreen} options={{ title: 'Notifications' }} />
-      <Tab.Screen name="ProfileScreen" component={ProfileScreen} />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsStack}
+        options={({ route }) => ({
+          title: 'Settings',
+          tabBarStyle: getTabBarStyle(route),
+        })}
+      />
     </Tab.Navigator>
   );
 };
@@ -585,7 +626,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#222222',
+    backgroundColor: '#243D6E',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

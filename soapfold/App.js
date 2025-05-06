@@ -19,6 +19,7 @@ import { useLoadFonts } from './utils/fonts';
 import { theme } from './utils/theme';
 import { ThemeProvider } from './utils/ThemeContext';
 import ThemedStatusBar from './components/ThemedStatusBar';
+import React from 'react';
 
 // Auth Screens
 import OnboardingScreen from './screens/OnboardingScreen';
@@ -30,7 +31,7 @@ import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 
 // Main App Screens
 import HomeScreen from './screens/HomeScreen';
-import ProfileScreen from './screens/ProfileScreen';
+import SettingsScreen from './screens/SettingsScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 import CategoryScreen from './screens/CategoryScreen';
 import CalendarScreen from './screens/CalendarScreen';
@@ -111,39 +112,41 @@ const AuthNavigator = ({ promptAsync, hasSeenOnboarding, markOnboardingAsSeen })
   </AuthStack.Navigator>
 );
 
-const AppNavigator = () => (
-  <AppStack.Navigator
-    screenOptions={{
-      headerShown: false,
-      animation: 'slide_from_right',
-      contentStyle: { backgroundColor: '#f8f8f8' },
-      animationEnabled: true,
-      cardStyleInterpolator: ({ current: { progress } }) => ({
-        cardStyle: {
-          opacity: progress,
-        },
-      }),
-    }}
-  >
-    <AppStack.Screen 
-      name="MainTabs" 
-      component={BottomTabNavigator}
-      options={{ animation: 'fade', headerShown: false }}
-    />
-    
-    {/* <AppStack.Screen
-      name="PaymentScreen"
-      component={RazorpayScreen}
-      options={{ animation: 'slide_from_right' }}
-    /> */}
-    
-    {/* <AppStack.Screen
-      name="RazorpayScreen"
-      component={RazorpayScreen}
-      options={{ animation: 'slide_from_right', headerShown: false }}
-    /> */}
-  </AppStack.Navigator>
-);
+const AppNavigator = () => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  return (
+    <AppStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        contentStyle: { backgroundColor: '#f8f8f8' },
+        animationEnabled: true,
+        cardStyleInterpolator: ({ current: { progress } }) => ({
+          cardStyle: {
+            opacity: progress,
+          },
+        }),
+      }}
+    >
+      <AppStack.Screen 
+        name="MainTabs" 
+        component={BottomTabNavigator}
+        options={{ 
+          animation: 'fade', 
+          headerShown: false,
+          tabBarStyle: { display: isLoading ? 'none' : 'flex' }
+        }}
+      />
+    </AppStack.Navigator>
+  );
+};
+
+// Create a context to manage loading state
+export const LoadingContext = React.createContext({
+  setIsLoading: () => {},
+  isLoading: false
+});
 
 export default function App() {
   const [userInfo, setUserInfo] = useState(null);
@@ -152,6 +155,9 @@ export default function App() {
   const [authInitialized, setAuthInitialized] = useState(false);
   const fontsLoaded = useLoadFonts();
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: "192181548467-18ddv39f0qtr6avibrqo9dna2atrvfb7.apps.googleusercontent.com",
@@ -471,27 +477,29 @@ export default function App() {
         <SafeAreaProvider>
           <ThemedStatusBar />
           <Provider store={store}>
-            <NavigationContainer>
-              {showFirebaseVerifier && <FirebaseVerifier onDismiss={() => setShowFirebaseVerifier(false)} />}
-              <RootStack.Navigator screenOptions={{ headerShown: false }}>
-                {userInfo ? (
-                  // User is signed in
-                  <RootStack.Screen name="App" component={AppNavigator} />
-                ) : (
-                  // No user is signed in
-                  <RootStack.Screen name="Auth">
-                    {(props) => (
-                      <AuthNavigator 
-                        {...props} 
-                        promptAsync={promptAsync} 
-                        hasSeenOnboarding={hasSeenOnboarding}
-                        markOnboardingAsSeen={markOnboardingAsSeen}
-                      />
-                    )}
-                  </RootStack.Screen>
-                )}
-              </RootStack.Navigator>
-            </NavigationContainer>
+            <LoadingContext.Provider value={{ setIsLoading, isLoading }}>
+              <NavigationContainer>
+                {showFirebaseVerifier && <FirebaseVerifier onDismiss={() => setShowFirebaseVerifier(false)} />}
+                <RootStack.Navigator screenOptions={{ headerShown: false }}>
+                  {userInfo ? (
+                    // User is signed in
+                    <RootStack.Screen name="App" component={AppNavigator} />
+                  ) : (
+                    // No user is signed in
+                    <RootStack.Screen name="Auth">
+                      {(props) => (
+                        <AuthNavigator 
+                          {...props} 
+                          promptAsync={promptAsync} 
+                          hasSeenOnboarding={hasSeenOnboarding}
+                          markOnboardingAsSeen={markOnboardingAsSeen}
+                        />
+                      )}
+                    </RootStack.Screen>
+                  )}
+                </RootStack.Navigator>
+              </NavigationContainer>
+            </LoadingContext.Provider>
           </Provider>
         </SafeAreaProvider>
       </ErrorBoundary>

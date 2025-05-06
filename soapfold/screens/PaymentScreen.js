@@ -81,7 +81,7 @@
 //         <Text style={styles.orderItemQuantity}>Qty: {item.quantity}</Text>
 //       </View>
 //       <Text style={styles.orderItemPrice}>
-//         ${(item.price * item.quantity).toFixed(2)}
+//         ₹{(item.price * item.quantity).toFixed(2)}
 //       </Text>
 //     </View>
 //   );
@@ -168,19 +168,19 @@
             
 //             <View style={styles.summaryRow}>
 //               <Text style={styles.summaryLabel}>Subtotal:</Text>
-//               <Text style={styles.summaryValue}>${(totalPrice - 5).toFixed(2)}</Text>
+//               <Text style={styles.summaryValue}>₹{(totalPrice - 5).toFixed(2)}</Text>
 //             </View>
             
 //             <View style={styles.summaryRow}>
 //               <Text style={styles.summaryLabel}>Delivery Fee:</Text>
-//               <Text style={styles.summaryValue}>$5.00</Text>
+//               <Text style={styles.summaryValue}>₹5.00</Text>
 //             </View>
             
 //             <View style={styles.divider} />
             
 //             <View style={styles.summaryRow}>
 //               <Text style={styles.totalLabel}>Total Amount:</Text>
-//               <Text style={styles.totalValue}>${totalPrice}</Text>
+//               <Text style={styles.totalValue}>₹{totalPrice}</Text>
 //             </View>
 //           </View>
           

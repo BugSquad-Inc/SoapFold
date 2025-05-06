@@ -147,7 +147,7 @@ const RecentOrdersScreen = ({ navigation, route }) => {
           
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Total</Text>
-            <Text style={styles.totalAmount}>${item.totalAmount.toFixed(2)}</Text>
+            <Text style={styles.totalAmount}>₹{item.totalAmount.toFixed(2)}</Text>
           </View>
           
           <View style={styles.summaryDivider} />
@@ -181,7 +181,7 @@ const RecentOrdersScreen = ({ navigation, route }) => {
                     <Text style={styles.orderItemName}>{orderItem.name}</Text>
                     <Text style={styles.orderItemQuantity}>Qty: {orderItem.quantity}</Text>
                   </View>
-                  <Text style={styles.orderItemPrice}>${orderItem.price.toFixed(2)}</Text>
+                  <Text style={styles.orderItemPrice}>₹{orderItem.price.toFixed(2)}</Text>
                 </View>
               ))}
             </View>
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#222222',
+    backgroundColor: '#243D6E',
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 8,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#222222',
+    backgroundColor: '#243D6E',
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 8,
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#243D6E',
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 8,
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   expandButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#243D6E',
     borderRadius: 15,
     width: 30,
     height: 30,

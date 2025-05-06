@@ -36,7 +36,7 @@ const ServiceDetailScreen = ({ navigation, route }) => {
     'Professional handling of all fabric types',
     'Eco-friendly detergents and supplies',
     'Same-day service available',
-    'Free pickup and delivery for orders over $30',
+    'Free pickup and delivery for orders over ₹30',
     'Satisfaction guaranteed or money back'
   ];
   
@@ -156,7 +156,7 @@ const ServiceDetailScreen = ({ navigation, route }) => {
               <View style={styles.serviceHeader}>
                 <Text style={styles.serviceName}>{service.name}</Text>
                 <View style={styles.priceContainer}>
-                  <Text style={styles.price}>${service.price}</Text>
+                  <Text style={styles.price}>₹{service.price}</Text>
                   <Text style={styles.unit}>{service.unit}</Text>
                 </View>
               </View>
@@ -224,7 +224,7 @@ const ServiceDetailScreen = ({ navigation, route }) => {
               totalPrice: calculateTotal()
             })}
           >
-            <Text style={styles.bookButtonText}>Book Now - ${calculateTotal()}</Text>
+            <Text style={styles.bookButtonText}>Book Now - ₹{calculateTotal()}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -235,13 +235,13 @@ const ServiceDetailScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#222222',
+    backgroundColor: '#243D6E',
   },
   imageContainer: {
     width: '100%',
     height: 250,
     position: 'relative',
-    backgroundColor: '#222222',
+    backgroundColor: '#243D6E',
   },
   headerImage: {
     width: '100%',
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     top: 16,
     left: 16,
     zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: '#243D6E',
     borderRadius: 20,
     padding: 8,
   },
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     top: 16,
     right: 16,
     zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: '#243D6E',
     borderRadius: 20,
     padding: 8,
   },
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#243D6E',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
