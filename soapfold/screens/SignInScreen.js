@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { auth } from '../config/firebase';
+import { auth, saveUserToLocalStorage, saveUserDataToLocalStorage, getUserFromFirestore, updateUserInFirestore } from '../config/firebase';
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
@@ -97,12 +97,33 @@ const SignInScreen = ({ navigation }) => {
       // Sign in with email
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
-      // Update last login
-      const updatedUserData = {
-        ...userData,
-        lastLogin: new Date().toISOString()
-      };
-      await AsyncStorage.setItem('@userData', JSON.stringify(updatedUserData));
+      // Get user data from Firestore
+      const firestoreUserData = await getUserFromFirestore(userCredential.user.uid);
+      
+      if (firestoreUserData) {
+        // Update last login in Firestore
+        await updateUserInFirestore(userCredential.user.uid, {
+          lastLogin: new Date().toISOString()
+        });
+        
+        // Update local storage
+        await saveUserDataToLocalStorage(firestoreUserData);
+        await saveUserToLocalStorage(userCredential.user);
+      } else {
+        // If no Firestore data exists, create it
+        const newUserData = {
+          uid: userCredential.user.uid,
+          email: userCredential.user.email,
+          displayName: userCredential.user.displayName || userCredential.user.email.split('@')[0],
+          photoURL: userCredential.user.photoURL,
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString()
+        };
+        
+        await createUserInFirestore(newUserData);
+        await saveUserDataToLocalStorage(newUserData);
+        await saveUserToLocalStorage(userCredential.user);
+      }
       
       // Navigate to home screen
       navigation.reset({

@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons, Entypo } from '@expo/vector-icons';
-import { auth, saveUserToLocalStorage, saveUserDataToLocalStorage } from '../config/firebase';
+import { auth, saveUserToLocalStorage, saveUserDataToLocalStorage, createUserInFirestore } from '../config/firebase';
 import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithCredential, sendEmailVerification } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
@@ -262,7 +262,7 @@ const SignUpScreen = ({ navigation }) => {
       });
       console.log('User profile updated successfully');
       
-      // Save user data to AsyncStorage
+      // Prepare user data for Firestore
       const userData = {
         uid: userCredential.user.uid,
         firstName: firstName,
@@ -277,11 +277,16 @@ const SignUpScreen = ({ navigation }) => {
         emailVerified: true
       };
       
+      // Save user data to Firestore
+      setPreloaderText('Saving your information...');
+      await createUserInFirestore(userData);
+      
+      // Save user data to AsyncStorage
       setPreloaderText('Finalizing your account...');
       await saveUserDataToLocalStorage(userData);
       await saveUserToLocalStorage(userCredential.user);
       
-      console.log('User data saved to AsyncStorage successfully');
+      console.log('User data saved successfully');
       
       // Navigate to home screen
       navigation.reset({
