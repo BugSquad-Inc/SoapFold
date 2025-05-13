@@ -1,44 +1,99 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import ScreenContainer from '../components/ScreenContainer';
+import { getOrderById } from '../config/firebase';
 
 const { width } = Dimensions.get('window');
 
 const PaymentSuccessScreen = ({ route, navigation }) => {
   // Extract order details from route params
   const { 
-    orderId = 'ORD123456',
-    date = '15 Nov 2023',
-    service = 'Wash & Fold',
-    total = 80000,
-    estimatedDelivery = '18 Nov 2023'
+    orderId, 
+    paymentId,
+    totalAmount
   } = route.params || {};
+  
+  const [loading, setLoading] = useState(true);
+  const [orderDetails, setOrderDetails] = useState(null);
+  const [error, setError] = useState(null);
   
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
+  // Fetch order details from Firestore
   useEffect(() => {
-    // Run animation sequence
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      })
-    ]).start();
-  }, []);
+    const fetchOrderDetails = async () => {
+      try {
+        if (!orderId) {
+          setError('Order ID not found');
+          setLoading(false);
+          return;
+        }
+        
+        const order = await getOrderById(orderId);
+        
+        if (!order) {
+          setError('Order not found. Please check your orders in the Orders tab.');
+          setLoading(false);
+          return;
+        }
+        
+        // Format delivery date
+        const estimatedDelivery = order.deliveryDate 
+          ? new Date(order.deliveryDate.seconds * 1000).toLocaleDateString('en-US', { 
+              day: '2-digit', 
+              month: 'short', 
+              year: 'numeric' 
+            })
+          : 'In 2-3 days';
+        
+        setOrderDetails({
+          id: order.id,
+          service: order.items[0]?.name || 'Laundry Service',
+          date: new Date().toLocaleDateString('en-US', { 
+            day: '2-digit', 
+            month: 'short', 
+            year: 'numeric' 
+          }),
+          total: order.totalAmount,
+          estimatedDelivery: estimatedDelivery
+        });
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching order details:', error);
+        setError('Failed to load order details');
+        setLoading(false);
+      }
+    };
+    
+    fetchOrderDetails();
+  }, [orderId]);
+  
+  useEffect(() => {
+    // Run animation sequence when order details are loaded
+    if (!loading && !error) {
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        })
+      ]).start();
+    }
+  }, [loading, error]);
   
   // Handle viewing order details
   const handleViewOrderDetails = () => {
     navigation.navigate('Orders', {
       screen: 'OrderDetail',
-      params: { orderId }
+      params: { orderId: orderDetails?.id || orderId }
     });
   };
   
@@ -46,6 +101,45 @@ const PaymentSuccessScreen = ({ route, navigation }) => {
   const handleGoToHome = () => {
     navigation.navigate('MainTabs', { screen: 'HomeScreen' });
   };
+  
+  // If loading, show loading indicator
+  if (loading) {
+    return (
+      <ScreenContainer>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CD964" />
+          <Text style={styles.loadingText}>Finalizing your order...</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+  
+  // If error, show error message
+  if (error) {
+    return (
+      <ScreenContainer>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={handleGoToHome}
+          >
+            <MaterialIcons name="close" size={24} color="#000" />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={50} color="#E74C3C" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.homeButton}
+            onPress={handleGoToHome}
+          >
+            <Text style={styles.homeButtonText}>Go to Home</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
   
   return (
     <ScreenContainer>
@@ -87,27 +181,27 @@ const PaymentSuccessScreen = ({ route, navigation }) => {
           
           <View style={styles.orderDetail}>
             <Text style={styles.orderDetailLabel}>Order ID</Text>
-            <Text style={styles.orderDetailValue}>{orderId}</Text>
+            <Text style={styles.orderDetailValue}>#{orderDetails?.id || orderId}</Text>
           </View>
           
           <View style={styles.orderDetail}>
             <Text style={styles.orderDetailLabel}>Service</Text>
-            <Text style={styles.orderDetailValue}>{service}</Text>
+            <Text style={styles.orderDetailValue}>{orderDetails?.service || 'Laundry Service'}</Text>
           </View>
           
           <View style={styles.orderDetail}>
             <Text style={styles.orderDetailLabel}>Date</Text>
-            <Text style={styles.orderDetailValue}>{date}</Text>
+            <Text style={styles.orderDetailValue}>{orderDetails?.date || new Date().toLocaleDateString()}</Text>
           </View>
           
           <View style={styles.orderDetail}>
             <Text style={styles.orderDetailLabel}>Amount</Text>
-            <Text style={styles.orderDetailValue}>Rp {total.toLocaleString()}</Text>
+            <Text style={styles.orderDetailValue}>₹{(orderDetails?.total || totalAmount).toFixed(2)}</Text>
           </View>
           
           <View style={styles.orderDetail}>
             <Text style={styles.orderDetailLabel}>Est. Delivery</Text>
-            <Text style={styles.orderDetailValue}>{estimatedDelivery}</Text>
+            <Text style={styles.orderDetailValue}>{orderDetails?.estimatedDelivery || 'In 2-3 days'}</Text>
           </View>
         </View>
       </Animated.View>
@@ -203,9 +297,7 @@ const styles = StyleSheet.create({
   orderDetail: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 12,
   },
   orderDetailLabel: {
     fontSize: 14,
@@ -216,30 +308,65 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   footer: {
-    padding: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
   homeButton: {
-    backgroundColor: '#243D6E',
-    paddingVertical: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f8f8',
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    flex: 1,
+    marginRight: 8,
     alignItems: 'center',
-    marginBottom: 12,
   },
   homeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    color: '#333',
   },
   viewOrderButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: '#243D6E',
-    paddingVertical: 16,
     borderRadius: 8,
+    flex: 1,
+    marginLeft: 8,
     alignItems: 'center',
   },
   viewOrderButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#fff',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#E74C3C',
+    marginBottom: 24,
+    textAlign: 'center',
+  }
 });
 
 export default PaymentSuccessScreen; 

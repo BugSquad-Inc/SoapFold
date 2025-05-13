@@ -17,13 +17,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { auth, saveUserToLocalStorage, saveUserDataToLocalStorage, getUserFromFirestore, updateUserInFirestore } from '../config/firebase';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { auth, getUserFromFirestore, updateUserInFirestore } from '../config/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { theme, getTextStyle } from '../utils/theme';
-import { LoadingContext } from '../App';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LoadingContext } from '../contexts/LoadingContext';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -82,20 +81,8 @@ const SignInScreen = ({ navigation }) => {
     setIsLoading(true);
 
     try {
-      // First, check if the input is a username
-      const userData = await AsyncStorage.getItem('@userData');
-      let email = emailOrUsername;
-
-      if (userData) {
-        const users = JSON.parse(userData);
-        const user = users.find(u => u.username === emailOrUsername);
-        if (user) {
-          email = user.email;
-        }
-      }
-
       // Sign in with email
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, emailOrUsername, password);
       
       // Get user data from Firestore
       const firestoreUserData = await getUserFromFirestore(userCredential.user.uid);
@@ -105,10 +92,6 @@ const SignInScreen = ({ navigation }) => {
         await updateUserInFirestore(userCredential.user.uid, {
           lastLogin: new Date().toISOString()
         });
-        
-        // Update local storage
-        await saveUserDataToLocalStorage(firestoreUserData);
-        await saveUserToLocalStorage(userCredential.user);
       } else {
         // If no Firestore data exists, create it
         const newUserData = {
@@ -121,8 +104,6 @@ const SignInScreen = ({ navigation }) => {
         };
         
         await createUserInFirestore(newUserData);
-        await saveUserDataToLocalStorage(newUserData);
-        await saveUserToLocalStorage(userCredential.user);
       }
       
       // Navigate to home screen
@@ -136,7 +117,7 @@ const SignInScreen = ({ navigation }) => {
       
       switch (error.code) {
         case 'auth/user-not-found':
-          errorMessage = 'No account found with this email/username.';
+          errorMessage = 'No account found with this email.';
           break;
         case 'auth/wrong-password':
           errorMessage = 'Incorrect password.';

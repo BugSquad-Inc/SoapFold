@@ -1,49 +1,102 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import ScreenContainer from '../components/ScreenContainer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getOrderById } from '../config/firebase';
 
 const OrderDetailScreen = ({ route, navigation }) => {
   const { orderId } = route.params;
   const insets = useSafeAreaInsets();
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Mock order data - in a real app, this would come from an API call using the orderId
-  const [order, setOrder] = useState({
-    id: 'ORD123456',
-    date: '15 Nov 2023',
-    service: 'Wash & Fold',
-    status: 'In Progress',
-    statusColor: '#007AFF',
-    paymentMethod: 'Credit Card',
-    deliveryAddress: '123 Laundry Street, Clean City, 12345',
-    items: [
-      { id: '1', name: 'T-Shirt', quantity: 2, price: 15000 },
-      { id: '2', name: 'Pants', quantity: 1, price: 20000 },
-      { id: '3', name: 'Dress Shirt', quantity: 2, price: 25000 }
-    ],
-    timeline: [
-      { status: 'Order Placed', date: '15 Nov 2023, 10:30 AM', completed: true },
-      { status: 'Payment Confirmed', date: '15 Nov 2023, 10:35 AM', completed: true },
-      { status: 'In Progress', date: '15 Nov 2023, 02:00 PM', completed: true },
-      { status: 'Ready for Delivery', date: 'Estimated: 17 Nov 2023', completed: false },
-      { status: 'Delivered', date: 'Estimated: 18 Nov 2023', completed: false }
-    ],
-    amount: 75000,
-    deliveryFee: 10000,
-    promotion: 5000,
-    total: 80000
-  });
+  // Fetch order data from Firestore
+  useEffect(() => {
+    const fetchOrderData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch order from Firestore
+        const orderData = await getOrderById(orderId);
+        
+        if (!orderData) {
+          setError('Order not found. Please try again.');
+          setLoading(false);
+          return;
+        }
+        
+        // Format dates if they are Firestore timestamps
+        const formatFirestoreDate = (timestamp) => {
+          if (!timestamp) return null;
+          
+          const date = timestamp.seconds 
+            ? new Date(timestamp.seconds * 1000) 
+            : new Date(timestamp);
+            
+          return date.toLocaleDateString('en-US', { 
+            day: 'numeric', 
+            month: 'short', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        };
+        
+        // Calculate subtotal
+        const subtotal = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        // Format the order data for display
+        const formattedOrder = {
+          id: orderData.id,
+          date: formatFirestoreDate(orderData.createdAt) || 'N/A',
+          service: orderData.items[0]?.name || 'Laundry Service',
+          status: orderData.status || 'Pending',
+          paymentMethod: orderData.paymentMethod || 'Card',
+          deliveryAddress: orderData.address || 'N/A',
+          items: orderData.items || [],
+          timeline: orderData.timeline || [
+            { status: 'Order Placed', date: formatFirestoreDate(orderData.createdAt), completed: true },
+            { status: 'Payment Confirmed', date: formatFirestoreDate(orderData.createdAt), completed: true },
+            { status: 'In Progress', date: 'Processing', completed: false },
+            { status: 'Ready for Delivery', date: 'Estimated: In 2 days', completed: false },
+            { status: 'Delivered', date: 'Estimated: In 3 days', completed: false }
+          ],
+          amount: subtotal,
+          deliveryFee: 5000, // Default delivery fee if not specified
+          promotion: 0, // Default promotion amount if not specified
+          total: orderData.totalAmount || subtotal + 5000 // Use total amount or calculate it
+        };
+        
+        setOrder(formattedOrder);
+      } catch (error) {
+        console.error('Error fetching order details:', error);
+        setError('Failed to load order details. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (orderId) {
+      fetchOrderData();
+    }
+  }, [orderId]);
   
   // Calculate the progress percentage for the progress bar
   const calculateProgress = () => {
+    if (!order || !order.timeline) return 0;
     const completedSteps = order.timeline.filter(step => step.completed).length;
     return (completedSteps / order.timeline.length) * 100;
   };
   
+  // Function to render order items
   const renderOrderItems = () => {
-    return order.items.map(item => (
-      <View key={item.id} style={styles.orderItemRow}>
+    if (!order || !order.items) return null;
+    
+    return order.items.map((item, index) => (
+      <View key={index} style={styles.orderItemRow}>
         <View style={styles.orderItemDetail}>
           <Text style={styles.orderItemName}>{item.name}</Text>
           <Text style={styles.orderItemQuantity}>Qty: {item.quantity}</Text>
@@ -52,6 +105,91 @@ const OrderDetailScreen = ({ route, navigation }) => {
       </View>
     ));
   };
+
+  // If loading, show loading indicator
+  if (loading) {
+    return (
+      <ScreenContainer>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading order details...</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+  
+  // If error, show error message
+  if (error) {
+    return (
+      <ScreenContainer>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Order Details</Text>
+          <View style={{width: 24}} />
+        </View>
+        
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={50} color="#E74C3C" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => {
+              setLoading(true);
+              getOrderById(orderId)
+                .then(data => {
+                  if (data) {
+                    setOrder(data);
+                    setError(null);
+                  } else {
+                    setError('Order not found. Please try again.');
+                  }
+                })
+                .catch(err => {
+                  setError('Failed to load order details. Please try again.');
+                  console.error(err);
+                })
+                .finally(() => setLoading(false));
+            }}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
+  
+  // If no order (shouldn't happen but just in case)
+  if (!order) {
+    return (
+      <ScreenContainer>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Order Details</Text>
+          <View style={{width: 24}} />
+        </View>
+        
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Order not found.</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer>
@@ -198,17 +336,21 @@ const OrderDetailScreen = ({ route, navigation }) => {
 const getStatusColor = (status) => {
   switch(status) {
     case 'Pending':
-      return '#FFA500'; // Orange
+      return '#FFA500';
+    case 'Processing':
+      return '#FFA500';
     case 'In Progress':
-      return '#007AFF'; // Blue
-    case 'Ready for Pickup':
-      return '#32CD32'; // Green
+      return '#FFA500';
+    case 'Ready for Delivery':
+      return '#007AFF';
+    case 'In Transit':
+      return '#007AFF';
     case 'Delivered':
-      return '#00C851'; // Green
+      return '#4CD964';
     case 'Cancelled':
-      return '#FF3B30'; // Red
+      return '#FF3B30';
     default:
-      return '#007AFF'; // Default blue
+      return '#FFA500';
   }
 };
 
@@ -464,6 +606,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#333',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#E74C3C',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });
 

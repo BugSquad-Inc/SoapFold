@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { signOut } from 'firebase/auth';
-import { auth, getUserDataFromLocalStorage, clearUserFromLocalStorage } from '../config/firebase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth, getUserFromFirestore } from '../config/firebase';
 import { theme } from '../utils/theme';
 
 const DashboardScreen = ({ navigation }) => {
@@ -14,10 +13,10 @@ const DashboardScreen = ({ navigation }) => {
       try {
         const user = auth.currentUser;
         if (user) {
-          // Get user data from AsyncStorage
-          const userData = await getUserDataFromLocalStorage();
-          if (userData) {
-            setUserData(userData);
+          // Get user data from Firestore
+          const firestoreUserData = await getUserFromFirestore(user.uid);
+          if (firestoreUserData) {
+            setUserData(firestoreUserData);
           } else {
             // Fallback to basic data if no detailed data found
             setUserData({
@@ -43,15 +42,11 @@ const DashboardScreen = ({ navigation }) => {
     try {
       console.log('Starting logout process from DashboardScreen...');
       
-      // Clear user data from AsyncStorage using the helper
-      await clearUserFromLocalStorage();
-      
       // Sign out from Firebase
       await signOut(auth);
       console.log('User signed out from Firebase Auth');
       
       // The auth state listener in App.js will handle navigation automatically
-      // No need to navigate here as the auth state change will trigger App.js to show the Auth stack
     } catch (error) {
       console.error('Error signing out:', error);
     }

@@ -1,10 +1,10 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getFirestore, collection, addDoc, updateDoc, getDoc, getDocs, query, where, doc, deleteDoc, orderBy, serverTimestamp, setDoc } from "firebase/firestore";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Your web app's Firebase configuration
 const API_KEY = "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI";
@@ -40,8 +40,10 @@ try {
     console.log("Using existing Firebase app");
   }
   
-  // Initialize services
-  auth = getAuth(app);
+  // Use AsyncStorage for persistence
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
   console.log("Firebase auth initialized successfully");
   
   storage = getStorage(app);
@@ -73,78 +75,6 @@ const verifyFirebaseInitialized = () => {
   
   console.log('Firebase initialization status:', isInitialized);
   return isInitialized;
-};
-
-// Save user data to AsyncStorage
-const saveUserToLocalStorage = async (user) => {
-  if (!user) return;
-  
-  try {
-    const userData = {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName || (user.email ? user.email.split('@')[0] : 'User'),
-      photoURL: user.photoURL,
-      lastUpdated: Date.now()
-    };
-    
-    await AsyncStorage.setItem('@user', JSON.stringify(userData));
-    console.log('User data saved to AsyncStorage successfully');
-    return userData;
-  } catch (error) {
-    console.error('Error saving user to AsyncStorage:', error);
-    return null;
-  }
-};
-
-// Save additional user information to AsyncStorage
-const saveUserDataToLocalStorage = async (userData) => {
-  if (!userData || !userData.uid) return null;
-  
-  try {
-    await AsyncStorage.setItem('@userData', JSON.stringify({
-      ...userData,
-      lastUpdated: Date.now()
-    }));
-    console.log('Additional user data saved to AsyncStorage');
-    return userData;
-  } catch (error) {
-    console.error('Error saving additional user data to AsyncStorage:', error);
-    return null;
-  }
-};
-
-// Get user from AsyncStorage
-const getUserFromLocalStorage = async () => {
-  try {
-    const userJson = await AsyncStorage.getItem('@user');
-    return userJson ? JSON.parse(userJson) : null;
-  } catch (error) {
-    console.error('Error getting user from AsyncStorage:', error);
-    return null;
-  }
-};
-
-// Get full user data from AsyncStorage
-const getUserDataFromLocalStorage = async () => {
-  try {
-    const userDataJson = await AsyncStorage.getItem('@userData');
-    return userDataJson ? JSON.parse(userDataJson) : null;
-  } catch (error) {
-    console.error('Error getting user data from AsyncStorage:', error);
-    return null;
-  }
-};
-
-// Clear user from AsyncStorage on logout
-const clearUserFromLocalStorage = async () => {
-  try {
-    const keys = ['@user', '@userData'];
-    await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));
-    console.log('User data cleared from AsyncStorage');
-  } catch (error) {
-    console.error('Error clearing user from AsyncStorage:', error);
-  }
 };
 
 // ====== FIRESTORE ORDERS FUNCTIONS ======
@@ -382,11 +312,6 @@ export {
   storage,
   db,
   verifyFirebaseInitialized,
-  saveUserToLocalStorage,
-  saveUserDataToLocalStorage,
-  getUserFromLocalStorage,
-  getUserDataFromLocalStorage,
-  clearUserFromLocalStorage,
   // User management functions
   createUserInFirestore,
   getUserFromFirestore,

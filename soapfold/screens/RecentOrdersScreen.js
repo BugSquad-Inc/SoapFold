@@ -14,83 +14,93 @@ import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { theme, getTextStyle } from '../utils/theme';
 import ScreenContainer from '../components/ScreenContainer';
 import EmptyOrdersPlaceholder from '../components/EmptyOrdersPlaceholder';
+import { auth } from '../config/firebase';
+import { getCustomerOrders } from '../config/firestore';
 
 const RecentOrdersScreen = ({ navigation, route }) => {
   const { recentOrder } = route.params || {};
   const [orders, setOrders] = useState([]);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Mock order data
-  useEffect(() => {
-    // Generate orders with one being highlighted if passed in route params
-    const mockOrders = [
-      {
-        id: recentOrder || '#12345',
-        date: 'Today, 10:30 AM',
-        status: 'Processing',
-        totalItems: 5,
-        totalAmount: 45.99,
-        paymentMethod: 'Credit Card',
-        deliveryAddress: '123 Main St, Apt 4B, New York, NY 10001',
-        items: [
-          { name: 'T-Shirt', quantity: 2, price: 5.98 },
-          { name: 'Pants', quantity: 1, price: 3.99 },
-          { name: 'Dress Shirt', quantity: 1, price: 24.99 },
-          { name: 'Towels', quantity: 1, price: 11.03 }
-        ]
-      },
-      {
-        id: '#12340',
-        date: 'Yesterday, 2:15 PM',
-        status: 'Delivered',
-        totalItems: 3,
-        totalAmount: 32.50,
-        paymentMethod: 'Apple Pay',
-        deliveryAddress: '123 Main St, Apt 4B, New York, NY 10001',
-        items: [
-          { name: 'Sheets', quantity: 1, price: 15.99 },
-          { name: 'Pillowcases', quantity: 2, price: 16.51 }
-        ]
-      },
-      {
-        id: '#12337',
-        date: '20 Jul 2023, 11:45 AM',
-        status: 'Delivered',
-        totalItems: 7,
-        totalAmount: 67.85,
-        paymentMethod: 'Cash on Delivery',
-        deliveryAddress: '123 Main St, Apt 4B, New York, NY 10001',
-        items: [
-          { name: 'Suits', quantity: 1, price: 29.99 },
-          { name: 'Dress', quantity: 1, price: 24.99 },
-          { name: 'Shirts', quantity: 3, price: 10.47 },
-          { name: 'Socks (pairs)', quantity: 2, price: 2.40 }
-        ]
-      },
-      {
-        id: '#12325',
-        date: '15 Jul 2023, 9:20 AM',
-        status: 'Delivered',
-        totalItems: 4,
-        totalAmount: 39.96,
-        paymentMethod: 'Credit Card',
-        deliveryAddress: '123 Main St, Apt 4B, New York, NY 10001',
-        items: [
-          { name: 'T-Shirts', quantity: 4, price: 11.96 },
-          { name: 'Shorts', quantity: 3, price: 7.47 },
-          { name: 'Jeans', quantity: 2, price: 20.53 }
-        ]
+  // Fetch orders from Firestore
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const user = auth.currentUser;
+      if (!user) {
+        setError('User not found. Please log in again.');
+        setLoading(false);
+        return;
       }
-    ];
-    
-    setOrders(mockOrders);
-    
-    // Auto-expand the recent order if it exists
-    if (recentOrder) {
-      setExpandedOrderId(recentOrder);
+      
+      // Fetch orders using the new Firestore function
+      const ordersData = await getCustomerOrders(user.uid);
+      
+      if (ordersData.length === 0) {
+        setOrders([]);
+      } else {
+        // Process and format the order data
+        const formattedOrders = ordersData.map(order => {
+          // Format the date
+          const orderDate = order.createdAt?.toDate() || new Date();
+          const formattedDate = formatOrderDate(orderDate);
+          
+          // Calculate total items
+          const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+          
+          return {
+            id: order.id,
+            date: formattedDate,
+            status: order.status,
+            totalItems: totalItems,
+            totalAmount: order.totalAmount,
+            paymentMethod: order.paymentMethod || 'Card',
+            deliveryAddress: order.address,
+            items: order.items,
+            pickupDate: order.pickupDate?.toDate(),
+            deliveryDate: order.deliveryDate?.toDate()
+          };
+        });
+        
+        setOrders(formattedOrders);
+      }
+      
+      // Auto-expand the recent order if it exists
+      if (recentOrder) {
+        setExpandedOrderId(recentOrder);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      setError('Failed to load your orders. Please try again.');
+    } finally {
+      setLoading(false);
     }
+  };
+  
+  useEffect(() => {
+    fetchOrders();
   }, [recentOrder]);
+  
+  // Format the order date
+  const formatOrderDate = (date) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Check if the date is today or yesterday
+    if (date.toDateString() === today.toDateString()) {
+      return `Today, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return `Yesterday, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } else {
+      // For other dates, format as "DD MMM YYYY, HH:MM AM/PM"
+      return `${date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+  };
   
   // Toggle order expansion
   const toggleOrderExpansion = (orderId) => {
@@ -100,8 +110,11 @@ const RecentOrdersScreen = ({ navigation, route }) => {
   // Get status color based on status
   const getStatusColor = (status) => {
     switch(status) {
+      case 'Pending': return '#FFA500';
       case 'Processing': return '#FFA500';
+      case 'In Progress': return '#FFA500';
       case 'In Transit': return '#3498DB';
+      case 'Ready for Delivery': return '#3498DB';
       case 'Delivered': return '#2ECC71';
       case 'Cancelled': return '#E74C3C';
       default: return '#FFA500';
@@ -126,7 +139,7 @@ const RecentOrdersScreen = ({ navigation, route }) => {
         {/* Order Card Header */}
         <View style={styles.orderCardHeader}>
           <View>
-            <Text style={styles.orderNumber}>{item.id}</Text>
+            <Text style={styles.orderNumber}>#{item.id}</Text>
             <Text style={styles.orderDate}>{item.date}</Text>
           </View>
           
@@ -188,8 +201,11 @@ const RecentOrdersScreen = ({ navigation, route }) => {
             
             {/* Actions */}
             <View style={styles.actionsContainer}>
-              {item.status === 'Processing' || item.status === 'In Transit' ? (
-                <TouchableOpacity style={styles.trackButton}>
+              {(item.status === 'Processing' || item.status === 'In Transit' || item.status === 'In Progress' || item.status === 'Pending') ? (
+                <TouchableOpacity 
+                  style={styles.trackButton}
+                  onPress={() => navigation.navigate('OrderDetailScreen', { orderId: item.id })}
+                >
                   <MaterialIcons name="local-shipping" size={18} color="#FFFFFF" />
                   <Text style={styles.trackButtonText}>Track Order</Text>
                 </TouchableOpacity>
@@ -199,28 +215,17 @@ const RecentOrdersScreen = ({ navigation, route }) => {
                   <Text style={styles.reorderButtonText}>Reorder</Text>
                 </TouchableOpacity>
               )}
-              
-              <TouchableOpacity style={styles.supportButton}>
-                <Feather name="help-circle" size={16} color="#222222" />
-                <Text style={styles.supportButtonText}>Support</Text>
+                
+              <TouchableOpacity 
+                style={styles.detailsButton}
+                onPress={() => navigation.navigate('OrderDetailScreen', { orderId: item.id })}
+              >
+                <MaterialIcons name="receipt" size={16} color="#FFFFFF" />
+                <Text style={styles.detailsButtonText}>View Details</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
-        
-        {/* Expand/Collapse Button */}
-        <View style={styles.expandButtonContainer}>
-          <TouchableOpacity
-            style={styles.expandButton}
-            onPress={() => toggleOrderExpansion(item.id)}
-          >
-            <MaterialIcons
-              name={isExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-              size={24}
-              color="#888888"
-            />
-          </TouchableOpacity>
-        </View>
       </TouchableOpacity>
     );
   };
@@ -245,17 +250,24 @@ const RecentOrdersScreen = ({ navigation, route }) => {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Loading orders...</Text>
+          <Text style={styles.loadingText}>Loading your orders...</Text>
         </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={40} color="#E74C3C" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchOrders}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : orders.length === 0 ? (
+        <EmptyOrdersPlaceholder onBrowse={handleBrowseServices} />
       ) : (
         <FlatList
           data={orders}
           renderItem={renderOrderItem}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <EmptyOrdersPlaceholder onBrowseServices={handleBrowseServices} />
-          }
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -475,7 +487,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 6,
   },
-  supportButton: {
+  detailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -487,23 +499,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  supportButtonText: {
+  detailsButtonText: {
     fontSize: 13,
     fontWeight: 'bold',
     color: '#222222',
     marginLeft: 6,
-  },
-  expandButtonContainer: {
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  expandButton: {
-    backgroundColor: '#243D6E',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -514,6 +514,28 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#E74C3C',
+    marginBottom: 16,
+  },
+  retryButton: {
+    padding: 16,
+    backgroundColor: '#243D6E',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });
 
