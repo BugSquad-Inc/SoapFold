@@ -42,7 +42,8 @@ export const ThemeProvider = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [theme, setTheme] = useState(defaultTheme);
 
-  // Load saved theme preference
+  // Load saved theme preference from AsyncStorage
+  // Note: Using AsyncStorage for theme preferences is intentional as it's app-level configuration
   useEffect(() => {
     const loadThemePreference = async () => {
       try {
@@ -60,7 +61,7 @@ export const ThemeProvider = ({ children }) => {
     loadThemePreference();
   }, []);
 
-  // Toggle dark mode
+  // Toggle dark mode and save preference to AsyncStorage
   const toggleDarkMode = async () => {
     try {
       const newIsDarkMode = !isDarkMode;

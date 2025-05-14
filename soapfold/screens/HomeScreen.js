@@ -17,11 +17,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
-import { auth, verifyFirebaseInitialized, saveUserDataToLocalStorage, getUserDataFromLocalStorage } from '../config/firebase';
+import { auth, verifyFirebaseInitialized, getUserFromFirestore } from '../config/firebase';
 import { signOut } from 'firebase/auth';
 import { BlurView } from 'expo-blur';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { theme, getTextStyle } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import ThemedStatusBar from '../components/ThemedStatusBar';
@@ -54,7 +53,9 @@ const FoldIcon = ({ size, color }) => (
   <MaterialIcons name="layers" size={size} color={color} />
 );
 
-const HomeScreen = ({ navigation, route }) => {
+const HomeScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
   const [userData, setUserData] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -86,11 +87,11 @@ const HomeScreen = ({ navigation, route }) => {
     try {
       const currentUser = auth.currentUser;
       if (currentUser) {
-        // Get user data from AsyncStorage
-        const userData = await getUserDataFromLocalStorage();
+        // Get user data from Firestore
+        const userData = await getUserFromFirestore(currentUser.uid);
         if (userData) {
           setUserData(userData);
-          console.log('Using user data from AsyncStorage in home');
+          console.log('Using user data from Firestore in home');
         } else {
           // No cached user data, create new user data from auth
           console.log('No user document exists, creating default user');
@@ -130,9 +131,6 @@ const HomeScreen = ({ navigation, route }) => {
           
           // Set user data in state
           setUserData(defaultUser);
-          
-          // Save the default user data to AsyncStorage
-          await saveUserDataToLocalStorage(defaultUser);
         }
       }
     } catch (error) {
@@ -293,17 +291,11 @@ const HomeScreen = ({ navigation, route }) => {
     try {
       console.log('Starting logout process from HomeScreen...');
       
-      // Clear user data from AsyncStorage, but keep onboarding status
-      const keys = ['@userData', '@user', '@authUser', '@userToken'];
-      await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));
-      console.log('AsyncStorage items removed (keeping @hasSeenOnboarding)');
-      
-      // Now sign out from Firebase
+      // Sign out from Firebase
       await signOut(auth);
       console.log('User signed out from Firebase Auth');
       
       // The auth state listener in App.js will handle navigation automatically
-      // No need to navigate here as the auth state change will trigger App.js to show the Auth stack
     } catch (error) {
       console.error('Error signing out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
@@ -335,16 +327,7 @@ const HomeScreen = ({ navigation, route }) => {
           onError={(e) => {
             console.log('Error loading profile image:', e.nativeEvent.error);
             // If image fails to load, force a re-fetch of user data
-            AsyncStorage.getItem('@userData').then(data => {
-              if (data) {
-                const userData = JSON.parse(data);
-                if (userData.photoURL === photoURL) {
-                  // Remove the photoURL from cache to try a fresh load next time
-                  delete userData.photoURL;
-                  AsyncStorage.setItem('@userData', JSON.stringify(userData));
-                }
-              }
-            });
+            fetchUserData();
           }}
         />
       );

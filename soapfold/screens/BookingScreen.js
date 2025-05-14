@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import ScreenContainer from '../components/ScreenContainer';
 import Constants from 'expo-constants';
+import { createOrder } from '../config/firestore';
+import { createPayment } from '../config/firestore';
+import { auth, db } from '../config/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // Modern approach to detect Expo environment
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
@@ -27,6 +31,7 @@ if (!isExpoGo) {
     console.log('Razorpay import error:', error);
   }
 }
+
 const BookingScreen = ({ navigation, route }) => {
   const { service, quantity = 1, totalPrice = 14.99 } = route.params || {};
   
@@ -136,18 +141,10 @@ const BookingScreen = ({ navigation, route }) => {
           onPress: () => {
             const testPaymentData = {
               paymentId: 'test_' + Date.now(),
-              // orderId: 'test_order_' + Date.now(),
               signature: 'test_signature',
-              amount: calculateFinalPrice(),
-              items: getFormattedItems(),
-              service: service?.name || 'Wash & Fold',
-              timestamp: new Date().toISOString()
             };
             
-            navigation.navigate('PaymentSuccessScreen', {
-              ...testPaymentData,
-              totalAmount: calculateFinalPrice()
-            });
+            handlePaymentSuccess(testPaymentData);
           }
         },
         {
@@ -164,6 +161,92 @@ const BookingScreen = ({ navigation, route }) => {
     );
   };
 
+  // Handle successful payment
+  const handlePaymentSuccess = async (razorpayData) => {
+    try {
+      setIsProcessing(true);
+      
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Error', 'User not found. Please log in again.');
+        setIsProcessing(false);
+        return;
+      }
+      
+      // Format delivery date - 2 days from pickup
+      const pickupDate = new Date(selectedDate.fullDate);
+      const deliveryDate = new Date(pickupDate);
+      deliveryDate.setDate(deliveryDate.getDate() + 2);
+      
+      // Format items for Firestore
+      const formattedItems = Object.entries(itemCounts)
+        .filter(([_, count]) => count > 0)
+        .map(([item, count]) => ({
+          name: item.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+          quantity: count,
+          price: (service?.price || 14.99) * 0.5 * count
+        }));
+        
+      // Add base service item if quantity > 0
+      if (quantity > 0) {
+        formattedItems.unshift({
+          name: service?.name || 'Wash & Fold',
+          quantity,
+          price: parseFloat(totalPrice)
+        });
+      }
+
+      // Create order in Firestore
+      const orderData = {
+        customerId: user.uid,
+        items: formattedItems,
+        status: 'pending',
+        totalAmount: parseFloat(calculateFinalPrice()),
+        pickupDateString: pickupDate.toISOString(),
+        deliveryDateString: deliveryDate.toISOString(),
+        address: {
+          street: address,
+          notes: notes
+        }
+      };
+
+      // Create order and get order ID
+      const orderId = await createOrder(orderData);
+      
+      // Create payment record
+      const paymentData = {
+        orderId: orderId,
+        customerId: user.uid,
+        amount: parseFloat(calculateFinalPrice()),
+        status: 'success',
+        method: 'razorpay',
+        transactionId: razorpayData.razorpay_payment_id
+      };
+
+      console.log("Payment Data ",paymentData);
+
+      // Create payment record
+      const paymentId = await createPayment(paymentData);
+      
+      // Navigate to success screen
+      navigation.replace('PaymentSuccess', {
+        orderId: orderId,
+        amount: calculateFinalPrice()
+      });
+      
+    } catch (error) {
+      console.error('Error creating order:', error);
+      Alert.alert('Error', 'Failed to create order. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Update the Razorpay handler
+  const handleRazorpaySuccess = (data) => {
+    console.log('Razorpay payment success:', data);
+    handlePaymentSuccess(data);
+  };
 
   const handleRazorpayPayment = async () => {
     try {
@@ -183,50 +266,25 @@ const BookingScreen = ({ navigation, route }) => {
         key: 'rzp_test_KhGe6qjulyJzhZ',
         amount: amountInPaise,
         name: 'SoapFold',
-        // order_id: `order_${Math.floor(Math.random() * 1000000000)}`,
         prefill: {
           email: 'arsacskasha@gmail.com',
           contact: '994080029',
           name: 'Arsac'
         },
         theme: { color: '#000000' },
-        // notes: {
-        //   serviceName: service?.name || 'Wash & Fold',
-        //   items: JSON.stringify(getFormattedItems())
-        // },
-        // retry: {
-        //   enabled: true,
-        //   max_count: 1
-        // },
-        // send_sms_hash: true,
-        // remember_customer: true,
-        // timeout: 300
       };
-
 
       console.log('Initiating Razorpay payment with options:', options);
-      // const data = await RazorpayCheckout.open(options);
-      try {
-        const data = await RazorpayCheckout.open(options);
-        console.log('Razorpay success response:', data);
-      } catch (err) {
-        console.error('Razorpay error response:', err);  // This will help us debug
-      }    
-      
-      const paymentData = {
-        paymentId: data.razorpay_payment_id,
-        orderId: data.razorpay_order_id,
-        signature: data.razorpay_signature,
-        amount: finalPrice,
-        items: getFormattedItems(),
-        service: service?.name || 'Wash & Fold',
-        timestamp: new Date().toISOString()
-      };
-
-      navigation.navigate('PaymentSuccessScreen', {
-        ...paymentData,
-        totalAmount: finalPrice
-      });
+      RazorpayCheckout.open(options)
+        .then((data) => {
+          console.log(`Payment success: ${JSON.stringify(data)}`);
+          handleRazorpaySuccess(data);
+        })
+        .catch((error) => {
+          console.log(`Payment error: ${error.code} | ${error.description}`);
+          setIsProcessing(false);
+          Alert.alert('Payment Failed', error.description || 'There was a problem with your payment.');
+        });
 
     } catch (error) {
       console.error('Payment Error Details:', error);
@@ -244,7 +302,6 @@ const BookingScreen = ({ navigation, route }) => {
       setIsProcessing(false);
     }
   };
-
 
   // const handlePayment = isTestMode ? handleTestPayment : handleRazorpayPayment;
   const handlePayment = handleRazorpayPayment;
@@ -334,7 +391,7 @@ const BookingScreen = ({ navigation, route }) => {
                     styles.dateItem,
                     selectedDate === date.formatted && styles.selectedDateItem
                   ]}
-                  onPress={() => setSelectedDate(date.formatted)}
+                  onPress={() => setSelectedDate(date)}
                 >
                   <Text style={[
                     styles.dayName,

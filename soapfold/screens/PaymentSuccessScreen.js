@@ -1,244 +1,183 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  ScrollView
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { theme } from '../utils/theme';
 import ScreenContainer from '../components/ScreenContainer';
 
-const { width } = Dimensions.get('window');
+const PaymentSuccessScreen = ({ navigation, route }) => {
+  const { orderId, paymentId, amount } = route.params;
 
-const PaymentSuccessScreen = ({ route, navigation }) => {
-  // Extract order details from route params
-  const { 
-    orderId = 'ORD123456',
-    date = '15 Nov 2023',
-    service = 'Wash & Fold',
-    total = 80000,
-    estimatedDelivery = '18 Nov 2023'
-  } = route.params || {};
-  
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  
-  useEffect(() => {
-    // Run animation sequence
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      })
-    ]).start();
-  }, []);
-  
-  // Handle viewing order details
-  const handleViewOrderDetails = () => {
-    navigation.navigate('Orders', {
-      screen: 'OrderDetail',
-      params: { orderId }
-    });
-  };
-  
-  // Handle going back to home screen
-  const handleGoToHome = () => {
-    navigation.navigate('MainTabs', { screen: 'HomeScreen' });
-  };
-  
   return (
     <ScreenContainer>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.closeButton}
-          onPress={handleGoToHome}
-        >
-          <MaterialIcons name="close" size={24} color="#000" />
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.animationContainer}>
-        <View style={styles.successCircle}>
-          <Animated.View 
-            style={[
-              styles.checkIconContainer,
-              { transform: [{ scale: scaleAnim }] }
-            ]}
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        
+        <ScrollView style={styles.container}>
+          {/* Success Icon */}
+          <View style={styles.iconContainer}>
+            <MaterialIcons name="check-circle" size={100} color="#4CAF50" />
+          </View>
+
+          {/* Success Message */}
+          <Text style={styles.successTitle}>Payment Successful!</Text>
+          <Text style={styles.successSubtitle}>
+            Thank you for your order. We'll process it right away.
+          </Text>
+
+          {/* Order Details */}
+          <View style={styles.detailsContainer}>
+            <Text style={styles.detailsTitle}>Order Details</Text>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Order ID:</Text>
+              <Text style={styles.detailValue}>{orderId}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Payment ID:</Text>
+              <Text style={styles.detailValue}>{paymentId}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Amount Paid:</Text>
+              <Text style={styles.detailValue}>₹{amount}</Text>
+            </View>
+          </View>
+
+          {/* Next Steps */}
+          <View style={styles.nextStepsContainer}>
+            <Text style={styles.nextStepsTitle}>What's Next?</Text>
+            <Text style={styles.nextStepsText}>
+              • You'll receive a confirmation email shortly{'\n'}
+              • Our team will pick up your items at the scheduled time{'\n'}
+              • You can track your order status in the Orders section
+            </Text>
+          </View>
+        </ScrollView>
+
+        {/* Action Buttons */}
+        <View style={styles.footer}>
+          <TouchableOpacity 
+            style={styles.button}
+            onPress={() => navigation.navigate('Home')}
           >
-            <MaterialIcons name="check" size={64} color="#FFFFFF" />
-          </Animated.View>
+            <Text style={styles.buttonText}>Back to Home</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.button, styles.secondaryButton]}
+            onPress={() => navigation.navigate('Orders')}
+          >
+            <Text style={[styles.buttonText, styles.secondaryButtonText]}>View Orders</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-      
-      <Animated.View 
-        style={[
-          styles.contentContainer, 
-          { opacity: fadeAnim }
-        ]}
-      >
-        <Text style={styles.successTitle}>Payment Successful!</Text>
-        <Text style={styles.successMessage}>
-          Your order has been placed successfully. We'll take it from here!
-        </Text>
-        
-        <View style={styles.orderSummaryCard}>
-          <Text style={styles.orderSummaryTitle}>Order Summary</Text>
-          
-          <View style={styles.orderDetail}>
-            <Text style={styles.orderDetailLabel}>Order ID</Text>
-            <Text style={styles.orderDetailValue}>{orderId}</Text>
-          </View>
-          
-          <View style={styles.orderDetail}>
-            <Text style={styles.orderDetailLabel}>Service</Text>
-            <Text style={styles.orderDetailValue}>{service}</Text>
-          </View>
-          
-          <View style={styles.orderDetail}>
-            <Text style={styles.orderDetailLabel}>Date</Text>
-            <Text style={styles.orderDetailValue}>{date}</Text>
-          </View>
-          
-          <View style={styles.orderDetail}>
-            <Text style={styles.orderDetailLabel}>Amount</Text>
-            <Text style={styles.orderDetailValue}>Rp {total.toLocaleString()}</Text>
-          </View>
-          
-          <View style={styles.orderDetail}>
-            <Text style={styles.orderDetailLabel}>Est. Delivery</Text>
-            <Text style={styles.orderDetailValue}>{estimatedDelivery}</Text>
-          </View>
-        </View>
-      </Animated.View>
-      
-      <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.homeButton}
-          onPress={handleGoToHome}
-        >
-          <Text style={styles.homeButtonText}>Go to Home</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.viewOrderButton}
-          onPress={handleViewOrderDetails}
-        >
-          <Text style={styles.viewOrderButtonText}>View Order Details</Text>
-        </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  closeButton: {
-    padding: 8,
-  },
-  animationContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: width * 0.5,
-    marginBottom: 20,
-  },
-  successCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#4CD964', // Success green color
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  checkIconContainer: {
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  contentContainer: {
+  safeArea: {
     flex: 1,
+    backgroundColor: '#fff',
+  },
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  iconContainer: {
     alignItems: 'center',
-    paddingHorizontal: 24,
+    marginVertical: 30,
   },
   successTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
+    color: '#333',
   },
-  successMessage: {
+  successSubtitle: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
-    marginBottom: 32,
-    paddingHorizontal: 12,
+    color: '#666',
+    marginBottom: 30,
   },
-  orderSummaryCard: {
-    backgroundColor: '#fff',
+  detailsContainer: {
+    backgroundColor: '#f8f8f8',
     borderRadius: 12,
     padding: 20,
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginBottom: 20,
   },
-  orderSummaryTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  detailsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 15,
+    color: '#333',
   },
-  orderDetail: {
+  detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  orderDetailLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  orderDetailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  footer: {
-    padding: 24,
-  },
-  homeButton: {
-    backgroundColor: '#243D6E',
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
     marginBottom: 12,
   },
-  homeButtonText: {
+  detailLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    color: '#666',
   },
-  viewOrderButton: {
-    backgroundColor: '#243D6E',
-    paddingVertical: 16,
+  detailValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  nextStepsContainer: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+  },
+  nextStepsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 15,
+    color: '#333',
+  },
+  nextStepsText: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 24,
+  },
+  footer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f1f1',
+  },
+  button: {
+    backgroundColor: theme.colors.primary,
+    height: 50,
     borderRadius: 8,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 10,
   },
-  viewOrderButtonText: {
+  secondaryButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  buttonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+  },
+  secondaryButtonText: {
+    color: theme.colors.primary,
   },
 });
 
