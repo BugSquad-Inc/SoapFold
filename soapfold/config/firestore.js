@@ -85,11 +85,23 @@ export const paymentsCollection = collection(db, 'payments');
 
 export const createPayment = async (paymentData) => {
   try {
-    const paymentRef = await addDoc(paymentsCollection, {
-      ...paymentData,
+    // Validate required fields
+    if (!paymentData.orderId || !paymentData.customerId || !paymentData.amount || !paymentData.method) {
+      throw new Error('Missing required payment fields');
+    }
+
+    const paymentToSave = {
+      orderId: paymentData.orderId,
+      customerId: paymentData.customerId,
+      amount: paymentData.amount,
+      status: paymentData.status || 'pending',
+      method: paymentData.method,
+      transactionId: paymentData.transactionId || null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    };
+
+    const paymentRef = await addDoc(paymentsCollection, paymentToSave);
     return paymentRef.id;
   } catch (error) {
     console.error('Error creating payment:', error);

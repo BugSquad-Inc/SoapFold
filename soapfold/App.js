@@ -280,7 +280,10 @@ const App = () => {
                 ) : (
                   <RootStack.Navigator screenOptions={{ headerShown: false }}>
                     {userInfo ? (
-                      <RootStack.Screen name="Main" component={AppNavigator} />
+                      <>
+                        <RootStack.Screen name="Main" component={AppNavigator} />
+                        <RootStack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
+                      </>
                     ) : (
                       <RootStack.Screen name="Auth" component={AuthNavigator} />
                     )}

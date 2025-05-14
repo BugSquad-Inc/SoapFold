@@ -15,7 +15,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import ScreenContainer from '../components/ScreenContainer';
 import Constants from 'expo-constants';
-import { createOrder, createPayment, auth, db } from '../config/firebase';
+import { createOrder } from '../config/firestore';
+import { createPayment } from '../config/firestore';
+import { auth, db } from '../config/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // Modern approach to detect Expo environment
@@ -221,11 +223,13 @@ const BookingScreen = ({ navigation, route }) => {
         transactionId: razorpayData.razorpay_payment_id
       };
 
+      console.log("Payment Data ",paymentData);
+
       // Create payment record
       const paymentId = await createPayment(paymentData);
       
       // Navigate to success screen
-      navigation.replace('PaymentSuccessScreen', {
+      navigation.replace('PaymentSuccess', {
         orderId: orderId,
         amount: calculateFinalPrice()
       });
