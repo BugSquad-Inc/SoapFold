@@ -11,33 +11,33 @@ import { useColorScheme } from 'react-native';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 
 // Import screens
-import HomeScreen from '../screens/HomeScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import CategoryScreen from '../screens/CategoryScreen';
-import CalendarScreen from '../screens/CalendarScreen';
-import CartScreen from '../screens/CartScreen';
-import NotificationScreen, { unreadNotificationsCount } from '../screens/NotificationScreen';
-import OrderScreen from '../screens/OrderScreen';
-import OrderDetailScreen from '../screens/OrderDetailScreen';
+import HomeScreen from '../screens/Main/HomeScreen';
+import SettingsScreen from '../screens/Profile/SettingsScreen';
+import CategoryScreen from '../screens/Service/CategoryScreen';
+import CalendarScreen from '../screens/Booking/CalendarScreen';
+import CartScreen from '../screens/Order/CartScreen';
+import NotificationScreen, { unreadNotificationsCount } from '../screens/Support/NotificationScreen';
+import OrderScreen from '../screens/Order/OrderScreen';
+import OrderDetailScreen from '../screens/Order/OrderDetailScreen';
 
 // Import other screens
 import OrdersNavigator from './OrdersNavigator';
-import RedeemScreen from '../screens/RedeemScreen';
-import OffersScreen from '../screens/OffersScreen';
-import ServiceWithOffersScreen from '../screens/ServiceWithOffersScreen';
-import ServiceScreen from '../screens/ServiceScreen';
-import ClothesScreen from '../screens/ClothesScreen';
-import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
-import RecentOrdersScreen from '../screens/RecentOrdersScreen';
-import ServiceCategoryScreen from '../screens/ServiceCategoryScreen';
-import ServiceDetailScreen from '../screens/ServiceDetailScreen';
-import BookingScreen from '../screens/BookingScreen';
-import BookingConfirmationScreen from '../screens/BookingConfirmationScreen';
-import EditProfileScreen from '../screens/EditProfileScreen';
-import HelpCenterScreen from '../screens/HelpCenterScreen';
-import AboutScreen from '../screens/AboutScreen';
-import SendFeedbackScreen from '../screens/SendFeedbackScreen';
-import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import RedeemScreen from '../screens/Payment/RedeemScreen';
+import OffersScreen from '../screens/Offer/OffersScreen';
+import ServiceWithOffersScreen from '../screens/Offer/ServiceWithOffersScreen';
+import ServiceScreen from '../screens/Service/ServiceScreen';
+import ClothesScreen from '../screens/Profile/ClothesScreen';
+import PaymentSuccessScreen from '../screens/Payment/PaymentSuccessScreen';
+import RecentOrdersScreen from '../screens/Order/RecentOrdersScreen';
+import ServiceCategoryScreen from '../screens/Service/ServiceCategoryScreen';
+import ServiceDetailScreen from '../screens/Service/ServiceDetailScreen';
+import BookingScreen from '../screens/Booking/BookingScreen';
+import BookingConfirmationScreen from '../screens/Booking/BookingConfirmationScreen';
+import EditProfileScreen from '../screens/Profile/EditProfileScreen';
+import HelpCenterScreen from '../screens/Support/HelpCenterScreen';
+import AboutScreen from '../screens/Support/AboutScreen';
+import SendFeedbackScreen from '../screens/Support/SendFeedbackScreen';
+import ChangePasswordScreen from '../screens/Authentication/ChangePasswordScreen';
 
 const { width } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
