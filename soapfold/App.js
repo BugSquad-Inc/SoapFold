@@ -22,38 +22,38 @@ import { LoadingProvider } from './contexts/LoadingContext';
 import React from 'react';
 
 // Auth Screens
-import OnboardingScreen from './screens/OnboardingScreen';
-import PhoneSignInScreen from './screens/PhoneSignInScreen';
-import VerifyCodeScreen from './screens/VerifyCodeScreen';
-import SignInScreen from './screens/SignInScreen';
-import SignUpScreen from './screens/SignupScreen';
-import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
+import OnboardingScreen from './screens/Onboarding/OnboardingScreen';
+import PhoneSignInScreen from './screens/Authentication/PhoneSignInScreen';
+import VerifyCodeScreen from './screens/Authentication/VerifyCodeScreen';
+import SignInScreen from './screens/Authentication/SignInScreen';
+import SignUpScreen from './screens/Authentication/SignupScreen';
+import ForgotPasswordScreen from './screens/Authentication/ForgotPasswordScreen';
 
 // Main App Screens
-import HomeScreen from './screens/HomeScreen';
-import SettingsScreen from './screens/SettingsScreen';
+import HomeScreen from './screens/Main/HomeScreen';
+import SettingsScreen from './screens/Profile/SettingsScreen';
 import ErrorBoundary from './components/ErrorBoundary';
-import CategoryScreen from './screens/CategoryScreen';
-import CalendarScreen from './screens/CalendarScreen';
-import CartScreen from './screens/CartScreen';
+import CategoryScreen from './screens/Service/CategoryScreen';
+import CalendarScreen from './screens/Booking/CalendarScreen';
+import CartScreen from './screens/Order/CartScreen';
 
 // New Screens for the flows
-import RedeemScreen from './screens/RedeemScreen';
-import OffersScreen from './screens/OffersScreen';
-import ServiceWithOffersScreen from './screens/ServiceWithOffersScreen';
-import ServiceScreen from './screens/ServiceScreen';
-import ClothesScreen from './screens/ClothesScreen';
+import RedeemScreen from './screens/Payment/RedeemScreen';
+import OffersScreen from './screens/Offer/OffersScreen';
+import ServiceWithOffersScreen from './screens/Offer/ServiceWithOffersScreen';
+import ServiceScreen from './screens/Service/ServiceScreen';
+import ClothesScreen from './screens/Profile/ClothesScreen';
 // import PaymentScreen from './screens/PaymentScreen';
 // import RazorpayScreen from './screens/RazorpayScreen';
-import PaymentSuccessScreen from './screens/PaymentSuccessScreen';
-import RecentOrdersScreen from './screens/RecentOrdersScreen';
+import PaymentSuccessScreen from './screens/Payment/PaymentSuccessScreen';
+import RecentOrdersScreen from './screens/Order/RecentOrdersScreen';
 
 // New Laundry Service Screens
-import ServiceCategoryScreen from './screens/ServiceCategoryScreen';
-import ServiceDetailScreen from './screens/ServiceDetailScreen';
-import BookingScreen from './screens/BookingScreen';
-import BookingConfirmationScreen from './screens/BookingConfirmationScreen';
-import OrderDetailScreen from './screens/OrderDetailScreen';
+import ServiceCategoryScreen from './screens/Service/ServiceCategoryScreen';
+import ServiceDetailScreen from './screens/Service/ServiceDetailScreen';
+import BookingScreen from './screens/Booking/BookingScreen';
+import BookingConfirmationScreen from './screens/Booking/BookingConfirmationScreen';
+import OrderDetailScreen from './screens/Order/OrderDetailScreen';
 
 // Import BottomTabNavigator
 import BottomTabNavigator from './navigation/BottomTabNavigator';

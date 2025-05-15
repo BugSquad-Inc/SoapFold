@@ -3,9 +3,9 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { CardStyleInterpolators } from '@react-navigation/stack';
 
 // Import order-related screens
-import RecentOrdersScreen from '../screens/RecentOrdersScreen';
-import OrderDetailScreen from '../screens/OrderDetailScreen';
-import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
+import RecentOrdersScreen from '../screens/Order/RecentOrdersScreen';
+import OrderDetailScreen from '../screens/Order/OrderDetailScreen';
+import PaymentSuccessScreen from '../screens/Payment/PaymentSuccessScreen';
 
 const Stack = createStackNavigator();
 
