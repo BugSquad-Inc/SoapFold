@@ -25,6 +25,7 @@ import { theme, getTextStyle } from '../../utils/theme';
 import { useTheme } from '../../utils/ThemeContext';
 import ThemedStatusBar from '../../components/ThemedStatusBar';
 import topSectionBg from '../../assets/topsection_bg.jpeg';
+import { getCustomerOrders } from '../../config/firestore'; // adjust path if needed
 
 const { width, height } = Dimensions.get('window');
 
@@ -61,6 +62,7 @@ const HomeScreen = () => {
   const [loading, setLoading] = useState(true);
   const [activeProjectIndex, setActiveProjectIndex] = useState(0);
   const { isDarkMode, theme: activeTheme } = useTheme();
+  const [recentOrder, setRecentOrder] = useState(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -82,7 +84,22 @@ const HomeScreen = () => {
     { id: 2, name: 'Wash & Fold', rating: 4.6 }
   ];
 
-  // Fetch user data function
+  // 1. Define fetchRecentOrder first
+  const fetchRecentOrder = async (customerId) => {
+    try {
+      const orders = await getCustomerOrders(customerId);
+      if (orders && orders.length > 0) {
+        setRecentOrder(orders[0]);
+      } else {
+        setRecentOrder(null);
+      }
+    } catch (error) {
+      console.error('Error fetching recent order:', error);
+      setRecentOrder(null);
+    }
+  };
+
+  // 2. Now define fetchUserData, which can use fetchRecentOrder
   const fetchUserData = async () => {
     try {
       const currentUser = auth.currentUser;
@@ -92,6 +109,7 @@ const HomeScreen = () => {
         if (userData) {
           setUserData(userData);
           console.log('Using user data from Firestore in home');
+          fetchRecentOrder(currentUser.uid); // This is now safe!
         } else {
           // No cached user data, create new user data from auth
           console.log('No user document exists, creating default user');
@@ -863,61 +881,57 @@ const HomeScreen = () => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity 
-          style={styles.recentOrderCard}
-          onPress={() => navigation.navigate('OrderDetailScreen', {
-            orderId: 'LDY123456',
-            service: { name: 'Wash & Fold' },
-            pickupDate: 'Today',
-            pickupTime: '10:30 AM - 12:30 PM',
-            status: 'Processing',
-            items: [
-              { name: 'T-Shirts', quantity: 3, price: 15.99 },
-              { name: 'Pants', quantity: 2, price: 19.99 }
-            ],
-            timeline: [
-              { status: 'Order Placed', time: '10:30 AM', completed: true },
-              { status: 'Processing', time: 'In Progress', completed: false },
-              { status: 'Ready for Delivery', time: 'Upcoming', completed: false },
-              { status: 'Delivered', time: 'Upcoming', completed: false }
-            ],
-            totalPrice: 45.99
-          })}
-        >
-          <View style={styles.recentOrderHeader}>
-            <View style={styles.orderInfoContainer}>
-              <Text style={styles.orderNumber}>#LDY123456</Text>
-              <Text style={styles.orderDate}>Today, 10:30 AM</Text>
+        {recentOrder ? (
+          <TouchableOpacity 
+            style={styles.recentOrderCard}
+            onPress={() => navigation.navigate('OrderDetailScreen', {
+              orderId: recentOrder.id,
+              ...recentOrder // pass other order details as needed
+            })}
+          >
+            <View style={styles.recentOrderHeader}>
+              <View style={styles.orderInfoContainer}>
+                <Text style={styles.orderNumber}>#{recentOrder.id}</Text>
+                <Text style={styles.orderDate}>
+                  {recentOrder.createdAt 
+                    ? new Date(recentOrder.createdAt.seconds * 1000).toLocaleString() 
+                    : ''}
+                </Text>
+              </View>
+              <View style={[styles.statusBadge, { backgroundColor: '#FFF3E0' }]}>
+                <View style={[styles.statusIndicator, { backgroundColor: '#FFA500' }]} />
+                <Text style={[styles.statusText, { color: '#FFA500' }]}>
+                  {recentOrder.status}
+                </Text>
+              </View>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: '#FFF3E0' }]}>
-              <View style={[styles.statusIndicator, { backgroundColor: '#FFA500' }]} />
-              <Text style={[styles.statusText, { color: '#FFA500' }]}>Processing</Text>
+            {/* Render items, total, etc. */}
+            <View style={styles.orderItemsPreview}>
+              {recentOrder.items && recentOrder.items.map((item, idx) => (
+                <View key={idx} style={styles.orderItemPreview}>
+                  <MaterialIcons name="checkroom" size={18} color="#666" />
+                  <Text style={styles.orderItemPreviewText}>
+                    {item.name} ({item.quantity})
+                  </Text>
+                </View>
+              ))}
             </View>
-          </View>
-          
-          <View style={styles.orderItemsPreview}>
-            <View style={styles.orderItemPreview}>
-              <MaterialIcons name="checkroom" size={18} color="#666" />
-              <Text style={styles.orderItemPreviewText}>T-Shirts (3)</Text>
+            <View style={styles.orderSummary}>
+              <View className={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Total</Text>
+                <Text style={styles.summaryValue}>₹{recentOrder.totalAmount}</Text>
+              </View>
+              <TouchableOpacity style={styles.trackOrderButton}>
+                <Text style={styles.trackOrderText}>Track Order</Text>
+                <MaterialIcons name="arrow-forward" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
             </View>
-            <View style={styles.orderItemPreview}>
-              <MaterialIcons name="checkroom" size={18} color="#666" />
-              <Text style={styles.orderItemPreviewText}>Pants (2)</Text>
-            </View>
-          </View>
-          
-          <View style={styles.orderSummary}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Total</Text>
-              <Text style={styles.summaryValue}>₹45.99</Text>
-            </View>
-            
-            <TouchableOpacity style={styles.trackOrderButton}>
-              <Text style={styles.trackOrderText}>Track Order</Text>
-              <MaterialIcons name="arrow-forward" size={16} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        ) : (
+          <Text style={{ textAlign: 'center', color: '#888', margin: 20 }}>
+            No recent orders found.
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
