@@ -495,6 +495,7 @@ const HomeStack = () => (
     <Stack.Screen name="CalendarScreen" component={CalendarScreen} />
     <Stack.Screen name="BookingScreen" component={BookingScreen} />
     <Stack.Screen name="BookingConfirmationScreen" component={BookingConfirmationScreen} />
+    <Stack.Screen name="PaymentSuccessScreen" component={PaymentSuccessScreen} />
   </Stack.Navigator>
 );
 

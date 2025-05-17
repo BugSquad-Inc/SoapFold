@@ -229,7 +229,7 @@ const BookingScreen = ({ navigation, route }) => {
       const paymentId = await createPayment(paymentData);
       
       // Navigate to success screen
-      navigation.replace('PaymentSuccess', {
+      navigation.replace('PaymentSuccessScreen', {
         orderId: orderId,
         amount: calculateFinalPrice()
       });
