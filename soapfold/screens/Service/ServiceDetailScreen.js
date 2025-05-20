@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,28 +8,65 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
-  Dimensions
+  Dimensions,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
 import ScreenContainer from '../../components/ScreenContainer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { 
+  validateService, 
+  validateQuantity, 
+  calculateBasePrice,
+  ERROR_MESSAGES 
+} from '../../utils/bookingUtils';
 
 const { width } = Dimensions.get('window');
 
 const ServiceDetailScreen = ({ navigation, route }) => {
-  const { service } = route.params || {
-    name: 'Wash & Fold',
-    description: 'Professional washing, drying and folding services',
-    price: 14.99,
-    unit: 'per kg',
-    rating: 4.8,
-    reviews: 124,
-    image: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
-  };
-  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [totalPrice, setTotalPrice] = useState(0);
   const insets = useSafeAreaInsets();
+  
+  // Calculate total price whenever quantity or service changes
+  useEffect(() => {
+    if (route.params?.service?.price) {
+      // Calculate total based on price per kg
+      const pricePerKg = parseFloat(route.params.service.price);
+      const total = pricePerKg * quantity;
+      setTotalPrice(total);
+    }
+  }, [quantity, route.params?.service]);
+
+  // Validate service data on mount
+  useEffect(() => {
+    if (!route.params?.service) {
+      setError(ERROR_MESSAGES.INVALID_SERVICE);
+      return;
+    }
+
+    const serviceData = {
+      ...route.params.service,
+      type: route.params.service.type || 'wash_fold'
+    };
+
+    if (!validateService(serviceData)) {
+      setError(ERROR_MESSAGES.INVALID_SERVICE);
+      return;
+    }
+
+    // Initialize total price
+    const pricePerKg = parseFloat(route.params.service.price);
+    setTotalPrice(pricePerKg);
+
+    setLoading(false);
+  }, [route.params?.service]);
+
+  const { service } = route.params || {};
   
   // Sample features list
   const features = [
@@ -61,18 +98,70 @@ const ServiceDetailScreen = ({ navigation, route }) => {
   ];
   
   const increaseQuantity = () => {
-    setQuantity(quantity + 1);
+    setQuantity(prev => prev + 1);
   };
   
   const decreaseQuantity = () => {
     if (quantity > 1) {
-      setQuantity(quantity - 1);
+      setQuantity(prev => prev - 1);
     }
   };
-  
-  const calculateTotal = () => {
-    return (service.price * quantity).toFixed(2);
+
+  const handleBookNow = () => {
+    try {
+      if (!service) {
+        Alert.alert('Error', ERROR_MESSAGES.INVALID_SERVICE);
+        return;
+      }
+
+      if (!validateQuantity(quantity)) {
+        Alert.alert('Error', ERROR_MESSAGES.INVALID_QUANTITY);
+        return;
+      }
+
+      // Prepare the service data for booking
+      const bookingData = {
+        service: {
+          ...service,
+          price: parseFloat(service.price),
+          totalPrice: totalPrice,
+          quantity: quantity
+        }
+      };
+
+      // Navigate to BookingScreen with validated data
+      navigation.navigate('BookingScreen', bookingData);
+    } catch (error) {
+      console.error('Error in handleBookNow:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
   };
+
+  if (loading) {
+    return (
+      <ScreenContainer>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <ScreenContainer>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
   
   const renderStars = (rating) => {
     const stars = [];
@@ -126,7 +215,7 @@ const ServiceDetailScreen = ({ navigation, route }) => {
         {/* Header Image */}
         <View style={styles.imageContainer}>
           <Image 
-            source={{ uri: service.image }} 
+            source={{ uri: service?.image }} 
             style={styles.headerImage}
             resizeMode="cover"
           />
@@ -154,22 +243,22 @@ const ServiceDetailScreen = ({ navigation, route }) => {
             {/* Service Info */}
             <View style={styles.serviceInfoContainer}>
               <View style={styles.serviceHeader}>
-                <Text style={styles.serviceName}>{service.name}</Text>
+                <Text style={styles.serviceName}>{service?.name}</Text>
                 <View style={styles.priceContainer}>
-                  <Text style={styles.price}>₹{service.price}</Text>
-                  <Text style={styles.unit}>{service.unit}</Text>
+                  <Text style={styles.price}>₹{service?.price}</Text>
+                  <Text style={styles.unit}>{service?.unit}</Text>
                 </View>
               </View>
               
               <View style={styles.ratingContainer}>
                 <View style={styles.ratingStars}>
-                  {renderStars(service.rating)}
+                  {renderStars(service?.rating)}
                 </View>
-                <Text style={styles.ratingText}>{service.rating}</Text>
-                <Text style={styles.reviewCount}>({service.reviews} reviews)</Text>
+                <Text style={styles.ratingText}>{service?.rating}</Text>
+                <Text style={styles.reviewCount}>({service?.reviews} reviews)</Text>
               </View>
               
-              <Text style={styles.description}>{service.description}</Text>
+              <Text style={styles.description}>{service?.description}</Text>
               
               {/* Features */}
               <View style={styles.sectionContainer}>
@@ -199,7 +288,7 @@ const ServiceDetailScreen = ({ navigation, route }) => {
         {/* Bottom Bar */}
         <View style={[
           styles.bottomBar, 
-          { paddingBottom: Math.max(insets.bottom, 16) + 16 } // Add safe area insets padding plus extra spacing
+          { paddingBottom: Math.max(insets.bottom, 16) + 16 }
         ]}>
           <View style={styles.quantitySelector}>
             <TouchableOpacity 
@@ -218,13 +307,9 @@ const ServiceDetailScreen = ({ navigation, route }) => {
           </View>
           <TouchableOpacity 
             style={styles.bookButton}
-            onPress={() => navigation.navigate('BookingScreen', { 
-              service: service,
-              quantity: quantity,
-              totalPrice: calculateTotal()
-            })}
+            onPress={handleBookNow}
           >
-            <Text style={styles.bookButtonText}>Book Now - ₹{calculateTotal()}</Text>
+            <Text style={styles.bookButtonText}>Book Now - ₹{totalPrice.toFixed(2)}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -427,6 +512,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bookButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
