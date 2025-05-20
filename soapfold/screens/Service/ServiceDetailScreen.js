@@ -26,8 +26,16 @@ import {
 const { width } = Dimensions.get('window');
 
 const ServiceDetailScreen = ({ navigation, route }) => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { service, offerExists = false, offerDiscountAmount = 0 } = route.params || {
+    name: 'Wash & Fold',
+    description: 'Professional washing, drying and folding services',
+    price: 14.99,
+    unit: 'per kg',
+    rating: 4.8,
+    reviews: 124,
+    image: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
+  };
+  
   const [quantity, setQuantity] = useState(1);
   const [totalPrice, setTotalPrice] = useState(0);
   const insets = useSafeAreaInsets();
@@ -66,8 +74,6 @@ const ServiceDetailScreen = ({ navigation, route }) => {
     setLoading(false);
   }, [route.params?.service]);
 
-  const { service } = route.params || {};
-  
   // Sample features list
   const features = [
     'Professional handling of all fabric types',
@@ -106,35 +112,25 @@ const ServiceDetailScreen = ({ navigation, route }) => {
       setQuantity(prev => prev - 1);
     }
   };
-
-  const handleBookNow = () => {
-    try {
-      if (!service) {
-        Alert.alert('Error', ERROR_MESSAGES.INVALID_SERVICE);
-        return;
-      }
-
-      if (!validateQuantity(quantity)) {
-        Alert.alert('Error', ERROR_MESSAGES.INVALID_QUANTITY);
-        return;
-      }
-
-      // Prepare the service data for booking
-      const bookingData = {
-        service: {
-          ...service,
-          price: parseFloat(service.price),
-          totalPrice: totalPrice,
-          quantity: quantity
-        }
-      };
-
-      // Navigate to BookingScreen with validated data
-      navigation.navigate('BookingScreen', bookingData);
-    } catch (error) {
-      console.error('Error in handleBookNow:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+  
+  const calculatePrice = () => {
+    if (offerExists) {
+      const discount = (service.price * offerDiscountAmount) / 100;
+      return (service.price - discount).toFixed(2);
     }
+    return service.price;
+  };
+  
+  const handleBooking = () => {
+    navigation.navigate('BookingScreen', {
+      service: {
+        ...service,
+        finalPrice: calculatePrice(),
+        quantity: quantity
+      },
+      offerExists,
+      offerDiscountAmount
+    });
   };
 
   if (loading) {
@@ -212,6 +208,15 @@ const ServiceDetailScreen = ({ navigation, route }) => {
     <ScreenContainer style={{ backgroundColor: '#222222' }}>
       <StatusBar barStyle="light-content" backgroundColor="#222222" />
       <SafeAreaView style={styles.safeArea}>
+        {/* Offer Applied Banner */}
+        {offerExists && (
+          <View style={styles.offerBanner}>
+            <MaterialIcons name="local-offer" size={22} color="#fff" />
+            <Text style={styles.offerBannerText}>
+              Offer Applied! {offerDiscountAmount}% OFF
+            </Text>
+          </View>
+        )}
         {/* Header Image */}
         <View style={styles.imageContainer}>
           <Image 
@@ -307,9 +312,11 @@ const ServiceDetailScreen = ({ navigation, route }) => {
           </View>
           <TouchableOpacity 
             style={styles.bookButton}
-            onPress={handleBookNow}
+            onPress={handleBooking}
           >
-            <Text style={styles.bookButtonText}>Book Now - ₹{totalPrice.toFixed(2)}</Text>
+            <Text style={styles.bookButtonText}>
+              {offerExists ? `Book Now - ₹${calculatePrice()}` : `Book Now - ₹${service.price}`}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -516,33 +523,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  offerBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  errorContainer: {
-    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 18,
+    margin: 16,
+    marginBottom: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  retryButtonText: {
+  offerBannerText: {
     color: '#fff',
+    fontWeight: 'bold',
     fontSize: 16,
-    fontWeight: '600',
+    marginLeft: 10,
+    letterSpacing: 0.5,
   },
 });
 

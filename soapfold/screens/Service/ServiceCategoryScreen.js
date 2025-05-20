@@ -87,7 +87,11 @@ const ServiceCategoryScreen = ({ navigation, route }) => {
     return (
       <TouchableOpacity 
         style={styles.serviceItem}
-        onPress={() => navigation.navigate('ServiceDetailScreen', { service: item })}
+        onPress={() => navigation.navigate('ServiceDetailScreen', { 
+          service: item,
+          offerExists: route.params?.offerExists || false,
+          offerDiscountAmount: route.params?.offerDiscountAmount || 0
+        })}
       >
         <View style={styles.serviceImageContainer}>
           <Image 
@@ -122,6 +126,15 @@ const ServiceCategoryScreen = ({ navigation, route }) => {
     <ScreenContainer>
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        {/* Offer Applied Banner */}
+        {route.params?.offerExists && (
+          <View style={styles.offerBanner}>
+            <MaterialIcons name="local-offer" size={22} color="#fff" />
+            <Text style={styles.offerBannerText}>
+              Offer Applied! {route.params?.offerDiscountAmount}% OFF
+            </Text>
+          </View>
+        )}
         
         {/* Header */}
         <View style={styles.header}>
@@ -276,6 +289,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginLeft: 4,
+  },
+  offerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 18,
+    margin: 16,
+    marginBottom: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  offerBannerText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 10,
+    letterSpacing: 0.5,
   },
 });
 

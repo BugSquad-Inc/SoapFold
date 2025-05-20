@@ -20,7 +20,9 @@ const BookingConfirmationScreen = ({ navigation, route }) => {
     pickupDate = '15 Jun',
     pickupTime = '9:00 AM - 11:00 AM',
     address = '123 Main St, New York, NY 10001',
-    totalPrice = 29.99
+    totalPrice = 29.99,
+    offerApplied = false,
+    offerDiscountAmount = 0
   } = route.params || {};
   
   return (
@@ -45,6 +47,16 @@ const BookingConfirmationScreen = ({ navigation, route }) => {
             <Text style={styles.successMessage}>
               Your laundry service has been booked successfully. We'll pick up your items at the scheduled time.
             </Text>
+            
+            {/* Offer Applied Banner */}
+            {offerApplied && (
+              <View style={styles.offerBanner}>
+                <MaterialIcons name="local-offer" size={24} color="#fff" />
+                <Text style={styles.offerText}>
+                  {offerDiscountAmount}% OFF Applied!
+                </Text>
+              </View>
+            )}
             
             {/* Booking Details Card */}
             <View style={styles.bookingCard}>
@@ -333,6 +345,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  offerBanner: {
+    backgroundColor: theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  offerText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

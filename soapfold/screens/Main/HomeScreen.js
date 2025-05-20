@@ -586,10 +586,16 @@ const HomeScreen = () => {
             <TouchableOpacity
                 style={[styles.promoActionButton, {backgroundColor: item.accentColor, marginTop: 10, marginBottom: 4}]}
                 onPress={() => {
-                  // Navigate to OffersScreen instead of CategoryScreen
-                  navigation.navigate('OffersScreen', {
-                    title: 'Special Offers',
-                    showAllPromotions: true
+                  // Navigate through service flow with offer parameters
+                  navigation.navigate('ServiceCategoryScreen', {
+                    category: {
+                      id: 'all',
+                      name: 'All Services',
+                      icon: 'local-laundry-service',
+                      color: activeTheme.colors.primary
+                    },
+                    offerExists: true,
+                    offerDiscountAmount: 30
                   });
                 }}
               >
