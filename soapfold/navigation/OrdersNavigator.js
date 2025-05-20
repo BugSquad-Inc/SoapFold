@@ -47,13 +47,6 @@ const OrdersNavigator = () => {
           headerShown: false,
         }}
       />
-      <Stack.Screen 
-        name="PaymentSuccess" 
-        component={PaymentSuccessScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
     </Stack.Navigator>
   );
 };

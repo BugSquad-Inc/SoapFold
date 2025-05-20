@@ -3,60 +3,59 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, StatusBar 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useFocusEffect } from '@react-navigation/native';
+import { getCustomerOrders } from '../../config/firestore';
+import { auth } from '../../config/firebase';
+
+const getStatusLabel = (status) => {
+  if (status === 'active') return 'Active';
+  if (status === 'pending') return 'Pending';
+  if (status === 'completed') return 'Completed';
+  // Add more as needed
+  return status.charAt(0).toUpperCase() + status.slice(1);
+};
+
+const getStatusBadgeStyle = (status) => {
+  if (status === 'active' || status === 'pending') return styles.activeStatusBadge;
+  if (status === 'completed') return styles.completedStatusBadge;
+  return styles.completedStatusBadge;
+};
 
 const OrderScreen = ({ navigation }) => {
   const [filter, setFilter] = useState('all');
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   
-  // Mock order data
-  const mockOrders = [
-    {
-      id: '1',
-      orderNumber: '#ORD12345',
-      date: 'June 15, 2023',
-      status: 'active',
-      totalAmount: '₹32.50',
-      items: [
-        { id: '1', name: 'Lavender Soap', quantity: 2, price: '₹12.99' },
-        { id: '2', name: 'Eucalyptus Bath Bomb', quantity: 1, price: '₹6.52' }
-      ],
-      shippingAddress: '123 Main St, Anytown, CA 12345',
-      paymentMethod: 'Visa **** 1234',
-    },
-    {
-      id: '2',
-      orderNumber: '#ORD12346',
-      date: 'June 10, 2023',
-      status: 'completed',
-      totalAmount: '₹45.75',
-      items: [
-        { id: '3', name: 'Rose Soap', quantity: 3, price: '₹15.75' },
-        { id: '4', name: 'Bamboo Wash Cloth', quantity: 2, price: '₹14.25' }
-      ],
-      shippingAddress: '456 Elm St, Somewhere, NY 67890',
-      paymentMethod: 'Mastercard **** 5678',
-    },
-    {
-      id: '3',
-      orderNumber: '#ORD12347',
-      date: 'June 5, 2023',
-      status: 'completed',
-      totalAmount: '₹22.99',
-      items: [
-        { id: '5', name: 'Citrus Scrub', quantity: 1, price: '₹22.99' }
-      ],
-      shippingAddress: '789 Oak St, Elsewhere, TX 23456',
-      paymentMethod: 'PayPal',
-    }
-  ];
-
-  // Fetch orders from storage or API
+  // Fetch orders from Firestore for the current user
   const fetchOrders = async () => {
-    // Replace with your real fetch logic
-    // For now, just simulate with localStorage or AsyncStorage if needed
-    // setOrders(await getOrdersFromStorageOrAPI());
-    setOrders(mockOrders);
+    setLoading(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
+      const ordersData = await getCustomerOrders(user.uid);
+      // Format orders for your UI
+      const formattedOrders = ordersData.map(order => ({
+        id: order.id,
+        orderNumber: `#${order.id}`,
+        date: order.createdAt?.toDate
+          ? order.createdAt.toDate().toLocaleDateString()
+          : new Date(order.createdAt).toLocaleDateString(),
+        status: order.status,
+        totalAmount: `₹${order.totalAmount}`,
+        items: order.items || [],
+        shippingAddress: order.address?.street || '',
+        paymentMethod: order.paymentMethod || '',
+      }));
+      setOrders(formattedOrders);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      setOrders([]);
+    }
+    setLoading(false);
   };
 
   useFocusEffect(
@@ -75,9 +74,11 @@ const OrderScreen = ({ navigation }) => {
       );
     }
     // Filter orders based on selected filter
-    const filteredOrders = filter === 'all' 
-      ? orders 
-      : orders.filter(order => order.status === filter);
+    const filteredOrders = filter === 'all'
+      ? orders
+      : filter === 'active'
+        ? orders.filter(order => order.status === 'active' || order.status === 'pending')
+        : orders.filter(order => order.status === filter);
 
     return filteredOrders.map(order => (
       <TouchableOpacity 
@@ -89,10 +90,10 @@ const OrderScreen = ({ navigation }) => {
           <Text style={styles.orderNumber}>{order.orderNumber}</Text>
           <View style={[
             styles.statusBadge, 
-            order.status === 'active' ? styles.activeStatusBadge : styles.completedStatusBadge
+            getStatusBadgeStyle(order.status)
           ]}>
             <Text style={styles.statusText}>
-              {order.status === 'active' ? 'Active' : 'Completed'}
+              {getStatusLabel(order.status)}
             </Text>
           </View>
         </View>
@@ -104,7 +105,7 @@ const OrderScreen = ({ navigation }) => {
         
         <View style={styles.orderItems}>
           {order.items.map((item, index) => (
-            <Text key={item.id} style={styles.orderItemText}>
+            <Text key={`${item.name}-${index}`} style={styles.orderItemText}>
               {item.quantity}x {item.name}
               {index < order.items.length - 1 ? ', ' : ''}
             </Text>

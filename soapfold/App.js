@@ -282,7 +282,6 @@ const App = () => {
                     {userInfo ? (
                       <>
                         <RootStack.Screen name="Main" component={AppNavigator} />
-                        <RootStack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
                       </>
                     ) : (
                       <RootStack.Screen name="Auth" component={AuthNavigator} />
