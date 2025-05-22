@@ -87,10 +87,15 @@ const HomeScreen = () => {
   // 1. Define fetchRecentOrder first
   const fetchRecentOrder = async (customerId) => {
     try {
+      console.log('Fetching recent orders for customerId:', customerId);
       const orders = await getCustomerOrders(customerId);
+      console.log('Received orders from Firestore:', orders);
+      
       if (orders && orders.length > 0) {
+        console.log('Setting recent order:', orders[0]);
         setRecentOrder(orders[0]);
       } else {
+        console.log('No orders found for customer');
         setRecentOrder(null);
       }
     } catch (error) {
@@ -103,9 +108,13 @@ const HomeScreen = () => {
   const fetchUserData = async () => {
     try {
       const currentUser = auth.currentUser;
+      console.log('Current user in fetchUserData:', currentUser?.uid);
+      
       if (currentUser) {
         // Get user data from Firestore
         const userData = await getUserFromFirestore(currentUser.uid);
+        console.log('User data from Firestore:', userData);
+        
         if (userData) {
           setUserData(userData);
           console.log('Using user data from Firestore in home');
@@ -586,10 +595,16 @@ const HomeScreen = () => {
             <TouchableOpacity
                 style={[styles.promoActionButton, {backgroundColor: item.accentColor, marginTop: 10, marginBottom: 4}]}
                 onPress={() => {
-                  // Navigate to OffersScreen instead of CategoryScreen
-                  navigation.navigate('OffersScreen', {
-                    title: 'Special Offers',
-                    showAllPromotions: true
+                  // Navigate through service flow with offer parameters
+                  navigation.navigate('ServiceCategoryScreen', {
+                    category: {
+                      id: 'all',
+                      name: 'All Services',
+                      icon: 'local-laundry-service',
+                      color: activeTheme.colors.primary
+                    },
+                    offerExists: true,
+                    offerDiscountAmount: 30
                   });
                 }}
               >
@@ -905,6 +920,16 @@ const HomeScreen = () => {
                 </Text>
               </View>
             </View>
+            {/* Enhanced: Service Name, Pickup Date, Pickup Time */}
+            <View style={{ marginBottom: 10 }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
+                {recentOrder.service?.name}
+              </Text>
+              <Text style={{ color: '#888', fontSize: 13 }}>
+                {recentOrder.pickupDate?.formatted}
+                {recentOrder.pickupDate?.pickupTime ? ` | ${recentOrder.pickupDate.pickupTime}` : ''}
+              </Text>
+            </View>
             {/* Render items, total, etc. */}
             <View style={styles.orderItemsPreview}>
               {recentOrder.items && recentOrder.items.map((item, idx) => (
@@ -917,9 +942,9 @@ const HomeScreen = () => {
               ))}
             </View>
             <View style={styles.orderSummary}>
-              <View className={styles.summaryItem}>
+              <View style={styles.summaryItem}>
                 <Text style={styles.summaryLabel}>Total</Text>
-                <Text style={styles.summaryValue}>₹{recentOrder.totalAmount}</Text>
+                <Text style={styles.summaryValue}>₹{recentOrder.totalAmount || recentOrder.service?.finalPrice || recentOrder.service?.price || 0}</Text>
               </View>
               <TouchableOpacity style={styles.trackOrderButton}>
                 <Text style={styles.trackOrderText}>Track Order</Text>

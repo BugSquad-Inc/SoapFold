@@ -43,9 +43,8 @@ if (!isExpoGo) {
 }
 
 const BookingScreen = ({ navigation, route }) => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { service, quantity = 1, totalPrice = 14.99, offerExists = false, offerDiscountAmount = 0 } = route.params || {};
+  
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [address, setAddress] = useState('');
@@ -59,6 +58,9 @@ const BookingScreen = ({ navigation, route }) => {
     bedSheets: 0,
     towels: 0
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Validate required params on mount
   useEffect(() => {
@@ -80,13 +82,28 @@ const BookingScreen = ({ navigation, route }) => {
     setLoading(false);
   }, [route.params]);
 
-  const { service } = route.params || {};
-  const quantity = service?.quantity || 1;
-
   // Calculate prices only if service exists
   const basePrice = service ? (service.totalPrice || calculateBasePrice(service, quantity)) : 0;
-  const additionalItemsPrice = service ? calculateAdditionalItemsPrice(itemCounts, basePrice) : 0;
-  const finalPrice = service ? calculateFinalPrice(basePrice, additionalItemsPrice) : 0;
+  
+  // Add defensive programming for additionalItemsPrice
+  let additionalItemsPrice = 0;
+  try {
+    if (service) {
+      const calculatedPrice = calculateAdditionalItemsPrice(itemCounts, basePrice);
+      additionalItemsPrice = typeof calculatedPrice === 'number' ? calculatedPrice : 0;
+    }
+  } catch (error) {
+    console.warn('Error calculating additional items price:', error);
+    additionalItemsPrice = 0;
+  }
+
+  // Add logging to help diagnose the issue
+  console.log('Price calculations:', {
+    basePrice,
+    additionalItemsPrice,
+    itemCounts,
+    service
+  });
 
   // Update item count with validation
   const updateItemCount = (item, value) => {
@@ -107,125 +124,116 @@ const BookingScreen = ({ navigation, route }) => {
   };
 
   // Handle payment
-  const handlePayment = async () => {
-    try {
-      if (!validateForm()) return;
+  // const handlePayment = async () => {
+  //   try {
+  //     if (!validateForm()) return;
 
-      setIsProcessing(true);
-      const amountInPaise = Math.round(parseFloat(finalPrice) * 100);
+  //     setIsProcessing(true);
+  //     const amountInPaise = Math.round(parseFloat(finalPrice) * 100);
 
-      if (amountInPaise < 100) {
-        Alert.alert('Error', 'Amount must be at least ₹1');
-        return;
-      }
+  //     if (amountInPaise < 100) {
+  //       Alert.alert('Error', 'Amount must be at least ₹1');
+  //       return;
+  //     }
 
-      const options = {
-        description: `Payment for ${service?.name || 'Service'}`,
-        image: 'https://i.imgur.com/3g7nmJC.png',
-        currency: 'INR',
-        key: RAZORPAY_TEST_KEY,
-        amount: amountInPaise,
-        name: 'SoapFold',
-        prefill: {
-          email: auth.currentUser?.email || '',
-          contact: auth.currentUser?.phoneNumber || '',
-          name: auth.currentUser?.displayName || ''
-        },
-        theme: { color: '#000000' }
-      };
+  //     const options = {
+  //       description: `Payment for ${service?.name || 'Service'}`,
+  //       image: 'https://i.imgur.com/3g7nmJC.png',
+  //       currency: 'INR',
+  //       key: RAZORPAY_TEST_KEY,
+  //       amount: amountInPaise,
+  //       name: 'SoapFold',
+  //       prefill: {
+  //         email: auth.currentUser?.email || '',
+  //         contact: auth.currentUser?.phoneNumber || '',
+  //         name: auth.currentUser?.displayName || ''
+  //       },
+  //       theme: { color: '#000000' }
+  //     };
 
-      const paymentData = await RazorpayCheckout.open(options);
-      await handlePaymentSuccess(paymentData);
-    } catch (error) {
-      console.error('Payment Error:', error);
-      Alert.alert('Error', error.description || ERROR_MESSAGES.PAYMENT_FAILED);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  //     const paymentData = await RazorpayCheckout.open(options);
+  //     await handlePaymentSuccess(paymentData);
+  //   } catch (error) {
+  //     console.error('Payment Error:', error);
+  //     Alert.alert('Error', error.description || ERROR_MESSAGES.PAYMENT_FAILED);
+  //   } finally {
+  //     setIsProcessing(false);
+  //   }
+  // };
 
-  // Handle successful payment
-  const handlePaymentSuccess = async (paymentData) => {
-    try {
-      setIsProcessing(true);
+  // // Handle successful payment
+  // const handlePaymentSuccess = async (paymentData) => {
+  //   try {
+  //     setIsProcessing(true);
 
-      const user = auth.currentUser;
-      if (!user) {
-        throw new Error('User not found');
-      }
+  //     const user = auth.currentUser;
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
 
-      // Format dates
-      const pickupDate = new Date(selectedDate.fullDate);
-      const deliveryDate = new Date(pickupDate);
-      deliveryDate.setDate(deliveryDate.getDate() + 2);
+  //     // Format dates
+  //     const pickupDate = new Date(selectedDate.fullDate);
+  //     const deliveryDate = new Date(pickupDate);
+  //     deliveryDate.setDate(deliveryDate.getDate() + 2);
 
-      // Format items
-      const formattedItems = [
-        {
-          name: service.name,
-          quantity,
-          price: parseFloat(basePrice)
-        },
-        ...Object.entries(itemCounts)
-          .filter(([_, count]) => count > 0)
-          .map(([item, count]) => ({
-            name: item.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
-            quantity: count,
-            price: parseFloat(calculateAdditionalItemsPrice({ [item]: count }, basePrice))
-          }))
-      ];
+  //     // Format items
+  //     const formattedItems = [
+  //       {
+  //         name: service.name,
+  //         quantity,
+  //         price: parseFloat(basePrice)
+  //       },
+  //       ...Object.entries(itemCounts)
+  //         .filter(([_, count]) => count > 0)
+  //         .map(([item, count]) => ({
+  //           name: item.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+  //           quantity: count,
+  //           price: parseFloat(calculateAdditionalItemsPrice({ [item]: count }, basePrice))
+  //         }))
+  //     ];
 
-      // Create order
-      const orderData = {
-        customerId: user.uid,
-        items: formattedItems,
-        status: 'pending',
-        totalAmount: parseFloat(finalPrice),
-        pickupDateString: pickupDate.toISOString(),
-        deliveryDateString: deliveryDate.toISOString(),
-        address: {
-          street: address,
-          notes: notes
-        }
-      };
+  //     // Create order
+  //     const orderData = {
+  //       customerId: user.uid,
+  //       items: formattedItems,
+  //       status: 'pending',
+  //       totalAmount: parseFloat(finalPrice),
+  //       pickupDateString: pickupDate.toISOString(),
+  //       deliveryDateString: deliveryDate.toISOString(),
+  //       address: {
+  //         street: address,
+  //         notes: notes
+  //       }
+  //     };
 
-      const orderId = await createOrder(orderData);
+  //     const orderId = await createOrder(orderData);
 
-      // Create payment record
-      const paymentRecord = {
-        orderId,
-        customerId: user.uid,
-        amount: parseFloat(finalPrice),
-        status: 'success',
-        method: 'razorpay',
-        transactionId: paymentData.razorpay_payment_id
-      };
+  //     // Create payment record
+  //     const paymentRecord = {
+  //       orderId,
+  //       customerId: user.uid,
+  //       amount: parseFloat(finalPrice),
+  //       status: 'success',
+  //       method: 'razorpay',
+  //       transactionId: paymentData.razorpay_payment_id
+  //     };
 
-      await createPayment(paymentRecord);
+  //     await createPayment(paymentRecord);
 
-      // Navigate to success screen
-      navigation.replace('PaymentSuccessScreen', {
-        orderId,
-        amount: finalPrice
-      });
-    } catch (error) {
-      console.error('Error in payment success:', error);
-      Alert.alert('Error', 'Failed to process payment. Please contact support.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  //     // Navigate to success screen
+  //     navigation.replace('PaymentSuccessScreen', {
+  //       orderId,
+  //       amount: finalPrice
+  //     });
+  //   } catch (error) {
+  //     console.error('Error in payment success:', error);
+  //     Alert.alert('Error', 'Failed to process payment. Please contact support.');
+  //   } finally {
+  //     setIsProcessing(false);
+  //   }
+  // };
 
-  if (loading) {
-    return (
-      <ScreenContainer>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      </ScreenContainer>
-    );
-  }
-
+  // Show error state if there's an error
   if (error) {
     return (
       <ScreenContainer>
@@ -237,6 +245,17 @@ const BookingScreen = ({ navigation, route }) => {
           >
             <Text style={styles.retryButtonText}>Go Back</Text>
           </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <ScreenContainer>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       </ScreenContainer>
     );
@@ -278,6 +297,27 @@ const BookingScreen = ({ navigation, route }) => {
   // Calculate total items
   const totalItems = Object.values(itemCounts).reduce((sum, count) => sum + count, 0) + quantity;
   
+  // Calculate original and discounted prices with defensive programming
+  const originalServicePrice = (service?.price || 14.99) * quantity;
+  const discountAmount = offerExists ? (originalServicePrice * offerDiscountAmount / 100) : 0;
+  const discountedServicePrice = originalServicePrice - discountAmount;
+  const deliveryFee = 5.00;
+  
+  // Ensure all values are numbers before calculation
+  const finalPrice = Number(discountedServicePrice) + Number(additionalItemsPrice) + Number(deliveryFee);
+  
+  // Add logging for price calculations
+  console.log('Final price calculations:', {
+    originalServicePrice,
+    discountAmount,
+    discountedServicePrice,
+    additionalItemsPrice,
+    deliveryFee,
+    finalPrice
+  });
+  
+  const dates = generateDates();
+
   // Define the items to be passed to payment
   const getFormattedItems = () => {
     return {
@@ -325,12 +365,164 @@ const BookingScreen = ({ navigation, route }) => {
     );
   };
 
-  const dates = generateDates();
+  // Handle payment success
+  const handlePaymentSuccess = async (razorpayData) => {
+    try {
+      setIsProcessing(true);
+      
+      // Create order data (do not set orderId yet)
+      const orderData = {
+        customerId: auth.currentUser?.uid,
+        service: {
+          ...service,
+          quantity,
+          finalPrice: finalPrice.toFixed(2)
+        },
+        pickupDate: selectedDate,
+        pickupTime: selectedTime,
+        address,
+        notes,
+        status: 'Processing',
+        createdAt: serverTimestamp(),
+        offerApplied: offerExists,
+        offerDiscountAmount: offerExists ? offerDiscountAmount : 0
+      };
+      // Log orderData
+      console.log('orderData:', orderData);
+      // Validate orderData
+      if (!orderData.customerId || !orderData.service || !orderData.pickupDate || !orderData.pickupTime || !orderData.address || typeof orderData.service.finalPrice === 'undefined') {
+        Alert.alert('Error', 'Order data is missing required fields.');
+        setIsProcessing(false);
+        return;
+      }
+      // Create order in Firestore and get the Firestore document ID
+      const orderId = await createOrder(orderData);
+      // Create payment record
+      const paymentData = {
+        orderId,
+        customerId: auth.currentUser?.uid,
+        amount: finalPrice.toFixed(2),
+        paymentId: razorpayData.razorpay_payment_id,
+        status: 'completed',
+        createdAt: serverTimestamp(),
+        method: 'razorpay',
+      };
+      // Log paymentData
+      console.log('paymentData:', paymentData);
+      // Validate paymentData
+      if (!paymentData.orderId || !paymentData.customerId || !paymentData.amount || !paymentData.paymentId) {
+        Alert.alert('Error', 'Payment data is missing required fields.');
+        setIsProcessing(false);
+        return;
+      }
+      // Create payment record
+      const paymentId = await createPayment(paymentData);
+      // Navigate to confirmation screen with Firestore orderId
+      navigation.replace('BookingConfirmationScreen', {
+        bookingId: orderId,
+        service: service,
+        pickupDate: selectedDate.formatted,
+        pickupTime: selectedTime,
+        address: address,
+        totalPrice: finalPrice.toFixed(2),
+        offerApplied: offerExists,
+        offerDiscountAmount: offerExists ? offerDiscountAmount : 0
+      });
+      
+    } catch (error) {
+      console.error('Error creating order:', error);
+      Alert.alert('Error', 'Failed to create order. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
+  // Update the Razorpay handler
+  const handleRazorpaySuccess = (data) => {
+    console.log('Razorpay payment success:', data);
+    handlePaymentSuccess(data);
+  };
+
+  const handleRazorpayPayment = async () => {
+    try {
+      setIsProcessing(true);
+      // Defensive logging
+      console.log('finalPrice:', finalPrice, 'discountedServicePrice:', discountedServicePrice, 'additionalItemsPrice:', additionalItemsPrice, 'deliveryFee:', deliveryFee);
+      if (isNaN(finalPrice) || finalPrice <= 0) {
+        Alert.alert('Error', 'Calculated total amount is invalid. Please check your order details.');
+        setIsProcessing(false);
+        return;
+      }
+      const amountInPaise = Math.round(finalPrice * 100);
+      
+      if (isNaN(amountInPaise) || amountInPaise <= 0) {
+        Alert.alert('Error', 'Payment amount is invalid.');
+        setIsProcessing(false);
+        return;
+      }
+
+      const options = {
+        description: `Payment for ${service?.name || 'Wash & Fold'}`,
+        image: 'https://i.imgur.com/3g7nmJC.png',
+        currency: 'INR',
+        key: 'rzp_test_KhGe6qjulyJzhZ',
+        amount: amountInPaise,
+        name: 'SoapFold',
+        prefill: {
+          email: 'arsacskasha@gmail.com',
+          contact: '994080029',
+          name: 'Arsac'
+        },
+        theme: { color: '#000000' },
+      };
+
+      console.log('Initiating Razorpay payment with options:', options);
+      RazorpayCheckout.open(options)
+        .then((data) => {
+          console.log(`Payment success: ${JSON.stringify(data)}`);
+          handleRazorpaySuccess(data);
+        })
+        .catch((error) => {
+          console.log(`Payment error: ${error.code} | ${error.description}`);
+          setIsProcessing(false);
+          Alert.alert('Payment Failed', error.description || 'There was a problem with your payment.');
+        });
+
+    } catch (error) {
+      console.error('Payment Error Details:', error);
+      
+      if (error.code === 'PAYMENT_CANCELLED') {
+        alert('Payment was cancelled by user');
+      } else if (error.code === 'NETWORK_ERROR') {
+        alert('Network error occurred. Please check your internet connection');
+      } else if (error.description) {
+        alert(`Payment failed: ${error.description}`);
+      } else {
+        alert('Payment failed. Please try again later');
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // const handlePayment = isTestMode ? handleTestPayment : handleRazorpayPayment;
+  const handlePayment = handleRazorpayPayment;
+  console.log("HandlePayment ",handlePayment);
+  
   return (
     <ScreenContainer>
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        
+        {/* Offer Applied Banner */}
+        {offerExists && (
+          <View style={styles.offerBanner}>
+            <MaterialIcons name="local-offer" size={22} color="#fff" />
+            <Text style={styles.offerBannerText}>
+              Offer Applied! {offerDiscountAmount}% OFF
+            </Text>
+          </View>
+        )}
         
         {/* Header */}
         <View style={styles.header}>
@@ -480,27 +672,34 @@ const BookingScreen = ({ navigation, route }) => {
             {/* Booking Summary */}
             <View style={styles.summaryContainer}>
               <Text style={styles.summaryTitle}>Order Summary</Text>
-              
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Service ({quantity} kg):</Text>
-                <Text style={styles.summaryValue}>₹{basePrice}</Text>
+                <Text style={styles.summaryLabel}>Service ({quantity} {service?.unit || 'kg'}):</Text>
+                <Text style={styles.summaryValue}>₹{originalServicePrice.toFixed(2)}</Text>
               </View>
-              
+              {offerExists && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Discount ({offerDiscountAmount}%):</Text>
+                  <Text style={[styles.summaryValue, { color: 'green' }]}>-₹{discountAmount.toFixed(2)}</Text>
+                </View>
+              )}
+              {offerExists && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Service After Discount:</Text>
+                  <Text style={styles.summaryValue}>₹{discountedServicePrice.toFixed(2)}</Text>
+                </View>
+              )}
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Additional Items:</Text>
-                <Text style={styles.summaryValue}>₹{additionalItemsPrice}</Text>
+                <Text style={styles.summaryValue}>₹{Number(additionalItemsPrice).toFixed(2)}</Text>
               </View>
-              
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Delivery Fee:</Text>
-                <Text style={styles.summaryValue}>₹{DELIVERY_FEE}</Text>
+                <Text style={styles.summaryValue}>₹{deliveryFee.toFixed(2)}</Text>
               </View>
-              
               <View style={styles.divider} />
-              
               <View style={styles.summaryRow}>
                 <Text style={styles.totalLabel}>Total:</Text>
-                <Text style={styles.totalValue}>₹{finalPrice}</Text>
+                <Text style={styles.totalValue}>₹{finalPrice.toFixed(2)}</Text>
               </View>
             </View>
           </View>
@@ -517,7 +716,7 @@ const BookingScreen = ({ navigation, route }) => {
             onPress={handlePayment}
           >
             <Text style={styles.continueButtonText}>
-            {isProcessing ? 'Processing...' : `Pay ₹${finalPrice}`}
+            {isProcessing ? 'Processing...' : `Pay ₹${finalPrice.toFixed(2)}`}
 
             </Text>
           </TouchableOpacity>
@@ -750,10 +949,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  offerBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 18,
+    margin: 16,
+    marginBottom: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  offerBannerText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 10,
+    letterSpacing: 0.5,
   },
   errorContainer: {
     flex: 1,
@@ -763,7 +980,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: 'red',
+    color: '#FF3B30',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -777,6 +994,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

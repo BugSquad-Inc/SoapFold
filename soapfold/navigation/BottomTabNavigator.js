@@ -407,7 +407,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                   style={styles.centerNavItem} 
                   onPress={() => {
                     // Navigate to ServiceCategoryScreen within HomeStack
-                    navigation.navigate('HomeScreen', {
+                    navigation.navigate('Home', {
                       screen: 'ServiceCategoryScreen',
                       params: {
                         category: {
@@ -439,7 +439,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
             let iconName;
             let Component = MaterialIcons;
             
-            if (route.name === 'HomeScreen') {
+            if (route.name === 'Home') {
               iconName = 'cottage';
             } else if (route.name === 'Orders') {
               iconName = 'receipt-long';
@@ -488,7 +488,7 @@ const HomeStack = () => (
       animation: 'fade',
     }}
   >
-    <Stack.Screen name="HomeScreen" component={HomeScreen} />
+    <Stack.Screen name="HomeMain" component={HomeScreen} />
     <Stack.Screen name="ServiceCategoryScreen" component={ServiceCategoryScreen} />
     <Stack.Screen name="ServiceDetailScreen" component={ServiceDetailScreen} />
     <Stack.Screen name="OffersScreen" component={OffersScreen} />
@@ -541,13 +541,13 @@ const BottomTabNavigator = () => {
 
   return (
     <Tab.Navigator
-      initialRouteName="HomeScreen"
+      initialRouteName="Home"
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
       }}
     >
-      <Tab.Screen name="HomeScreen" component={HomeStack} />
+      <Tab.Screen name="Home" component={HomeStack} />
       <Tab.Screen name="Orders" component={OrderScreenNavigator} options={{ title: 'Orders' }} />
       <Tab.Screen name="CartScreen" component={CartScreen} />
       <Tab.Screen name="NotificationScreen" component={NotificationScreen} options={{ title: 'Notifications' }} />
