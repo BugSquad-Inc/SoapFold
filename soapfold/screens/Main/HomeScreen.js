@@ -920,6 +920,16 @@ const HomeScreen = () => {
                 </Text>
               </View>
             </View>
+            {/* Enhanced: Service Name, Pickup Date, Pickup Time */}
+            <View style={{ marginBottom: 10 }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
+                {recentOrder.service?.name}
+              </Text>
+              <Text style={{ color: '#888', fontSize: 13 }}>
+                {recentOrder.pickupDate?.formatted}
+                {recentOrder.pickupDate?.pickupTime ? ` | ${recentOrder.pickupDate.pickupTime}` : ''}
+              </Text>
+            </View>
             {/* Render items, total, etc. */}
             <View style={styles.orderItemsPreview}>
               {recentOrder.items && recentOrder.items.map((item, idx) => (
@@ -934,7 +944,7 @@ const HomeScreen = () => {
             <View style={styles.orderSummary}>
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryLabel}>Total</Text>
-                <Text style={styles.summaryValue}>₹{recentOrder.totalAmount}</Text>
+                <Text style={styles.summaryValue}>₹{recentOrder.totalAmount || recentOrder.service?.finalPrice || recentOrder.service?.price || 0}</Text>
               </View>
               <TouchableOpacity style={styles.trackOrderButton}>
                 <Text style={styles.trackOrderText}>Track Order</Text>
