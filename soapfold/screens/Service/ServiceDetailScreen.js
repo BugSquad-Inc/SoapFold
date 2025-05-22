@@ -38,6 +38,8 @@ const ServiceDetailScreen = ({ navigation, route }) => {
   
   const [quantity, setQuantity] = useState(1);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const insets = useSafeAreaInsets();
   
   // Calculate total price whenever quantity or service changes

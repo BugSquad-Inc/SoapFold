@@ -1,10 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator, Platform, Text, Alert } from 'react-native';
+import { View, ActivityIndicator, Platform, Text, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
-import { auth, storage, db, getUserFromFirestore, createUserInFirestore, updateUserInFirestore } from './config/firebase';
+import { auth, storage, db, getUserFromFirestore, createUserInFirestore, updateUserInFirestore, verifyFirebaseInitialized } from './config/firebase';
 import { useState, useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { store } from './store';
@@ -140,10 +140,17 @@ const AppNavigator = () => {
   );
 };
 
+// Add diagnostic logging
+const logInit = (message) => {
+  console.log(`[App Init] ${message}`);
+};
+
 const App = () => {
   const [userInfo, setUserInfo] = useState(null);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [initError, setInitError] = useState(null);
   const fontsLoaded = useLoadFonts();
 
   // Google Sign-in configuration
@@ -153,57 +160,102 @@ const App = () => {
     webClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
   });
 
+  // Initialize app
   useEffect(() => {
-    const setupAuthListener = async () => {
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          try {
-            // Get user data from Firestore
-            const firestoreUserData = await getUserFromFirestore(user.uid);
-            
-            let userData;
-            
-            if (firestoreUserData) {
-              // Update lastLogin in Firestore
-              userData = {
-                ...firestoreUserData,
-                lastLogin: new Date().toISOString()
-              };
-              await updateUserInFirestore(user.uid, { lastLogin: new Date().toISOString() });
-              console.log('User data from Firestore:', userData.displayName);
-            } else {
-              // Create new user in Firestore
-              userData = {
-                uid: user.uid,
-                displayName: user.displayName || user.email.split('@')[0],
-                email: user.email,
-                photoURL: user.photoURL,
-                createdAt: new Date().toISOString(),
-                lastLogin: new Date().toISOString(),
-                location: 'Default Location'
-              };
-              
-              console.log('Creating new user in Firestore:', userData.displayName);
-              await createUserInFirestore(userData);
-            }
-            
-            // Set the authenticated user
-            setUserInfo(user);
-          } catch (error) {
-            console.error('Error handling user data in auth state change:', error);
-            // Still set the user even if there was an error
-            setUserInfo(user);
-          }
-        } else {
-          setUserInfo(null);
+    const initializeApp = async () => {
+      try {
+        logInit('Starting app initialization...');
+        
+        // Wait for fonts to load
+        if (!fontsLoaded) {
+          logInit('Waiting for fonts to load...');
+          return;
         }
-        setIsLoading(false);
-      });
+        logInit('Fonts loaded successfully');
 
-      return unsubscribe;
+        // Check Firebase initialization
+        const firebaseStatus = verifyFirebaseInitialized();
+        logInit('Firebase status:', firebaseStatus);
+
+        if (!firebaseStatus.app || !firebaseStatus.auth || !firebaseStatus.storage || !firebaseStatus.firestore) {
+          throw new Error('Firebase services not properly initialized');
+        }
+        logInit('Firebase services verified');
+        
+        setIsInitialized(true);
+        logInit('App initialization completed successfully');
+      } catch (error) {
+        console.error('App initialization error:', error);
+        setInitError(error.message);
+      }
+    };
+
+    initializeApp();
+  }, [fontsLoaded]);
+
+  // Auth state listener
+  useEffect(() => {
+    let unsubscribe;
+    
+    const setupAuthListener = async () => {
+      try {
+        logInit('Setting up auth state listener...');
+        
+        unsubscribe = onAuthStateChanged(auth, async (user) => {
+          logInit('Auth state changed:', user ? 'User logged in' : 'No user');
+          
+          if (user) {
+            try {
+              // Get user data from Firestore
+              const firestoreUserData = await getUserFromFirestore(user.uid);
+              
+              if (firestoreUserData) {
+                // Update lastLogin
+                await updateUserInFirestore(user.uid, { 
+                  lastLogin: new Date().toISOString() 
+                });
+                logInit('User data updated in Firestore');
+              } else {
+                // Create new user
+                const userData = {
+                  uid: user.uid,
+                  displayName: user.displayName || user.email.split('@')[0],
+                  email: user.email,
+                  photoURL: user.photoURL,
+                  createdAt: new Date().toISOString(),
+                  lastLogin: new Date().toISOString(),
+                  location: 'Default Location'
+                };
+                
+                await createUserInFirestore(userData);
+                logInit('New user created in Firestore');
+              }
+              
+              setUserInfo(user);
+            } catch (error) {
+              console.error('Error handling user data:', error);
+              setUserInfo(user); // Still set user even if Firestore operations fail
+            }
+          } else {
+            setUserInfo(null);
+          }
+          setIsLoading(false);
+        });
+        
+        logInit('Auth state listener setup complete');
+      } catch (error) {
+        console.error('Error setting up auth listener:', error);
+        setIsLoading(false);
+      }
     };
 
     setupAuthListener();
+    
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   // Handle Google Sign-in
@@ -257,10 +309,40 @@ const App = () => {
     }
   }, [response]);
 
-  if (isLoading || !fontsLoaded) {
+  // Show initialization error
+  if (initError) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
-        <ActivityIndicator size="large" color="#8E44AD" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ color: 'red', fontSize: 16, marginBottom: 10 }}>
+          Initialization Error:
+        </Text>
+        <Text style={{ color: 'red', fontSize: 14 }}>
+          {initError}
+        </Text>
+        <TouchableOpacity 
+          style={{ 
+            marginTop: 20, 
+            padding: 10, 
+            backgroundColor: theme.colors.primary,
+            borderRadius: 5
+          }}
+          onPress={() => {
+            setInitError(null);
+            setIsInitialized(false);
+          }}
+        >
+          <Text style={{ color: 'white' }}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Show loading state
+  if (!isInitialized || !fontsLoaded || isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ marginTop: 10 }}>Initializing app...</Text>
       </View>
     );
   }
@@ -273,21 +355,15 @@ const App = () => {
             <ErrorBoundary>
               <NavigationContainer>
                 <ThemedStatusBar />
-                {isLoading ? (
-                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                  </View>
-                ) : (
-                  <RootStack.Navigator screenOptions={{ headerShown: false }}>
-                    {userInfo ? (
-                      <>
-                        <RootStack.Screen name="Main" component={AppNavigator} />
-                      </>
-                    ) : (
-                      <RootStack.Screen name="Auth" component={AuthNavigator} />
-                    )}
-                  </RootStack.Navigator>
-                )}
+                <RootStack.Navigator screenOptions={{ headerShown: false }}>
+                  {userInfo ? (
+                    <>
+                      <RootStack.Screen name="Main" component={AppNavigator} />
+                    </>
+                  ) : (
+                    <RootStack.Screen name="Auth" component={AuthNavigator} />
+                  )}
+                </RootStack.Navigator>
               </NavigationContainer>
             </ErrorBoundary>
           </SafeAreaProvider>

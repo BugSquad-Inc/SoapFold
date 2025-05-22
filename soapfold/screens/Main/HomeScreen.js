@@ -87,10 +87,15 @@ const HomeScreen = () => {
   // 1. Define fetchRecentOrder first
   const fetchRecentOrder = async (customerId) => {
     try {
+      console.log('Fetching recent orders for customerId:', customerId);
       const orders = await getCustomerOrders(customerId);
+      console.log('Received orders from Firestore:', orders);
+      
       if (orders && orders.length > 0) {
+        console.log('Setting recent order:', orders[0]);
         setRecentOrder(orders[0]);
       } else {
+        console.log('No orders found for customer');
         setRecentOrder(null);
       }
     } catch (error) {
@@ -103,9 +108,13 @@ const HomeScreen = () => {
   const fetchUserData = async () => {
     try {
       const currentUser = auth.currentUser;
+      console.log('Current user in fetchUserData:', currentUser?.uid);
+      
       if (currentUser) {
         // Get user data from Firestore
         const userData = await getUserFromFirestore(currentUser.uid);
+        console.log('User data from Firestore:', userData);
+        
         if (userData) {
           setUserData(userData);
           console.log('Using user data from Firestore in home');
@@ -923,7 +932,7 @@ const HomeScreen = () => {
               ))}
             </View>
             <View style={styles.orderSummary}>
-              <View className={styles.summaryItem}>
+              <View style={styles.summaryItem}>
                 <Text style={styles.summaryLabel}>Total</Text>
                 <Text style={styles.summaryValue}>₹{recentOrder.totalAmount}</Text>
               </View>

@@ -56,4 +56,8 @@ GoogleService-Info.plist
 cloudinary.env
 
 # Project specific
-coverage/ 
+coverage/
+
+# Native folders
+/android
+/ios 

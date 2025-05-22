@@ -58,6 +58,9 @@ const BookingScreen = ({ navigation, route }) => {
     bedSheets: 0,
     towels: 0
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Validate required params on mount
   useEffect(() => {
@@ -81,8 +84,26 @@ const BookingScreen = ({ navigation, route }) => {
 
   // Calculate prices only if service exists
   const basePrice = service ? (service.totalPrice || calculateBasePrice(service, quantity)) : 0;
-  const additionalItemsPrice = service ? calculateAdditionalItemsPrice(itemCounts, basePrice) : 0;
-  const finalPrice = service ? calculateFinalPrice(basePrice, additionalItemsPrice) : 0;
+  
+  // Add defensive programming for additionalItemsPrice
+  let additionalItemsPrice = 0;
+  try {
+    if (service) {
+      const calculatedPrice = calculateAdditionalItemsPrice(itemCounts, basePrice);
+      additionalItemsPrice = typeof calculatedPrice === 'number' ? calculatedPrice : 0;
+    }
+  } catch (error) {
+    console.warn('Error calculating additional items price:', error);
+    additionalItemsPrice = 0;
+  }
+
+  // Add logging to help diagnose the issue
+  console.log('Price calculations:', {
+    basePrice,
+    additionalItemsPrice,
+    itemCounts,
+    service
+  });
 
   // Update item count with validation
   const updateItemCount = (item, value) => {
@@ -103,125 +124,116 @@ const BookingScreen = ({ navigation, route }) => {
   };
 
   // Handle payment
-  const handlePayment = async () => {
-    try {
-      if (!validateForm()) return;
+  // const handlePayment = async () => {
+  //   try {
+  //     if (!validateForm()) return;
 
-      setIsProcessing(true);
-      const amountInPaise = Math.round(parseFloat(finalPrice) * 100);
+  //     setIsProcessing(true);
+  //     const amountInPaise = Math.round(parseFloat(finalPrice) * 100);
 
-      if (amountInPaise < 100) {
-        Alert.alert('Error', 'Amount must be at least ₹1');
-        return;
-      }
+  //     if (amountInPaise < 100) {
+  //       Alert.alert('Error', 'Amount must be at least ₹1');
+  //       return;
+  //     }
 
-      const options = {
-        description: `Payment for ${service?.name || 'Service'}`,
-        image: 'https://i.imgur.com/3g7nmJC.png',
-        currency: 'INR',
-        key: RAZORPAY_TEST_KEY,
-        amount: amountInPaise,
-        name: 'SoapFold',
-        prefill: {
-          email: auth.currentUser?.email || '',
-          contact: auth.currentUser?.phoneNumber || '',
-          name: auth.currentUser?.displayName || ''
-        },
-        theme: { color: '#000000' }
-      };
+  //     const options = {
+  //       description: `Payment for ${service?.name || 'Service'}`,
+  //       image: 'https://i.imgur.com/3g7nmJC.png',
+  //       currency: 'INR',
+  //       key: RAZORPAY_TEST_KEY,
+  //       amount: amountInPaise,
+  //       name: 'SoapFold',
+  //       prefill: {
+  //         email: auth.currentUser?.email || '',
+  //         contact: auth.currentUser?.phoneNumber || '',
+  //         name: auth.currentUser?.displayName || ''
+  //       },
+  //       theme: { color: '#000000' }
+  //     };
 
-      const paymentData = await RazorpayCheckout.open(options);
-      await handlePaymentSuccess(paymentData);
-    } catch (error) {
-      console.error('Payment Error:', error);
-      Alert.alert('Error', error.description || ERROR_MESSAGES.PAYMENT_FAILED);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  //     const paymentData = await RazorpayCheckout.open(options);
+  //     await handlePaymentSuccess(paymentData);
+  //   } catch (error) {
+  //     console.error('Payment Error:', error);
+  //     Alert.alert('Error', error.description || ERROR_MESSAGES.PAYMENT_FAILED);
+  //   } finally {
+  //     setIsProcessing(false);
+  //   }
+  // };
 
-  // Handle successful payment
-  const handlePaymentSuccess = async (paymentData) => {
-    try {
-      setIsProcessing(true);
+  // // Handle successful payment
+  // const handlePaymentSuccess = async (paymentData) => {
+  //   try {
+  //     setIsProcessing(true);
 
-      const user = auth.currentUser;
-      if (!user) {
-        throw new Error('User not found');
-      }
+  //     const user = auth.currentUser;
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
 
-      // Format dates
-      const pickupDate = new Date(selectedDate.fullDate);
-      const deliveryDate = new Date(pickupDate);
-      deliveryDate.setDate(deliveryDate.getDate() + 2);
+  //     // Format dates
+  //     const pickupDate = new Date(selectedDate.fullDate);
+  //     const deliveryDate = new Date(pickupDate);
+  //     deliveryDate.setDate(deliveryDate.getDate() + 2);
 
-      // Format items
-      const formattedItems = [
-        {
-          name: service.name,
-          quantity,
-          price: parseFloat(basePrice)
-        },
-        ...Object.entries(itemCounts)
-          .filter(([_, count]) => count > 0)
-          .map(([item, count]) => ({
-            name: item.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
-            quantity: count,
-            price: parseFloat(calculateAdditionalItemsPrice({ [item]: count }, basePrice))
-          }))
-      ];
+  //     // Format items
+  //     const formattedItems = [
+  //       {
+  //         name: service.name,
+  //         quantity,
+  //         price: parseFloat(basePrice)
+  //       },
+  //       ...Object.entries(itemCounts)
+  //         .filter(([_, count]) => count > 0)
+  //         .map(([item, count]) => ({
+  //           name: item.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+  //           quantity: count,
+  //           price: parseFloat(calculateAdditionalItemsPrice({ [item]: count }, basePrice))
+  //         }))
+  //     ];
 
-      // Create order
-      const orderData = {
-        customerId: user.uid,
-        items: formattedItems,
-        status: 'pending',
-        totalAmount: parseFloat(finalPrice),
-        pickupDateString: pickupDate.toISOString(),
-        deliveryDateString: deliveryDate.toISOString(),
-        address: {
-          street: address,
-          notes: notes
-        }
-      };
+  //     // Create order
+  //     const orderData = {
+  //       customerId: user.uid,
+  //       items: formattedItems,
+  //       status: 'pending',
+  //       totalAmount: parseFloat(finalPrice),
+  //       pickupDateString: pickupDate.toISOString(),
+  //       deliveryDateString: deliveryDate.toISOString(),
+  //       address: {
+  //         street: address,
+  //         notes: notes
+  //       }
+  //     };
 
-      const orderId = await createOrder(orderData);
+  //     const orderId = await createOrder(orderData);
 
-      // Create payment record
-      const paymentRecord = {
-        orderId,
-        customerId: user.uid,
-        amount: parseFloat(finalPrice),
-        status: 'success',
-        method: 'razorpay',
-        transactionId: paymentData.razorpay_payment_id
-      };
+  //     // Create payment record
+  //     const paymentRecord = {
+  //       orderId,
+  //       customerId: user.uid,
+  //       amount: parseFloat(finalPrice),
+  //       status: 'success',
+  //       method: 'razorpay',
+  //       transactionId: paymentData.razorpay_payment_id
+  //     };
 
-      await createPayment(paymentRecord);
+  //     await createPayment(paymentRecord);
 
-      // Navigate to success screen
-      navigation.replace('PaymentSuccessScreen', {
-        orderId,
-        amount: finalPrice
-      });
-    } catch (error) {
-      console.error('Error in payment success:', error);
-      Alert.alert('Error', 'Failed to process payment. Please contact support.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  //     // Navigate to success screen
+  //     navigation.replace('PaymentSuccessScreen', {
+  //       orderId,
+  //       amount: finalPrice
+  //     });
+  //   } catch (error) {
+  //     console.error('Error in payment success:', error);
+  //     Alert.alert('Error', 'Failed to process payment. Please contact support.');
+  //   } finally {
+  //     setIsProcessing(false);
+  //   }
+  // };
 
-  if (loading) {
-    return (
-      <ScreenContainer>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      </ScreenContainer>
-    );
-  }
-
+  // Show error state if there's an error
   if (error) {
     return (
       <ScreenContainer>
@@ -233,6 +245,17 @@ const BookingScreen = ({ navigation, route }) => {
           >
             <Text style={styles.retryButtonText}>Go Back</Text>
           </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <ScreenContainer>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       </ScreenContainer>
     );
@@ -274,12 +297,24 @@ const BookingScreen = ({ navigation, route }) => {
   // Calculate total items
   const totalItems = Object.values(itemCounts).reduce((sum, count) => sum + count, 0) + quantity;
   
-  // Calculate original and discounted prices
+  // Calculate original and discounted prices with defensive programming
   const originalServicePrice = (service?.price || 14.99) * quantity;
   const discountAmount = offerExists ? (originalServicePrice * offerDiscountAmount / 100) : 0;
   const discountedServicePrice = originalServicePrice - discountAmount;
   const deliveryFee = 5.00;
+  
+  // Ensure all values are numbers before calculation
   const finalPrice = Number(discountedServicePrice) + Number(additionalItemsPrice) + Number(deliveryFee);
+  
+  // Add logging for price calculations
+  console.log('Final price calculations:', {
+    originalServicePrice,
+    discountAmount,
+    discountedServicePrice,
+    additionalItemsPrice,
+    deliveryFee,
+    finalPrice
+  });
   
   const dates = generateDates();
 
@@ -337,7 +372,7 @@ const BookingScreen = ({ navigation, route }) => {
       
       // Create order data (do not set orderId yet)
       const orderData = {
-        userId: auth.currentUser?.uid,
+        customerId: auth.currentUser?.uid,
         service: {
           ...service,
           quantity,
@@ -355,7 +390,7 @@ const BookingScreen = ({ navigation, route }) => {
       // Log orderData
       console.log('orderData:', orderData);
       // Validate orderData
-      if (!orderData.userId || !orderData.service || !orderData.pickupDate || !orderData.pickupTime || !orderData.address || typeof orderData.service.finalPrice === 'undefined') {
+      if (!orderData.customerId || !orderData.service || !orderData.pickupDate || !orderData.pickupTime || !orderData.address || typeof orderData.service.finalPrice === 'undefined') {
         Alert.alert('Error', 'Order data is missing required fields.');
         setIsProcessing(false);
         return;
@@ -655,7 +690,7 @@ const BookingScreen = ({ navigation, route }) => {
               )}
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Additional Items:</Text>
-                <Text style={styles.summaryValue}>₹{additionalItemsPrice.toFixed(2)}</Text>
+                <Text style={styles.summaryValue}>₹{Number(additionalItemsPrice).toFixed(2)}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Delivery Fee:</Text>
@@ -936,6 +971,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 10,
     letterSpacing: 0.5,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

@@ -5,76 +5,118 @@ import { getFirestore, collection, addDoc, updateDoc, getDoc, getDocs, query, wh
 import { Alert } from "react-native";
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
-const API_KEY = "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI";
-
-// Explicitly define which services to use
-
-
 const firebaseConfig = {
-  apiKey: "AIzaSyDzRW7AN0PJOdsx-jw6aHoZZpZl51Ww1pg",
+  apiKey: "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI",
   authDomain: "soapfold.firebaseapp.com",
   projectId: "soapfold",
   storageBucket: "soapfold.firebasestorage.app",
   messagingSenderId: "192181548467",
-  appId: "1:192181548467:web:f9c4135dcf4b5061a547c6",
-  // measurementId: "G-2ZPC7F57KD"
+  appId: "1:192181548467:web:f9c4135dcf4b5061a547c6"
 };
 
 // Initialize Firebase
-let app;
+let app = null;
 let auth = null;
 let storage = null;
 let db = null;
 
-try {
-  console.log("Initializing Firebase with specific services");
-  
-  // Check if app is already initialized to avoid duplicate initialization
-  if (!getApps().length) {
-    app = initializeApp(firebaseConfig);
-    console.log("Firebase app initialized successfully");
-  } else {
-    app = getApps()[0];
-    console.log("Using existing Firebase app");
-  }
-  
-  // Use AsyncStorage for persistence
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-  console.log("Firebase auth initialized successfully");
-  
-  storage = getStorage(app);
-  console.log("Firebase Storage initialized successfully");
-  
-  db = getFirestore(app);
-  console.log("Firestore initialized successfully");
-  
-} catch (error) {
-  console.error('Firebase initialization error:', error);
-  console.error('Error details:', JSON.stringify(error, null, 2));
-  
-  setTimeout(() => {
-    Alert.alert(
-      "Firebase Error",
-      "There was a problem connecting to our services. Please restart the app or check your internet connection."
-    );
-  }, 1000);
-}
+const initializeFirebase = async () => {
+  try {
+    console.log("[Firebase] Starting initialization...");
+    
+    // Check if app is already initialized
+    if (!getApps().length) {
+      console.log("[Firebase] No existing apps found, initializing new app...");
+      app = initializeApp(firebaseConfig);
+      console.log("[Firebase] New app initialized successfully");
+    } else {
+      console.log("[Firebase] Using existing app instance");
+      app = getApps()[0];
+    }
 
-// Function to verify Firebase is initialized
-const verifyFirebaseInitialized = () => {
-  const isInitialized = {
-    app: !!app,
-    auth: !!auth,
-    storage: !!storage,
-    firestore: !!db
-  };
-  
-  console.log('Firebase initialization status:', isInitialized);
-  return isInitialized;
+    // Initialize Auth with persistence
+    try {
+      console.log("[Firebase] Initializing Auth...");
+      auth = initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage)
+      });
+      console.log("[Firebase] Auth initialized successfully");
+    } catch (authError) {
+      console.error("[Firebase] Auth initialization failed:", authError);
+      throw new Error(`Auth initialization failed: ${authError.message}`);
+    }
+
+    // Initialize Storage
+    try {
+      console.log("[Firebase] Initializing Storage...");
+      storage = getStorage(app);
+      console.log("[Firebase] Storage initialized successfully");
+    } catch (storageError) {
+      console.error("[Firebase] Storage initialization failed:", storageError);
+      throw new Error(`Storage initialization failed: ${storageError.message}`);
+    }
+
+    // Initialize Firestore
+    try {
+      console.log("[Firebase] Initializing Firestore...");
+      db = getFirestore(app);
+      console.log("[Firebase] Firestore initialized successfully");
+    } catch (firestoreError) {
+      console.error("[Firebase] Firestore initialization failed:", firestoreError);
+      throw new Error(`Firestore initialization failed: ${firestoreError.message}`);
+    }
+
+    console.log("[Firebase] All services initialized successfully");
+    return true;
+  } catch (error) {
+    console.error("[Firebase] Initialization error:", error);
+    console.error("[Firebase] Error details:", JSON.stringify(error, null, 2));
+    
+    // Show error alert after a delay to ensure UI is ready
+    setTimeout(() => {
+      Alert.alert(
+        "Firebase Error",
+        "There was a problem connecting to our services. Please restart the app or check your internet connection."
+      );
+    }, 1000);
+    
+    return false;
+  }
+};
+
+// Initialize Firebase immediately
+initializeFirebase().then(success => {
+  if (!success) {
+    console.error("[Firebase] Initialization failed");
+  }
+});
+
+// Function to verify Firebase initialization status
+export const verifyFirebaseInitialized = () => {
+  try {
+    const auth = getAuth();
+    const app = auth.app;
+    const firestore = getFirestore();
+    const storage = getStorage();
+
+    return {
+      app: !!app,
+      auth: !!auth,
+      storage: !!storage,
+      firestore: !!firestore
+    };
+  } catch (error) {
+    console.error('Error verifying Firebase initialization:', error);
+    return {
+      app: false,
+      auth: false,
+      storage: false,
+      firestore: false
+    };
+  }
 };
 
 // ====== FIRESTORE ORDERS FUNCTIONS ======
@@ -311,7 +353,6 @@ export {
   auth,
   storage,
   db,
-  verifyFirebaseInitialized,
   // User management functions
   createUserInFirestore,
   getUserFromFirestore,

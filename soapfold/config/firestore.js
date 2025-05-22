@@ -64,16 +64,21 @@ export const updateOrderStatus = async (orderId, status) => {
 
 export const getCustomerOrders = async (customerId) => {
   try {
+    console.log('Querying orders for customerId:', customerId);
     const q = query(
       ordersCollection,
       where('customerId', '==', customerId),
       orderBy('createdAt', 'desc')
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    console.log('Orders query snapshot size:', snapshot.size);
+    
+    const orders = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+    console.log('Processed orders:', orders);
+    return orders;
   } catch (error) {
     console.error('Error fetching customer orders:', error);
     throw error;
