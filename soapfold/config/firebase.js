@@ -1,11 +1,28 @@
 import { initializeApp, getApps } from "firebase/app";
 import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getStorage } from "firebase/storage";
-import { getFirestore, collection, addDoc, updateDoc, getDoc, getDocs, query, where, doc, deleteDoc, orderBy, serverTimestamp, setDoc } from "firebase/firestore";
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  getDoc, 
+  getDocs, 
+  query, 
+  where, 
+  doc, 
+  deleteDoc, 
+  orderBy, 
+  serverTimestamp, 
+  setDoc,
+  enableIndexedDbPersistence,
+  CACHE_SIZE_UNLIMITED
+} from "firebase/firestore";
 import { Alert } from "react-native";
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuth } from "firebase/auth";
+import NetInfo from '@react-native-community/netinfo';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -59,15 +76,42 @@ const initializeFirebase = async () => {
       throw new Error(`Storage initialization failed: ${storageError.message}`);
     }
 
-    // Initialize Firestore
+    // Initialize Firestore with offline persistence
     try {
       console.log("[Firebase] Initializing Firestore...");
       db = getFirestore(app);
-      console.log("[Firebase] Firestore initialized successfully");
+      
+      // Enable offline persistence
+      await enableIndexedDbPersistence(db, {
+        synchronizeTabs: true,
+        cacheSizeBytes: CACHE_SIZE_UNLIMITED
+      }).catch((err) => {
+        if (err.code === 'failed-precondition') {
+          console.warn('[Firebase] Multiple tabs open, persistence can only be enabled in one tab at a time.');
+        } else if (err.code === 'unimplemented') {
+          console.warn('[Firebase] The current browser does not support persistence.');
+        }
+      });
+      
+      console.log("[Firebase] Firestore initialized successfully with offline persistence");
     } catch (firestoreError) {
       console.error("[Firebase] Firestore initialization failed:", firestoreError);
       throw new Error(`Firestore initialization failed: ${firestoreError.message}`);
     }
+
+    // Set up network state monitoring
+    NetInfo.addEventListener(state => {
+      if (state.isConnected) {
+        console.log('[Firebase] Network connection restored');
+      } else {
+        console.log('[Firebase] Network connection lost');
+        Alert.alert(
+          "No Internet Connection",
+          "You're currently offline. Some features may be limited until you reconnect.",
+          [{ text: "OK" }]
+        );
+      }
+    });
 
     console.log("[Firebase] All services initialized successfully");
     return true;
@@ -267,6 +311,24 @@ const createUserInFirestore = async (userData) => {
   }
 };
 
+// Enhanced error handling for Firestore operations
+const handleFirestoreError = (error, operation) => {
+  console.error(`[Firestore] Error during ${operation}:`, error);
+  
+  if (error.code === 'failed-precondition') {
+    return new Error('The operation failed because the document was modified by another process.');
+  } else if (error.code === 'not-found') {
+    return new Error('The requested document was not found.');
+  } else if (error.code === 'permission-denied') {
+    return new Error('You do not have permission to perform this operation.');
+  } else if (error.code === 'unavailable') {
+    return new Error('The service is currently unavailable. Please check your internet connection.');
+  } else {
+    return new Error(`An unexpected error occurred: ${error.message}`);
+  }
+};
+
+// Update the getUserFromFirestore function with better error handling
 const getUserFromFirestore = async (uid) => {
   try {
     if (!uid) {
@@ -289,7 +351,6 @@ const getUserFromFirestore = async (uid) => {
     
     if (missingFields.length > 0) {
       console.warn(`User document missing required fields: ${missingFields.join(', ')}`);
-      // Don't throw error, just log warning
     }
 
     // Convert Firestore timestamps to ISO strings
@@ -302,8 +363,7 @@ const getUserFromFirestore = async (uid) => {
 
     return processedData;
   } catch (error) {
-    console.error('Error fetching user from Firestore:', error);
-    throw new Error(`Failed to fetch user data: ${error.message}`);
+    throw handleFirestoreError(error, 'getUserFromFirestore');
   }
 };
 
