@@ -25,7 +25,7 @@ import { theme, getTextStyle } from '../../utils/theme';
 import { useTheme } from '../../utils/ThemeContext';
 import ThemedStatusBar from '../../components/ThemedStatusBar';
 import topSectionBg from '../../assets/topsection_bg.jpeg';
-import { getCustomerOrders } from '../../config/firestore'; // adjust path if needed
+import { getCustomerOrders, getActiveOffers, applyOffer } from '../../config/firestore'; // adjust path if needed
 
 const { width, height } = Dimensions.get('window');
 
@@ -63,6 +63,8 @@ const HomeScreen = () => {
   const [activeProjectIndex, setActiveProjectIndex] = useState(0);
   const { isDarkMode, theme: activeTheme } = useTheme();
   const [recentOrder, setRecentOrder] = useState(null);
+  const [offers, setOffers] = useState([]);
+  const [loadingOffers, setLoadingOffers] = useState(true);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -167,7 +169,42 @@ const HomeScreen = () => {
     }
   };
 
-  // Initial animation and data fetch
+  // Add fetchOffers function
+  const fetchOffers = async () => {
+    try {
+      console.log('[Offers] Starting to fetch offers...');
+      setLoadingOffers(true);
+      const activeOffers = await getActiveOffers();
+      console.log('[Offers] Raw offers data from Firestore:', JSON.stringify(activeOffers, null, 2));
+      
+      // Log each offer's details
+      activeOffers.forEach((offer, index) => {
+        console.log(`[Offers] Offer ${index + 1}:`, {
+          id: offer.id,
+          title: offer.title,
+          description: offer.description,
+          expiryDate: offer.expiryDate,
+          isActive: offer.isActive,
+          usedBy: offer.usedBy,
+          imageUrl: offer.imageUrl
+        });
+      });
+      
+      console.log('[Offers] Total offers fetched:', activeOffers.length);
+      setOffers(activeOffers);
+    } catch (error) {
+      console.error('[Offers] Error fetching offers:', error);
+      Alert.alert(
+        'Error',
+        'Failed to load offers. Please try again later.'
+      );
+    } finally {
+      setLoadingOffers(false);
+      console.log('[Offers] Finished fetching offers');
+    }
+  };
+
+  // Update useEffect to fetch offers
   useEffect(() => {
     // Start animations when component mounts
     Animated.parallel([
@@ -185,13 +222,15 @@ const HomeScreen = () => {
 
     // Initial data fetch
     fetchUserData();
+    fetchOffers();
   }, [route.params?.userUpdated]);
 
-  // Refresh data when screen comes into focus
+  // Update useFocusEffect to refresh offers
   useFocusEffect(
     React.useCallback(() => {
-      console.log('HomeScreen focused - refreshing user data');
+      console.log('HomeScreen focused - refreshing user data and offers');
       fetchUserData();
+      fetchOffers();
       return () => {}; // cleanup function
     }, [])
   );
@@ -468,164 +507,82 @@ const HomeScreen = () => {
     const flatListRef = useRef(null);
     const scrolling = useRef(false);
 
-    const originalData = [
-      {
-        id: '1',
-        title: 'UP TO',
-        subtitle: '50% OFF',
-        description: 'Dry cleaning services',
-        backgroundColor: '#000000',
-        accentColor: '#FF3B30',
-        buttonText: 'Redeem Now',
-        iconName: 'arrow-right-circle'
-      },
-      {
-        id: '2',
-        title: 'UP TO',
-        subtitle: '40% OFF',
-        description: 'Wash & fold services',
-        backgroundColor: '#000000',
-        accentColor: '#007AFF',
-        buttonText: 'Redeem Now',
-        iconName: 'arrow-right-circle'
-      },
-      {
-        id: '3',
-        title: 'UP TO',
-        subtitle: '30% OFF',
-        description: 'Ironing & premium care',
-        backgroundColor: '#000000',
-        accentColor: '#FF9500',
-        buttonText: 'Redeem Now',
-        iconName: 'arrow-right-circle'
-      },
-      {
-        id: '4',
-        title: 'UP TO',
-        subtitle: '60% OFF',
-        description: 'Full service package',
-        backgroundColor: '#000000',
-        accentColor: '#5856D6',
-        buttonText: 'Redeem Now',
-        iconName: 'arrow-right-circle'
-      }
-    ];
+    // Use Firestore offers if available, otherwise fallback to originalData
+    const promoData = offers.length > 0
+      ? offers.map((offer, idx) => ({
+          id: offer.id || idx.toString(),
+          title: offer.title || '',
+          subtitle: '', // You can add a subtitle field in Firestore if needed
+          description: offer.description || '',
+          backgroundColor: '#000000',
+          accentColor: offer.accentColor || '#FF9500',
+          buttonText: 'Redeem Now',
+          iconName: 'arrow-right-circle'
+        }))
+      : originalData;
 
-    // Create extended data array for seamless infinite scrolling
-    const promoData = [...originalData, originalData[0]];
-
-    // Auto scroll timer
-    useEffect(() => {
-      const timer = setInterval(() => {
-        if (scrolling.current) return;
-        
-        if (activeIndex === promoData.length - 1) {
-          // If we're at the clone of first slide, quickly but invisibly jump to the real first slide
-          flatListRef.current?.scrollToOffset({
-            offset: 0,
-            animated: false
-          });
-          // Add a small delay before updating the state to avoid visual glitches
-          setTimeout(() => {
-            setActiveIndex(0);
-            scrolling.current = false;
-          }, 50);
-        } else {
-          scrolling.current = true;
-          flatListRef.current?.scrollToIndex({
-            index: activeIndex + 1,
-            animated: true
-          });
-        }
-      }, 5000);
-
-      return () => clearInterval(timer);
-    }, [activeIndex]);
-
-    // Handle viewable items change
-    const onViewableItemsChanged = useRef(({ viewableItems }) => {
-      if (viewableItems.length > 0) {
-        // Only update activeIndex if we're not in the process of resetting
-        if (!scrolling.current || viewableItems[0].index !== 0) {
-          setActiveIndex(viewableItems[0].index);
-          scrolling.current = false;
-        }
-      }
-    }).current;
-
-    const viewabilityConfig = useRef({
-      itemVisiblePercentThreshold: 50
-    }).current;
-    
-    // Handle manual scroll completion
     const handleMomentumScrollEnd = (event) => {
-      const offsetX = event.nativeEvent.contentOffset.x;
-      const index = Math.floor(offsetX / (width - 30) + 0.1); // Add small tolerance for precise detection
-      
-      // If we've manually scrolled to the duplicate last item, immediately jump back to the first real item
-      if (index === promoData.length - 1) {
-        scrolling.current = true; // Prevent onViewableItemsChanged from interfering
-        
-        // Brief delay to ensure scroll has settled
-        setTimeout(() => {
-          flatListRef.current?.scrollToOffset({
-            offset: 0,
-            animated: false
-          });
-          
-          // Additional delay before updating state
-          setTimeout(() => {
-            setActiveIndex(0);
-            scrolling.current = false;
-          }, 50);
-        }, 10);
-      }
+      const newIndex = Math.round(
+        event.nativeEvent.contentOffset.x / width
+      );
+      setActiveIndex(newIndex);
     };
 
-    // Render carousel item
-    const renderPromoItem = ({ item }) => {
-  return (
-        <View style={[styles.promoCard, { backgroundColor: item.backgroundColor }]}>
-          <View style={styles.promoContentContainer}>
-            <View style={styles.promoTextContainer}>
-              <Text style={styles.promoTitle}>{item.title}</Text>
-              <Text style={[styles.promoSubtitle, {color: item.accentColor}]}>{item.subtitle}</Text>
-              <Text style={styles.promoDescription}>{item.description}</Text>
-              
+    const renderPromoItem = ({ item }) => (
+      <View style={[styles.promoCard, { backgroundColor: item.backgroundColor }]}>
+        <View style={styles.promoContentContainer}>
+          <View style={styles.promoTextContainer}>
+            <Text style={styles.promoTitle}>{item.title}</Text>
+            {item.subtitle ? (
+              <Text style={[styles.promoSubtitle, { color: item.accentColor }]}>{item.subtitle}</Text>
+            ) : null}
+            <Text style={styles.promoDescription}>{item.description}</Text>
             <TouchableOpacity
-                style={[styles.promoActionButton, {backgroundColor: item.accentColor, marginTop: 10, marginBottom: 4}]}
-                onPress={() => {
-                  // Navigate through service flow with offer parameters
-                  navigation.navigate('ServiceCategoryScreen', {
-                    category: {
-                      id: 'all',
-                      name: 'All Services',
-                      icon: 'local-laundry-service',
-                      color: activeTheme.colors.primary
-                    },
-                    offerExists: true,
-                    offerDiscountAmount: 30
-                  });
-                }}
-              >
-                <Text style={styles.promoActionButtonText}>Redeem Now</Text>
-                <Feather name="arrow-right-circle" size={16} color="#FFFFFF" style={{marginLeft: 5}} />
+              style={[styles.promoActionButton, { backgroundColor: item.accentColor, marginTop: 10, marginBottom: 4 }]}
+              onPress={() => {
+                navigation.navigate('ServiceCategoryScreen', {
+                  category: {
+                    id: 'all',
+                    name: 'All Services',
+                    icon: 'local-laundry-service',
+                    color: activeTheme.colors.primary
+                  },
+                  offerExists: true,
+                  offerDiscountAmount: 30
+                });
+              }}
+            >
+              <Text style={styles.promoActionButtonText}>Redeem Now</Text>
+              <Feather name="arrow-right-circle" size={16} color="#FFFFFF" style={{ marginLeft: 5 }} />
             </TouchableOpacity>
-            </View>
-            
-            <View style={[styles.accentShape, {backgroundColor: item.accentColor}]} />
-            
-            <View style={styles.promoImageContainer}>
-              <Image 
-                source={require('../../assets/images/laundry.jpg')} 
-                style={styles.promoImage}
-                resizeMode="cover"
-              />
-            </View>
+          </View>
+          <View style={[styles.accentShape, { backgroundColor: item.accentColor }]} />
+          <View style={styles.promoImageContainer}>
+            <Image
+              source={require('../../assets/images/laundry.jpg')}
+              style={styles.promoImage}
+              resizeMode="cover"
+            />
+          </View>
         </View>
+      </View>
+    );
+
+    if (loadingOffers) {
+      return (
+        <View style={styles.promoLoadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       );
-    };
+    }
+
+    if (offers.length === 0) {
+      return (
+        <View style={styles.noOffersContainer}>
+          <Text style={styles.noOffersText}>No active offers at the moment</Text>
+        </View>
+      );
+    }
 
     return (
       <View style={styles.promoContainer}>
@@ -633,38 +590,24 @@ const HomeScreen = () => {
           ref={flatListRef}
           data={promoData}
           renderItem={renderPromoItem}
+          keyExtractor={(item) => item.id}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          getItemLayout={(data, index) => ({
-            length: width - 30,
-            offset: (width - 30) * index,
-            index
-          })}
           onMomentumScrollEnd={handleMomentumScrollEnd}
-          decelerationRate={Platform.OS === 'ios' ? 0.8 : 0.92}
-          snapToInterval={width - 30}
-          snapToAlignment="start"
-          disableIntervalMomentum={true}
-          initialNumToRender={2}
-          maxToRenderPerBatch={3}
-          removeClippedSubviews={false}
-          windowSize={5}
-          onScrollToIndexFailed={info => {
-            console.warn('Failed to scroll to index', info);
-            const wait = new Promise(resolve => setTimeout(resolve, 300));
-            wait.then(() => {
-              flatListRef.current?.scrollToIndex({ 
-                index: Math.min(info.index, promoData.length - 1), 
-                animated: true,
-                viewPosition: 0
-              });
-            });
-          }}
+          contentContainerStyle={styles.promoList}
         />
+        <View style={styles.promoPagination}>
+          {promoData.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.promoDot,
+                index === activeIndex && styles.promoDotActive
+              ]}
+            />
+          ))}
+        </View>
       </View>
     );
   };
@@ -737,7 +680,7 @@ const HomeScreen = () => {
               <View style={styles.profileImageFallback}>
                 <Text style={styles.profileInitials}>
                   {firstName.charAt(0).toUpperCase()}
-          </Text>
+                </Text>
               </View>
             )}
           </TouchableOpacity>
@@ -773,8 +716,8 @@ const HomeScreen = () => {
                 })}
               >
                 <MaterialIcons name="tune" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ImageBackground>
@@ -1433,6 +1376,76 @@ const styles = StyleSheet.create({
     color: '#888888',
     fontSize: 14,
     fontWeight: '600',
+  },
+  promoLoadingContainer: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noOffersContainer: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    padding: 16,
+  },
+  noOffersText: {
+    fontSize: 16,
+    color: theme.colors.text,
+    textAlign: 'center',
+  },
+  promoList: {
+    paddingHorizontal: 15,
+  },
+  promoPagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  promoDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  promoDotActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  promoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  promoContent: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+  },
+  promoFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  promoExpiry: {
+    ...getTextStyle('medium', 'sm', '#888'),
+    fontSize: 12,
+  },
+  promoButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  promoButtonDisabled: {
+    backgroundColor: '#888',
+  },
+  promoButtonText: {
+    ...getTextStyle('medium', 'sm', '#FFFFFF'),
+    fontSize: 13,
   },
 });
 

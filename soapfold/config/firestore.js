@@ -196,18 +196,30 @@ export const createOffer = async (offerData) => {
 
 export const getActiveOffers = async () => {
   try {
-    const now = new Date();
+    const now = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
     const q = query(
       offersCollection,
-      where('isActive', '==', true),
-      where('validFrom', '<=', now),
-      where('validTo', '>=', now)
+      where('status', '==', true),
+      where('endDate', '>', now),
+      orderBy('endDate', 'asc')
     );
+    
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const offers = snapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
+      expiryDate: doc.data().endDate || null, // Use endDate as expiryDate for UI
+      createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || null,
+      updatedAt: doc.data().updatedAt?.toDate?.()?.toISOString() || null
     }));
+    
+    console.log('[Firestore] Raw offers data:', JSON.stringify(offers, null, 2));
+    offers.forEach((offer, idx) => {
+      console.log(`[Firestore] Offer ${idx + 1}:`, offer);
+    });
+    console.log('[Firestore] Total offers fetched:', offers.length);
+    
+    return offers;
   } catch (error) {
     console.error('Error fetching active offers:', error);
     throw error;
