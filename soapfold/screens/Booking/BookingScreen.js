@@ -18,7 +18,7 @@ import ScreenContainer from '../../components/ScreenContainer';
 import Constants from 'expo-constants';
 import { createOrder, createPayment } from '../../config/firestore';
 import { auth, db } from '../../config/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import {
   validateService,
   validateQuantity,
@@ -409,7 +409,7 @@ const BookingScreen = ({ navigation, route }) => {
         title: '✨ Order Placed Successfully!',
         subtitle: `Your order #${orderId} is confirmed and ready to be picked up`,
         icon: 'shopping-bag',
-        color: '#FF6B6B', // Modern coral color
+        color: '#FF6B6B',
         orderId: orderId,
         data: {
           orderId,
@@ -418,8 +418,37 @@ const BookingScreen = ({ navigation, route }) => {
           pickupDate: selectedDate.formatted,
           pickupTime: selectedTime
         },
-        emoji: '🎉' // Adding emoji for extra Gen Z appeal
+        emoji: '🎉'
       });
+
+      // Schedule pickup reminder notification
+      const pickupDateTime = new Date(selectedDate.fullDate);
+      const [hours, minutes] = selectedTime.split(' - ')[0].split(':');
+      pickupDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      
+      // Schedule reminder 3 hours before pickup
+      const reminderTime = new Date(pickupDateTime);
+      reminderTime.setHours(reminderTime.getHours() - 3);
+      
+      // Only schedule if reminder time is in the future
+      if (reminderTime > new Date()) {
+        await addNotification({
+          type: 'pickup_reminder',
+          title: '⏰ Pickup Reminder!',
+          subtitle: `Your laundry pickup for order #${orderId} is scheduled in 3 hours (${selectedTime})`,
+          icon: 'clock',
+          color: '#FFD600',
+          orderId: orderId,
+          data: {
+            orderId,
+            pickupDate: selectedDate.formatted,
+            pickupTime: selectedTime,
+            scheduledFor: reminderTime.toISOString()
+          },
+          emoji: '🚀',
+          scheduledFor: Timestamp.fromDate(reminderTime)
+        });
+      }
 
       // Create payment record
       const paymentData = {

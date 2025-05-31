@@ -42,23 +42,52 @@ export const NotificationProvider = ({ children }) => {
     loadNotifications();
   }, [auth.currentUser]);
 
+  // Check for scheduled notifications
+  useEffect(() => {
+    const checkScheduledNotifications = () => {
+      const now = new Date();
+      const scheduledNotifications = notifications.filter(
+        n => n.scheduledFor && !n.isRead && new Date(n.scheduledFor.toDate()) <= now
+      );
+
+      if (scheduledNotifications.length > 0) {
+        // Update notifications to show scheduled ones
+        setNotifications(prev => 
+          prev.map(n => 
+            scheduledNotifications.some(sn => sn.id === n.id)
+              ? { ...n, isScheduled: false }
+              : n
+          )
+        );
+      }
+    };
+
+    // Check every minute
+    const interval = setInterval(checkScheduledNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [notifications]);
+
   // Add a new notification
   const addNotification = async (notificationData) => {
     try {
-      if (!auth.currentUser) return;
-
       const notification = {
         ...notificationData,
-        userId: auth.currentUser.uid,
+        userId: auth.currentUser?.uid,
+        isRead: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
-      const notificationId = await createNotification(notification);
-      const newNotification = { id: notificationId, ...notification };
-      
+      const id = await createNotification(notification);
+      const newNotification = { ...notification, id };
+
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
+
+      return id;
     } catch (error) {
       console.error('Error adding notification:', error);
+      throw error;
     }
   };
 
@@ -67,30 +96,30 @@ export const NotificationProvider = ({ children }) => {
     try {
       await markNotificationAsRead(notificationId);
       setNotifications(prev =>
-        prev.map(notification =>
-          notification.id === notificationId
-            ? { ...notification, isRead: true }
-            : notification
+        prev.map(n =>
+          n.id === notificationId ? { ...n, isRead: true } : n
         )
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
+      throw error;
     }
   };
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
-      if (!auth.currentUser) return;
-      
-      await markAllNotificationsAsRead(auth.currentUser.uid);
-      setNotifications(prev =>
-        prev.map(notification => ({ ...notification, isRead: true }))
-      );
-      setUnreadCount(0);
+      if (auth.currentUser) {
+        await markAllNotificationsAsRead(auth.currentUser.uid);
+        setNotifications(prev =>
+          prev.map(n => ({ ...n, isRead: true }))
+        );
+        setUnreadCount(0);
+      }
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
+      throw error;
     }
   };
 
@@ -102,7 +131,7 @@ export const NotificationProvider = ({ children }) => {
 
   // Get notifications by type
   const getNotificationsByType = (type) => {
-    return notifications.filter(notification => notification.type === type);
+    return notifications.filter(n => n.type === type);
   };
 
   const value = {
