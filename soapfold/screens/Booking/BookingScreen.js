@@ -29,6 +29,7 @@ import {
   DELIVERY_FEE,
   ERROR_MESSAGES
 } from '../../utils/bookingUtils';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 // Modern approach to detect Expo environment
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
@@ -61,6 +62,7 @@ const BookingScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { addNotification } = useNotifications();
 
   // Validate required params on mount
   useEffect(() => {
@@ -387,16 +389,37 @@ const BookingScreen = ({ navigation, route }) => {
         offerApplied: offerExists,
         offerDiscountAmount: offerExists ? offerDiscountAmount : 0
       };
+      
       // Log orderData
       console.log('orderData:', orderData);
+      
       // Validate orderData
       if (!orderData.customerId || !orderData.service || !orderData.pickupDate || !orderData.pickupTime || !orderData.address || typeof orderData.service.finalPrice === 'undefined') {
         Alert.alert('Error', 'Order data is missing required fields.');
         setIsProcessing(false);
         return;
       }
+      
       // Create order in Firestore and get the Firestore document ID
       const orderId = await createOrder(orderData);
+      
+      // Add notification for order placed
+      await addNotification({
+        type: 'order_placed',
+        title: 'Order Placed Successfully',
+        subtitle: `Your order #${orderId} has been placed`,
+        icon: 'receipt-long',
+        color: '#4CAF50',
+        orderId: orderId,
+        data: {
+          orderId,
+          service: service.name,
+          amount: finalPrice.toFixed(2),
+          pickupDate: selectedDate.formatted,
+          pickupTime: selectedTime
+        }
+      });
+
       // Create payment record
       const paymentData = {
         orderId,
@@ -407,16 +430,17 @@ const BookingScreen = ({ navigation, route }) => {
         createdAt: serverTimestamp(),
         method: 'razorpay',
       };
-      // Log paymentData
-      console.log('paymentData:', paymentData);
+      
       // Validate paymentData
       if (!paymentData.orderId || !paymentData.customerId || !paymentData.amount || !paymentData.paymentId) {
         Alert.alert('Error', 'Payment data is missing required fields.');
         setIsProcessing(false);
         return;
       }
+      
       // Create payment record
       const paymentId = await createPayment(paymentData);
+      
       // Navigate to confirmation screen with Firestore orderId
       navigation.replace('BookingConfirmationScreen', {
         bookingId: orderId,

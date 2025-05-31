@@ -1,7 +1,14 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { auth } from '../config/firebase';
+import { 
+  createNotification, 
+  getUserNotifications, 
+  markNotificationAsRead, 
+  markAllNotificationsAsRead 
+} from '../config/firestore';
 
 // Create the context
-export const NotificationContext = createContext();
+const NotificationContext = createContext();
 
 // Custom hook to use the notification context
 export const useNotifications = () => {
@@ -18,37 +25,73 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Add a new notification
-  const addNotification = (notification) => {
-    const newNotification = {
-      ...notification,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      isRead: false
+  // Load notifications when user changes
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (auth.currentUser) {
+        try {
+          const userNotifications = await getUserNotifications(auth.currentUser.uid);
+          setNotifications(userNotifications);
+          setUnreadCount(userNotifications.filter(n => !n.isRead).length);
+        } catch (error) {
+          console.error('Error loading notifications:', error);
+        }
+      }
     };
 
-    setNotifications(prev => [newNotification, ...prev]);
-    setUnreadCount(prev => prev + 1);
+    loadNotifications();
+  }, [auth.currentUser]);
+
+  // Add a new notification
+  const addNotification = async (notificationData) => {
+    try {
+      if (!auth.currentUser) return;
+
+      const notification = {
+        ...notificationData,
+        userId: auth.currentUser.uid,
+      };
+
+      const notificationId = await createNotification(notification);
+      const newNotification = { id: notificationId, ...notification };
+      
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    } catch (error) {
+      console.error('Error adding notification:', error);
+    }
   };
 
   // Mark a notification as read
-  const markAsRead = (notificationId) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
-    setUnreadCount(prev => Math.max(0, prev - 1));
+  const markAsRead = async (notificationId) => {
+    try {
+      await markNotificationAsRead(notificationId);
+      setNotifications(prev =>
+        prev.map(notification =>
+          notification.id === notificationId
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
   // Mark all notifications as read
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
-    setUnreadCount(0);
+  const markAllAsRead = async () => {
+    try {
+      if (!auth.currentUser) return;
+      
+      await markAllNotificationsAsRead(auth.currentUser.uid);
+      setNotifications(prev =>
+        prev.map(notification => ({ ...notification, isRead: true }))
+      );
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
 
   // Clear all notifications

@@ -9,6 +9,7 @@ import * as Animatable from 'react-native-animatable';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { useNotifications } from '../contexts/NotificationContext';
 
 // Import screens
 import HomeScreen from '../screens/Main/HomeScreen';
@@ -349,8 +350,41 @@ function OrderScreenNavigator() {
 }
 
 // Define TabBarIcon function
-const TabBarIcon = (props) => {
-  return <MaterialIcons size={30} style={{ marginBottom: -3 }} {...props} />;
+const TabBarIcon = ({ focused, route, color }) => {
+  const { unreadCount } = useNotifications();
+  
+  if (route.name === 'Home') {
+    return (
+      <View>
+        <MaterialIcons name="home" size={24} color={color} />
+      </View>
+    );
+  } else if (route.name === 'Orders') {
+    return (
+      <View>
+        <MaterialIcons name="receipt-long" size={24} color={color} />
+      </View>
+    );
+  } else if (route.name === 'Notifications') {
+    return (
+      <View>
+        <MaterialIcons name="notifications" size={24} color={color} />
+        {unreadCount > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  } else if (route.name === 'Settings') {
+    return (
+      <View>
+        <MaterialIcons name="settings" size={24} color={color} />
+      </View>
+    );
+  }
 };
 
 // Update Custom Tab Bar to include Orders tab
@@ -757,6 +791,25 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     textAlign: 'center',
+    paddingHorizontal: 4,
+  },
+  badge: {
+    position: 'absolute',
+    right: -6,
+    top: -6,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
     paddingHorizontal: 4,
   },
 }); 

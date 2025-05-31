@@ -19,6 +19,7 @@ import { theme } from './utils/theme';
 import { ThemeProvider } from './utils/ThemeContext';
 import ThemedStatusBar from './components/ThemedStatusBar';
 import { LoadingProvider } from './contexts/LoadingContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import React from 'react';
 
 // Auth Screens
@@ -348,28 +349,22 @@ const App = () => {
   }
 
   return (
-    <Provider store={store}>
-      <ThemeProvider>
-        <LoadingProvider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <ThemeProvider>
           <SafeAreaProvider>
-            <ErrorBoundary>
-              <NavigationContainer>
-                <ThemedStatusBar />
-                <RootStack.Navigator screenOptions={{ headerShown: false }}>
-                  {userInfo ? (
-                    <>
-                      <RootStack.Screen name="Main" component={AppNavigator} />
-                    </>
-                  ) : (
-                    <RootStack.Screen name="Auth" component={AuthNavigator} />
-                  )}
-                </RootStack.Navigator>
-              </NavigationContainer>
-            </ErrorBoundary>
+            <LoadingProvider>
+              <NotificationProvider>
+                <NavigationContainer>
+                  <ThemedStatusBar />
+                  {userInfo ? <AppNavigator /> : <AuthNavigator />}
+                </NavigationContainer>
+              </NotificationProvider>
+            </LoadingProvider>
           </SafeAreaProvider>
-        </LoadingProvider>
-      </ThemeProvider>
-    </Provider>
+        </ThemeProvider>
+      </Provider>
+    </ErrorBoundary>
   );
 };
 
