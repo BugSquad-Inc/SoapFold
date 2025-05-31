@@ -1,84 +1,71 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ScrollView } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
-import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
-
-const mockNotifications = [
-  {
-    id: '1',
-    type: 'order_placed',
-    title: 'Order Placed Successfully!',
-    subtitle: 'Your order #12345 has been placed',
-    icon: 'shopping-bag',
-    color: '#00C48C',
-    date: 'Today',
-    orderId: '12345',
-    status: 'pending'
-  },
-  {
-    id: '2',
-    type: 'payment_success',
-    title: 'Payment Successful!',
-    subtitle: 'Payment of ₹299 for order #12345 has been completed',
-    icon: 'check-circle',
-    color: '#7B61FF',
-    date: 'Today',
-    orderId: '12345',
-    amount: 299
-  },
-  {
-    id: '3',
-    type: 'payment_failed',
-    title: 'Payment Failed',
-    subtitle: 'Payment for order #12346 could not be processed',
-    icon: 'alert-circle',
-    color: '#FF4D67',
-    date: 'Yesterday',
-    orderId: '12346',
-    amount: 299
-  },
-  {
-    id: '4',
-    type: 'pickup_reminder',
-    title: 'Pickup Reminder',
-    subtitle: 'Your laundry pickup is scheduled for tomorrow at 10:00 AM',
-    icon: 'clock',
-    color: '#FFD600',
-    date: 'Yesterday',
-    orderId: '12345',
-    pickupTime: '10:00 AM'
-  }
-];
+import { Ionicons, Feather } from '@expo/vector-icons';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 const groupByDate = (notifications) => {
   const groups = {};
   notifications.forEach((notif) => {
-    if (!groups[notif.date]) groups[notif.date] = [];
-    groups[notif.date].push(notif);
+    // Convert Firestore timestamp to date string
+    const date = notif.createdAt?.toDate?.() || new Date();
+    const dateStr = date.toLocaleDateString('en-US', { 
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric'
+    });
+    
+    if (!groups[dateStr]) groups[dateStr] = [];
+    groups[dateStr].push(notif);
   });
   return groups;
 };
 
 const NotificationScreen = ({ navigation }) => {
   const { theme: activeTheme } = useTheme();
-  const grouped = groupByDate(mockNotifications);
+  const { notifications, markAsRead } = useNotifications();
+  const grouped = groupByDate(notifications);
   const dateSections = Object.keys(grouped);
 
-  const handleNotificationPress = (notification) => {
-    switch (notification.type) {
+  const handleNotificationPress = async (notification) => {
+    if (!notification.isRead) {
+      await markAsRead(notification.id);
+    }
+  };
+
+  const getNotificationStyle = (type) => {
+    switch (type) {
       case 'order_placed':
-        navigation.navigate('OrderDetailScreen', { orderId: notification.orderId });
-        break;
+        return {
+          icon: 'shopping-bag',
+          color: '#FF6B6B',
+          gradient: ['#FF6B6B', '#FF8E8E']
+        };
       case 'payment_success':
+        return {
+          icon: 'check-circle',
+          color: '#4CAF50',
+          gradient: ['#4CAF50', '#66BB6A']
+        };
       case 'payment_failed':
-        navigation.navigate('OrderDetailScreen', { orderId: notification.orderId });
-        break;
+        return {
+          icon: 'alert-circle',
+          color: '#FF4D67',
+          gradient: ['#FF4D67', '#FF6B6B']
+        };
       case 'pickup_reminder':
-        navigation.navigate('OrderDetailScreen', { orderId: notification.orderId });
-        break;
+        return {
+          icon: 'clock',
+          color: '#FFD600',
+          gradient: ['#FFD600', '#FFE44D']
+        };
       default:
-        break;
+        return {
+          icon: 'bell',
+          color: '#4CAF50',
+          gradient: ['#4CAF50', '#66BB6A']
+        };
     }
   };
 
@@ -95,22 +82,32 @@ const NotificationScreen = ({ navigation }) => {
         {dateSections.map((date) => (
           <View key={date}>
             <Text style={styles.sectionTitle}>{date}</Text>
-            {grouped[date].map((notif) => (
-              <TouchableOpacity 
-                key={notif.id} 
-                style={styles.card}
-                onPress={() => handleNotificationPress(notif)}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: notif.color }]}> 
-                  <Feather name={notif.icon} size={22} color="#fff" />
-                </View>
-                <View style={styles.textBlock}>
-                  <Text style={styles.titleText}>{notif.title}</Text>
-                  <Text style={styles.subtitleText}>{notif.subtitle}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#888" />
-              </TouchableOpacity>
-            ))}
+            {grouped[date].map((notif) => {
+              const style = getNotificationStyle(notif.type);
+              return (
+                <TouchableOpacity 
+                  key={notif.id} 
+                  style={[
+                    styles.card,
+                    !notif.isRead && styles.unreadCard
+                  ]}
+                  onPress={() => handleNotificationPress(notif)}
+                >
+                  <View style={[styles.iconCircle, { backgroundColor: style.color }]}> 
+                    <Feather name={style.icon} size={22} color="#fff" />
+                  </View>
+                  <View style={styles.textBlock}>
+                    <Text style={styles.titleText}>
+                      {notif.emoji ? `${notif.emoji} ` : ''}{notif.title}
+                    </Text>
+                    <Text style={styles.subtitleText}>{notif.subtitle}</Text>
+                  </View>
+                  {!notif.isRead && (
+                    <View style={[styles.unreadDot, { backgroundColor: style.color }]} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ))}
       </ScrollView>
@@ -120,10 +117,30 @@ const NotificationScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 0, backgroundColor: '#F5F1FF' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 18, backgroundColor: 'transparent' },
+  headerRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: 16, 
+    paddingTop: 18, 
+    paddingBottom: 18, 
+    backgroundColor: 'transparent' 
+  },
   backButton: { padding: 4, marginRight: 8 },
-  header: { fontSize: 22, fontWeight: 'bold', color: '#222', flex: 1, textAlign: 'center' },
-  sectionTitle: { color: '#222', fontWeight: 'bold', fontSize: 16, marginTop: 24, marginBottom: 10, marginLeft: 18 },
+  header: { 
+    fontSize: 22, 
+    fontWeight: 'bold', 
+    color: '#222', 
+    flex: 1, 
+    textAlign: 'center' 
+  },
+  sectionTitle: { 
+    color: '#222', 
+    fontWeight: 'bold', 
+    fontSize: 16, 
+    marginTop: 24, 
+    marginBottom: 10, 
+    marginLeft: 18 
+  },
   card: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -135,7 +152,15 @@ const styles = StyleSheet.create({
     shadowColor: '#000', 
     shadowOpacity: 0.06, 
     shadowRadius: 8, 
-    elevation: 2 
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f0f0f0'
+  },
+  unreadCard: {
+    backgroundColor: '#F8F8FF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF6B6B',
+    transform: [{ scale: 1.02 }]
   },
   iconCircle: { 
     width: 44, 
@@ -143,7 +168,12 @@ const styles = StyleSheet.create({
     borderRadius: 22, 
     alignItems: 'center', 
     justifyContent: 'center', 
-    marginRight: 16 
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
   },
   textBlock: { 
     flex: 1 
@@ -156,7 +186,14 @@ const styles = StyleSheet.create({
   },
   subtitleText: { 
     color: '#888', 
-    fontSize: 13 
+    fontSize: 13,
+    lineHeight: 18
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: 8
   }
 });
 

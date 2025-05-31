@@ -403,13 +403,13 @@ const BookingScreen = ({ navigation, route }) => {
       // Create order in Firestore and get the Firestore document ID
       const orderId = await createOrder(orderData);
       
-      // Add notification for order placed
+      // Add notification for order placed with modern styling
       await addNotification({
         type: 'order_placed',
-        title: 'Order Placed Successfully',
-        subtitle: `Your order #${orderId} has been placed`,
-        icon: 'receipt-long',
-        color: '#4CAF50',
+        title: '✨ Order Placed Successfully!',
+        subtitle: `Your order #${orderId} is confirmed and ready to be picked up`,
+        icon: 'shopping-bag',
+        color: '#FF6B6B', // Modern coral color
         orderId: orderId,
         data: {
           orderId,
@@ -417,7 +417,8 @@ const BookingScreen = ({ navigation, route }) => {
           amount: finalPrice.toFixed(2),
           pickupDate: selectedDate.formatted,
           pickupTime: selectedTime
-        }
+        },
+        emoji: '🎉' // Adding emoji for extra Gen Z appeal
       });
 
       // Create payment record
