@@ -501,6 +501,30 @@ const HomeScreen = () => {
     }
   ];
 
+  // Default promotional data
+  const originalData = [
+    {
+      id: '1',
+      title: 'Welcome Offer',
+      subtitle: '30% OFF',
+      description: 'Get 30% off on your first order',
+      backgroundColor: '#243D6E',
+      accentColor: '#FF9500',
+      buttonText: 'Redeem Now',
+      iconName: 'arrow-right-circle'
+    },
+    {
+      id: '2',
+      title: 'Weekend Special',
+      subtitle: '20% OFF',
+      description: 'Special weekend discount on all services',
+      backgroundColor: '#222222',
+      accentColor: '#FF9500',
+      buttonText: 'Redeem Now',
+      iconName: 'arrow-right-circle'
+    }
+  ];
+
   // Promotional Carousel Component
   const PromoCarousel = () => {
     const [activeIndex, setActiveIndex] = useState(0);
