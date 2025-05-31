@@ -52,7 +52,8 @@ const NotificationScreen = ({ navigation }) => {
         return {
           icon: 'alert-circle',
           color: '#FF4D67',
-          gradient: ['#FF4D67', '#FF6B6B']
+          gradient: ['#FF4D67', '#FF6B6B'],
+          errorStyle: true
         };
       case 'pickup_reminder':
         return {
@@ -67,6 +68,38 @@ const NotificationScreen = ({ navigation }) => {
           gradient: ['#4CAF50', '#66BB6A']
         };
     }
+  };
+
+  const renderNotificationContent = (notif) => {
+    const style = getNotificationStyle(notif.type);
+    
+    // Special handling for payment failed notifications
+    if (notif.type === 'payment_failed') {
+      return (
+        <View style={styles.textBlock}>
+          <Text style={styles.titleText}>
+            {notif.emoji ? `${notif.emoji} ` : ''}{notif.title}
+          </Text>
+          <Text style={styles.subtitleText}>{notif.subtitle}</Text>
+          {notif.data?.errorCode && (
+            <View style={styles.errorDetails}>
+              <Text style={styles.errorCode}>Error Code: {notif.data.errorCode}</Text>
+              <Text style={styles.errorDescription}>{notif.data.errorDescription}</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    // Default notification content
+    return (
+      <View style={styles.textBlock}>
+        <Text style={styles.titleText}>
+          {notif.emoji ? `${notif.emoji} ` : ''}{notif.title}
+        </Text>
+        <Text style={styles.subtitleText}>{notif.subtitle}</Text>
+      </View>
+    );
   };
 
   return (
@@ -89,19 +122,15 @@ const NotificationScreen = ({ navigation }) => {
                   key={notif.id} 
                   style={[
                     styles.card,
-                    !notif.isRead && styles.unreadCard
+                    !notif.isRead && styles.unreadCard,
+                    style.errorStyle && styles.errorCard
                   ]}
                   onPress={() => handleNotificationPress(notif)}
                 >
                   <View style={[styles.iconCircle, { backgroundColor: style.color }]}> 
                     <Feather name={style.icon} size={22} color="#fff" />
                   </View>
-                  <View style={styles.textBlock}>
-                    <Text style={styles.titleText}>
-                      {notif.emoji ? `${notif.emoji} ` : ''}{notif.title}
-                    </Text>
-                    <Text style={styles.subtitleText}>{notif.subtitle}</Text>
-                  </View>
+                  {renderNotificationContent(notif)}
                   {!notif.isRead && (
                     <View style={[styles.unreadDot, { backgroundColor: style.color }]} />
                   )}
@@ -194,6 +223,30 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginLeft: 8
+  },
+  errorCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF4D67',
+    backgroundColor: '#FFF5F5'
+  },
+  errorDetails: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#FFF0F0',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFE0E0'
+  },
+  errorCode: {
+    fontSize: 12,
+    color: '#FF4D67',
+    fontWeight: '600',
+    marginBottom: 4
+  },
+  errorDescription: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 16
   }
 });
 

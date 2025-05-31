@@ -442,6 +442,23 @@ const BookingScreen = ({ navigation, route }) => {
       // Create payment record
       const paymentId = await createPayment(paymentData);
       
+      // Add payment success notification
+      await addNotification({
+        type: 'payment_success',
+        title: '💫 Payment Successful!',
+        subtitle: `Your payment of ₹${finalPrice.toFixed(2)} for order #${orderId} has been confirmed`,
+        icon: 'check-circle',
+        color: '#4CAF50',
+        orderId: orderId,
+        data: {
+          orderId,
+          amount: finalPrice.toFixed(2),
+          paymentId: razorpayData.razorpay_payment_id,
+          timestamp: new Date().toISOString()
+        },
+        emoji: '✨'
+      });
+      
       // Navigate to confirmation screen with Firestore orderId
       navigation.replace('BookingConfirmationScreen', {
         bookingId: orderId,
@@ -510,11 +527,42 @@ const BookingScreen = ({ navigation, route }) => {
         .catch((error) => {
           console.log(`Payment error: ${error.code} | ${error.description}`);
           setIsProcessing(false);
+          
+          // Add payment failed notification
+          addNotification({
+            type: 'payment_failed',
+            title: '❌ Payment Failed',
+            subtitle: error.description || 'There was a problem processing your payment. Please try again.',
+            icon: 'alert-circle',
+            color: '#FF4D67',
+            data: {
+              errorCode: error.code,
+              errorDescription: error.description,
+              timestamp: new Date().toISOString()
+            },
+            emoji: '😔'
+          });
+          
           Alert.alert('Payment Failed', error.description || 'There was a problem with your payment.');
         });
 
     } catch (error) {
       console.error('Payment Error Details:', error);
+      
+      // Add payment failed notification for general errors
+      addNotification({
+        type: 'payment_failed',
+        title: '❌ Payment Failed',
+        subtitle: error.description || 'There was a problem processing your payment. Please try again.',
+        icon: 'alert-circle',
+        color: '#FF4D67',
+        data: {
+          errorCode: error.code,
+          errorDescription: error.description,
+          timestamp: new Date().toISOString()
+        },
+        emoji: '😔'
+      });
       
       if (error.code === 'PAYMENT_CANCELLED') {
         alert('Payment was cancelled by user');
