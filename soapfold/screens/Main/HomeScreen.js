@@ -532,7 +532,7 @@ const HomeScreen = () => {
     const scrolling = useRef(false);
 
     // Use Firestore offers if available, otherwise fallback to originalData
-    const promoData = offers.length > 0
+    const basePromoData = offers.length > 0
       ? offers.map((offer, idx) => ({
           id: offer.id || idx.toString(),
           title: offer.title || '',
@@ -545,11 +545,56 @@ const HomeScreen = () => {
         }))
       : originalData;
 
+    // Create a new array with the first slide cloned at the end
+    const promoData = [...basePromoData, {...basePromoData[0], id: 'clone'}];
+
+    // Auto scroll effect with true forward-only behavior
+    useEffect(() => {
+      const interval = setInterval(() => {
+        if (!scrolling.current && promoData.length > 1) {
+          const nextIndex = activeIndex + 1;
+          
+          // If we're at the cloned slide, jump back to first without animation
+          if (nextIndex === promoData.length - 1) {
+            flatListRef.current?.scrollToIndex({
+              index: 0,
+              animated: false
+            });
+            setActiveIndex(0);
+          } else {
+            // Normal forward scroll
+            flatListRef.current?.scrollToIndex({
+              index: nextIndex,
+              animated: true
+            });
+            setActiveIndex(nextIndex);
+          }
+        }
+      }, 3000); // Change slide every 3 seconds
+
+      return () => clearInterval(interval);
+    }, [activeIndex, promoData.length]);
+
     const handleMomentumScrollEnd = (event) => {
       const newIndex = Math.round(
-        event.nativeEvent.contentOffset.x / width
+        event.nativeEvent.contentOffset.x / (width - 32)
       );
-      setActiveIndex(newIndex);
+      
+      // If we're at the cloned slide, jump back to first without animation
+      if (newIndex === promoData.length - 1) {
+        flatListRef.current?.scrollToIndex({
+          index: 0,
+          animated: false
+        });
+        setActiveIndex(0);
+      } else {
+        setActiveIndex(newIndex);
+      }
+      scrolling.current = false;
+    };
+
+    const handleScrollBegin = () => {
+      scrolling.current = true;
     };
 
     const renderPromoItem = ({ item }) => (
@@ -619,10 +664,20 @@ const HomeScreen = () => {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleMomentumScrollEnd}
+          onScrollBeginDrag={handleScrollBegin}
           contentContainerStyle={styles.promoList}
+          snapToInterval={width - 32}
+          decelerationRate="fast"
+          snapToAlignment="center"
+          initialScrollIndex={0}
+          getItemLayout={(data, index) => ({
+            length: width - 32,
+            offset: (width - 32) * index,
+            index,
+          })}
         />
         <View style={styles.promoPagination}>
-          {promoData.map((_, index) => (
+          {basePromoData.map((_, index) => (
             <View
               key={index}
               style={[
@@ -1180,23 +1235,37 @@ const styles = StyleSheet.create({
     lineHeight: 35,
   },
   promoContainer: {
-    marginHorizontal: 15,
     marginTop: 5,
     marginBottom: 20,
+    paddingHorizontal: 16, // Add padding to container to show shadow
   },
   promoCard: {
-    width: width - 30, // Full width minus margins
-    height: 190, // Increased height
-    borderRadius: 16,
-    marginHorizontal: 0,
+    width: width - 32, // Full width minus container padding
+    height: 190,
+    borderRadius: 24, // Increased border radius for more rounded corners
     overflow: 'hidden',
     position: 'relative',
+    // Enhanced 3D shadow effect
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8, // For Android
+    backgroundColor: '#000000', // Ensure background color is set for shadow
+  },
+  promoList: {
+    paddingHorizontal: 0, // Remove horizontal padding
   },
   promoContentContainer: {
     flex: 1,
     flexDirection: 'row',
     height: '100%',
     position: 'relative',
+    paddingHorizontal: 20,
+    paddingVertical: 16, // Add vertical padding
   },
   accentShape: {
     position: 'absolute',
@@ -1207,6 +1276,7 @@ const styles = StyleSheet.create({
     top: -40,
     opacity: 0.8,
     zIndex: 1,
+    borderRadius: 20, // Add border radius to accent shape
   },
   promoTextContainer: {
     paddingLeft: 20,
@@ -1241,11 +1311,22 @@ const styles = StyleSheet.create({
     height: 120,
     zIndex: 3,
     alignSelf: 'center',
+    borderRadius: 16, // Add border radius to image container
+    overflow: 'hidden', // Ensure image respects border radius
+    // Add subtle shadow to image
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   promoImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 10,
+    borderRadius: 16, // Match container border radius
   },
   seeAllCard: {
     width: 110,
@@ -1277,6 +1358,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 25,
     marginTop: 10,
+    // Add subtle shadow to button
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   promoActionButtonText: {
     ...getTextStyle('medium', 'sm', '#FFFFFF'),
@@ -1419,9 +1509,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.text,
     textAlign: 'center',
-  },
-  promoList: {
-    paddingHorizontal: 15,
   },
   promoPagination: {
     flexDirection: 'row',

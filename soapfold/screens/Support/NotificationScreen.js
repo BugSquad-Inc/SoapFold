@@ -61,6 +61,12 @@ const NotificationScreen = ({ navigation }) => {
           color: '#FFD600',
           gradient: ['#FFD600', '#FFE44D']
         };
+      case 'new_offer':
+        return {
+          icon: 'gift',
+          color: '#FF9500',
+          gradient: ['#FF9500', '#FFD700']
+        };
       default:
         return {
           icon: 'bell',
@@ -73,6 +79,22 @@ const NotificationScreen = ({ navigation }) => {
   const renderNotificationContent = (notif) => {
     const style = getNotificationStyle(notif.type);
     
+    if (notif.type === 'new_offer') {
+      return (
+        <View style={styles.textBlock}>
+          <Text style={styles.titleText}>
+            {notif.emoji ? `${notif.emoji} ` : ''}{notif.title}
+          </Text>
+          {notif.data?.description && (
+            <Text style={styles.subtitleText}>{notif.data.description}</Text>
+          )}
+          {notif.data?.code && (
+            <Text style={styles.offerCodeText}>Code: {notif.data.code}</Text>
+          )}
+        </View>
+      );
+    }
+
     // Special handling for payment failed notifications
     if (notif.type === 'payment_failed') {
       return (
@@ -247,6 +269,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     lineHeight: 16
+  },
+  offerCodeText: {
+    color: '#FF9500',
+    fontWeight: 'bold',
+    fontSize: 13,
+    marginTop: 4,
   }
 });
 
