@@ -57,91 +57,115 @@ import OrderDetailScreen from './screens/Order/OrderDetailScreen';
 import BottomTabNavigator from './navigation/BottomTabNavigator';
 import OrdersNavigator from './navigation/OrdersNavigator';
 
-const RootStack = createNativeStackNavigator();
-const AuthStack = createNativeStackNavigator();
-const AppStack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator();
 
-const AuthNavigator = () => (
-  <AuthStack.Navigator
+// Helper function for logging initialization
+const logInit = (message, ...args) => {
+  console.log('[App Init]', message, ...args);
+};
+
+// Auth Stack
+const AuthStack = () => (
+  <Stack.Navigator
     screenOptions={{
       headerShown: false,
       animation: 'slide_from_right',
-      contentStyle: { backgroundColor: '#FFFFFF' },
     }}
     initialRouteName="SignIn"
   >
-    <AuthStack.Screen
-      name="Onboarding"
-      options={{ animation: 'fade' }}
-      component={OnboardingScreen}
-    />
-    <AuthStack.Screen
-      name="SignIn"
+    <Stack.Screen 
+      name="SignIn" 
       component={SignInScreen}
-      options={{ animation: 'slide_from_right' }}
+      options={{
+        animation: 'fade',
+      }}
     />
-    <AuthStack.Screen
-      name="SignUp"
-      component={SignUpScreen}
-      options={{ animation: 'slide_from_right' }}
-    />
-    <AuthStack.Screen
-      name="ForgotPassword"
-      component={ForgotPasswordScreen}
-      options={{ animation: 'slide_from_right' }}
-    />
-    <AuthStack.Screen
-      name="PhoneSignIn"
-      component={PhoneSignInScreen}
-      options={{ animation: 'slide_from_right' }}
-    />
-    <AuthStack.Screen
-      name="VerifyCode"
-      component={VerifyCodeScreen}
-      options={{ animation: 'slide_from_right' }}
-    />
-  </AuthStack.Navigator>
+    <Stack.Screen name="SignUp" component={SignUpScreen} />
+    <Stack.Screen name="PhoneSignIn" component={PhoneSignInScreen} />
+    <Stack.Screen name="VerifyCode" component={VerifyCodeScreen} />
+    <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+  </Stack.Navigator>
 );
 
-const AppNavigator = () => {
-  const [isLoading, setIsLoading] = useState(false);
+// Main App Stack
+const MainStack = () => (
+  <Stack.Navigator
+    screenOptions={{
+      headerShown: false,
+      animation: 'slide_from_right',
+    }}
+  >
+    <Stack.Screen 
+      name="Main" 
+      component={BottomTabNavigator}
+      options={{
+        animation: 'fade',
+      }}
+    />
+    <Stack.Screen name="Settings" component={SettingsScreen} />
+    <Stack.Screen name="ServiceCategoryScreen" component={CategoryScreen} />
+    <Stack.Screen name="Calendar" component={CalendarScreen} />
+    <Stack.Screen name="Cart" component={CartScreen} />
+    <Stack.Screen name="Redeem" component={RedeemScreen} />
+    <Stack.Screen name="Offers" component={OffersScreen} />
+    <Stack.Screen name="ServiceWithOffers" component={ServiceWithOffersScreen} />
+    <Stack.Screen name="Service" component={ServiceScreen} />
+    <Stack.Screen name="Clothes" component={ClothesScreen} />
+    <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
+    <Stack.Screen name="RecentOrders" component={RecentOrdersScreen} />
+    <Stack.Screen name="ServiceCategory" component={ServiceCategoryScreen} />
+    <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
+    <Stack.Screen name="Booking" component={BookingScreen} />
+    <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+    <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+  </Stack.Navigator>
+);
 
+// Root Navigator
+const RootNavigator = ({ userInfo, hasSeenOnboarding, onOnboardingComplete }) => {
+  console.log('RootNavigator render - hasSeenOnboarding:', hasSeenOnboarding);
+  
   return (
-    <AppStack.Navigator
+    <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        animation: 'slide_from_right',
-        contentStyle: { backgroundColor: '#f8f8f8' },
-        animationEnabled: true,
-        cardStyleInterpolator: ({ current: { progress } }) => ({
-          cardStyle: {
-            opacity: progress,
-          },
-        }),
       }}
     >
-      <AppStack.Navigator.Screen 
-        name="MainTabs" 
-        component={BottomTabNavigator}
-        options={{ 
-          animation: 'fade', 
-          headerShown: false,
-          tabBarStyle: { display: isLoading ? 'none' : 'flex' }
-        }}
-      />
-    </AppStack.Navigator>
+      {!hasSeenOnboarding ? (
+        <Stack.Screen 
+          name="Onboarding"
+          options={{
+            animation: 'fade',
+          }}
+        >
+          {(props) => (
+            <OnboardingScreen 
+              {...props}
+              markOnboardingAsSeen={onOnboardingComplete}
+            />
+          )}
+        </Stack.Screen>
+      ) : !userInfo ? (
+        <Stack.Screen 
+          name="Auth" 
+          component={AuthStack}
+          options={{
+            animation: 'fade',
+            gestureEnabled: false, // Prevent going back to onboarding
+          }}
+        />
+      ) : (
+        <Stack.Screen 
+          name="MainApp" 
+          component={MainStack}
+          options={{
+            animation: 'fade',
+          }}
+        />
+      )}
+    </Stack.Navigator>
   );
 };
-
-// Add diagnostic logging
-const logInit = (message) => {
-  console.log(`[App Init] ${message}`);
-};
-
-// const App = () => {
-//   return <Text>Hello World</Text>;
-// };
-
 
 const App = () => {
   const [userInfo, setUserInfo] = useState(null);
@@ -198,91 +222,60 @@ const App = () => {
 
   // Auth state listener
   useEffect(() => {
-    let unsubscribe;
-    
-    const setupAuthListener = async () => {
-      try {
-        logInit('Setting up auth state listener...');
-        
-        unsubscribe = onAuthStateChanged(auth, async (user) => {
-          console.log('Auth state changed:', user);
-          logInit('Auth state changed:', user ? 'User logged in' : 'No user');
-          
-          if (user) {
-            try {
-              // Get user data from Firestore
-              const firestoreUserData = await getUserFromFirestore(user.uid);
-              
-              if (firestoreUserData) {
-                // Update lastLogin
-                await updateUserInFirestore(user.uid, { 
-                  lastLogin: new Date().toISOString() 
-                });
-                logInit('User data updated in Firestore');
-              } else {
-                // Create new user
-                const userData = {
-                  uid: user.uid,
-                  displayName: user.displayName || user.email.split('@')[0],
-                  email: user.email,
-                  photoURL: user.photoURL,
-                  createdAt: new Date().toISOString(),
-                  lastLogin: new Date().toISOString(),
-                  location: 'Default Location'
-                };
-                
-                await createUserInFirestore(userData);
-                logInit('New user created in Firestore');
-              }
-              
-              setUserInfo(user);
-            } catch (error) {
-              console.error('Error handling user data:', error);
-              setUserInfo(user); // Still set user even if Firestore operations fail
-            }
-          } else {
-            setUserInfo(null);
-          }
-          setIsLoading(false);
-        });
-        
-        logInit('Auth state listener setup complete');
-      } catch (error) {
-        console.error('Error setting up auth listener:', error);
-        setIsLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userData = await getUserFromFirestore(user.uid);
+          setUserInfo(userData || user);
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setUserInfo(user);
+        }
+      } else {
+        setUserInfo(null);
       }
-    };
+    });
 
-    setupAuthListener();
-    
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    return () => unsubscribe();
   }, []);
 
-  // Show initialization error
+  // Handle onboarding completion
+  const handleOnboardingComplete = () => {
+    console.log('handleOnboardingComplete called, current hasSeenOnboarding:', hasSeenOnboarding);
+    if (!hasSeenOnboarding) {
+      setHasSeenOnboarding(true);
+      console.log('hasSeenOnboarding set to true');
+    }
+  };
+
+  // Add effect to monitor hasSeenOnboarding changes
+  useEffect(() => {
+    console.log('hasSeenOnboarding changed:', hasSeenOnboarding);
+  }, [hasSeenOnboarding]);
+
+  if (!fontsLoaded || isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   if (initError) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ color: 'red', fontSize: 16, marginBottom: 10 }}>
-          Initialization Error:
-        </Text>
-        <Text style={{ color: 'red', fontSize: 14 }}>
+        <MaterialIcons name="error-outline" size={48} color="red" />
+        <Text style={{ marginTop: 16, textAlign: 'center', color: 'red' }}>
           {initError}
         </Text>
-        <TouchableOpacity 
-          style={{ 
-            marginTop: 20, 
-            padding: 10, 
+        <TouchableOpacity
+          style={{
+            marginTop: 16,
+            padding: 12,
             backgroundColor: theme.colors.primary,
-            borderRadius: 5
+            borderRadius: 8,
           }}
-          onPress={() => {
-            setInitError(null);
-            setIsInitialized(false);
-          }}
+          onPress={() => window.location.reload()}
         >
           <Text style={{ color: 'white' }}>Retry</Text>
         </TouchableOpacity>
@@ -290,39 +283,25 @@ const App = () => {
     );
   }
 
-  // Show loading state
-  if (!isInitialized || !fontsLoaded || isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={{ marginTop: 10 }}>Initializing app...</Text>
-      </View>
-    );
-  }
-
   return (
-    <Provider store={store}>
-      <ThemeProvider>
-        <LoadingProvider>
-          <SafeAreaProvider>
-            <ErrorBoundary>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <ThemeProvider>
+          <LoadingProvider>
+            <SafeAreaProvider>
               <NavigationContainer>
                 <ThemedStatusBar />
-                <RootStack.Navigator screenOptions={{ headerShown: false }}>
-                  {userInfo ? (
-                    <>
-                      <RootStack.Screen name="Main" component={AppNavigator} />
-                    </>
-                  ) : (
-                    <RootStack.Screen name="Auth" component={AuthNavigator} />
-                  )}
-                </RootStack.Navigator>
+                <RootNavigator 
+                  userInfo={userInfo} 
+                  hasSeenOnboarding={hasSeenOnboarding}
+                  onOnboardingComplete={handleOnboardingComplete}
+                />
               </NavigationContainer>
-            </ErrorBoundary>
-          </SafeAreaProvider>
-        </LoadingProvider>
-      </ThemeProvider>
-    </Provider>
+            </SafeAreaProvider>
+          </LoadingProvider>
+        </ThemeProvider>
+      </Provider>
+    </ErrorBoundary>
   );
 };
 

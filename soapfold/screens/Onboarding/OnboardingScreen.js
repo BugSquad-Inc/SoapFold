@@ -8,7 +8,15 @@ const { width, height } = Dimensions.get('window');
 
 const OnboardingScreen = ({ navigation, markOnboardingAsSeen }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isCompleting, setIsCompleting] = useState(false);
   const flatListRef = useRef(null);
+
+  // Debug logging for navigation
+  useEffect(() => {
+    console.log('OnboardingScreen mounted');
+    console.log('Navigation object:', navigation);
+    console.log('markOnboardingAsSeen prop:', !!markOnboardingAsSeen);
+  }, []);
 
   // Fix: Make app fullscreen by hiding status bar when component mounts
   useEffect(() => {
@@ -84,14 +92,24 @@ const OnboardingScreen = ({ navigation, markOnboardingAsSeen }) => {
     // Check if we're on the last screen
     if (currentIndex === onboardingData.length - 1) {
       console.log('Completing onboarding - on last screen');
-      // Mark onboarding as seen when completing
-      if (markOnboardingAsSeen) {
-        console.log('Marking onboarding as seen (complete)');
-        markOnboardingAsSeen();
-      }
       
-      // Navigate to sign in
-      navigation.navigate('SignIn');
+      // Prevent multiple calls
+      if (!isCompleting && markOnboardingAsSeen) {
+        setIsCompleting(true);
+        console.log('Marking onboarding as seen (complete)');
+        
+        // First update the state
+        markOnboardingAsSeen();
+        
+        // Then navigate
+        console.log('Navigating to Auth stack');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        });
+      } else {
+        console.log('Skipping completion - isCompleting:', isCompleting, 'has markOnboardingAsSeen:', !!markOnboardingAsSeen);
+      }
     } else {
       // If not on the last screen, go to the next screen
       console.log('Moving to next onboarding screen:', currentIndex + 1);
@@ -104,16 +122,24 @@ const OnboardingScreen = ({ navigation, markOnboardingAsSeen }) => {
 
   const handleSkip = () => {
     console.log('Skipping onboarding');
-    // Mark onboarding as seen when skipping
-    if (markOnboardingAsSeen) {
-      console.log('Marking onboarding as seen (skip)');
-      markOnboardingAsSeen();
-    }
     
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'SignIn' }],
-    });
+    // Prevent multiple calls
+    if (!isCompleting && markOnboardingAsSeen) {
+      setIsCompleting(true);
+      console.log('Marking onboarding as seen (skip)');
+      
+      // First update the state
+      markOnboardingAsSeen();
+      
+      // Then navigate
+      console.log('Navigating to Auth stack');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Auth' }],
+      });
+    } else {
+      console.log('Skipping skip - isCompleting:', isCompleting, 'has markOnboardingAsSeen:', !!markOnboardingAsSeen);
+    }
   };
 
   const handlePrevious = () => {
