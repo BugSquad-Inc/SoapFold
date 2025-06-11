@@ -40,6 +40,12 @@ const SignUpScreen = ({ navigation }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [profileImage, setProfileImage] = useState(null);
   
+  // Animation values
+  const progressAnimation = useRef(new Animated.Value(0)).current;
+  const loaderOpacity = useRef(new Animated.Value(0)).current;
+  const loaderScale = useRef(new Animated.Value(0.8)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
+  
   // UI state
   const [currentStep, setCurrentStep] = useState(0);
   const [formLoading, setFormLoading] = useState(false);
@@ -53,6 +59,7 @@ const SignUpScreen = ({ navigation }) => {
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false);
   const [isPreloading, setIsPreloading] = useState(false);
   const [preloaderText, setPreloaderText] = useState('Creating your account...');
+  const [isAnimating, setIsAnimating] = useState(false);
   
   // Refs
   const flatListRef = useRef(null);
@@ -63,12 +70,113 @@ const SignUpScreen = ({ navigation }) => {
   const confirmPasswordInputRef = useRef(null);
   const usernameInputRef = useRef(null);
 
+  // Navigation functions
+  const nextStep = () => {
+    if (currentStep < 2) {
+      // Validate current step before proceeding
+      if (!validateCurrentStep()) {
+        return;
+      }
+      
+      setIsAnimating(true);
+      Animated.timing(progressAnimation, {
+        toValue: currentStep + 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentStep(currentStep + 1);
+        flatListRef.current?.scrollToIndex({
+          index: currentStep + 1,
+          animated: true
+        });
+        setIsAnimating(false);
+      });
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setIsAnimating(true);
+      Animated.timing(progressAnimation, {
+        toValue: currentStep - 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentStep(currentStep - 1);
+        flatListRef.current?.scrollToIndex({
+          index: currentStep - 1,
+          animated: true
+        });
+        setIsAnimating(false);
+      });
+    }
+  };
+
+  // Validation function
+  const validateCurrentStep = () => {
+    switch (currentStep) {
+      case 0:
+        if (!firstName.trim()) {
+          Alert.alert('Error', 'Please enter your first name');
+          return false;
+        }
+        if (!lastName.trim()) {
+          Alert.alert('Error', 'Please enter your last name');
+          return false;
+        }
+        if (!username.trim()) {
+          Alert.alert('Error', 'Please enter a username');
+          return false;
+        }
+        return true;
+      case 1:
+        if (!email.trim()) {
+          Alert.alert('Error', 'Please enter your email');
+          return false;
+        }
+        if (!password) {
+          Alert.alert('Error', 'Please enter a password');
+          return false;
+        }
+        if (password.length < 6) {
+          Alert.alert('Error', 'Password must be at least 6 characters long');
+          return false;
+        }
+        if (password !== confirmPassword) {
+          Alert.alert('Error', 'Passwords do not match');
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  };
+
   // Handle Google sign-in
   const onGoogleSignIn = async () => {
     try {
       setIsLoading(true);
+      setIsAnimating(true);
+      // Animate button press
+      Animated.sequence([
+        Animated.timing(buttonScale, {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonScale, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
       const user = await handleGoogleSignIn();
       
+      if (!user) {
+        throw new Error('Failed to sign in with Google');
+      }
+
       // Navigate to home screen
       navigation.reset({
         index: 0,
@@ -76,10 +184,40 @@ const SignUpScreen = ({ navigation }) => {
       });
     } catch (error) {
       console.error('Google Sign-in error:', error);
-      Alert.alert('Error', error.message || 'Failed to sign in with Google');
+      let errorMessage = 'Failed to sign in with Google';
+      
+      // Handle specific Firebase errors
+      if (error.code === 'auth/argument-error') {
+        errorMessage = 'Google Sign-in configuration error. Please try again later.';
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Sign-in was cancelled. Please try again.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      Alert.alert('Error', errorMessage);
+      // Reset animations on error
+      resetAnimations();
     } finally {
       setIsLoading(false);
+      setIsAnimating(false);
     }
+  };
+
+  // Reset all animations
+  const resetAnimations = () => {
+    Animated.parallel([
+      Animated.timing(progressAnimation, {
+        toValue: currentStep,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScale, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   // Handle phone sign-in
@@ -119,9 +257,24 @@ const SignUpScreen = ({ navigation }) => {
     setIsPreloading(true);
     setIsLoading(true);
     setFormLoading(true);
+    setIsAnimating(true);
     setPreloaderText('Creating your account...');
     
     try {
+      // Animate button press
+      Animated.sequence([
+        Animated.timing(buttonScale, {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonScale, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
       console.log(`Creating account for: ${firstName} ${lastName} (${email}) with username: ${username}`);
       
       // Check if Firebase auth is initialized
@@ -179,6 +332,10 @@ const SignUpScreen = ({ navigation }) => {
       setIsLoading(false);
       setFormLoading(false);
       setIsPreloading(false);
+      setIsAnimating(false);
+      // Reset animations on error
+      resetAnimations();
+      
       console.error('Sign-up error:', error.code, error.message);
       
       switch(error.code) {
@@ -229,6 +386,16 @@ const SignUpScreen = ({ navigation }) => {
       </View>
     );
   };
+
+  // Add useEffect to handle progress animation
+  useEffect(() => {
+    Animated.timing(progressAnimation, {
+      toValue: currentStep,
+      duration: 300,
+      useNativeDriver: true,
+      easing: Easing.ease,
+    }).start();
+  }, [currentStep]);
 
   // Render individual step form
   const renderStep = ({ item, index }) => {
@@ -503,17 +670,22 @@ const SignUpScreen = ({ navigation }) => {
     if (currentStep === 0) {
       return (
         <View style={styles.bottomButtonContainer}>
-          <TouchableOpacity
-            style={styles.actionButtonFullWidth}
-            onPress={nextStep}
-            disabled={formLoading}
-          >
-            {formLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.actionButtonText}>NEXT</Text>
-            )}
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+            <TouchableOpacity
+              style={[
+                styles.actionButtonFullWidth,
+                (formLoading || isAnimating) && styles.buttonDisabled
+              ]}
+              onPress={nextStep}
+              disabled={formLoading || isAnimating}
+            >
+              {formLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.actionButtonText}>NEXT</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       );
     }
@@ -523,26 +695,35 @@ const SignUpScreen = ({ navigation }) => {
       <View style={styles.bottomButtonContainer}>
         {/* Back button for steps 1 and 2 */}
         <TouchableOpacity
-          style={styles.backButton}
+          style={[
+            styles.backButton,
+            (formLoading || isAnimating) && styles.buttonDisabled
+          ]}
           onPress={prevStep}
+          disabled={formLoading || isAnimating}
         >
           <Text style={styles.backButtonText}>BACK</Text>
         </TouchableOpacity>
 
         {/* Next/Register button for steps 1 and 2 */}
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={currentStep === 2 ? completeRegistration : nextStep}
-          disabled={formLoading}
-        >
-          {formLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Text style={styles.actionButtonText}>
-              {currentStep < 2 ? 'NEXT' : 'SIGN UP'}
-            </Text>
-          )}
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              (formLoading || isAnimating) && styles.buttonDisabled
+            ]}
+            onPress={currentStep === 2 ? completeRegistration : nextStep}
+            disabled={formLoading || isAnimating}
+          >
+            {formLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.actionButtonText}>
+                {currentStep < 2 ? 'NEXT' : 'SIGN UP'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     );
   };
@@ -873,6 +1054,25 @@ const styles = StyleSheet.create({
     color: '#000000',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DDDDDD',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: '#243D6E',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
 });
 

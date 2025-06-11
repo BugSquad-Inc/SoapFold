@@ -120,7 +120,7 @@ const AppNavigator = () => {
         }),
       }}
     >
-      <AppStack.Screen 
+      <AppStack.Navigator.Screen 
         name="MainTabs" 
         component={BottomTabNavigator}
         options={{ 
@@ -137,6 +137,11 @@ const AppNavigator = () => {
 const logInit = (message) => {
   console.log(`[App Init] ${message}`);
 };
+
+// const App = () => {
+//   return <Text>Hello World</Text>;
+// };
+
 
 const App = () => {
   const [userInfo, setUserInfo] = useState(null);
