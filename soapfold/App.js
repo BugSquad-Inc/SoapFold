@@ -9,9 +9,6 @@ import { useState, useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { store } from './store';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import Constants from 'expo-constants';
 import FirebaseVerifier from './components/FirebaseVerifier';
 import { useLoadFonts } from './utils/fonts';
@@ -59,14 +56,9 @@ import OrderDetailScreen from './screens/Order/OrderDetailScreen';
 import BottomTabNavigator from './navigation/BottomTabNavigator';
 import OrdersNavigator from './navigation/OrdersNavigator';
 
-WebBrowser.maybeCompleteAuthSession();
-
 const RootStack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
-
-// Update redirect URI to match your Expo development URL
-const redirectUri = 'https://auth.expo.io/@soapfold/soapfold';
 
 const AuthNavigator = () => (
   <AuthStack.Navigator
@@ -152,13 +144,6 @@ const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState(null);
   const fontsLoaded = useLoadFonts();
-
-  // Google Sign-in configuration
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    androidClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    webClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-  });
 
   // Initialize app
   useEffect(() => {
@@ -257,57 +242,6 @@ const App = () => {
       }
     };
   }, []);
-
-  // Handle Google Sign-in
-  useEffect(() => {
-    if (response?.type === "success") {
-      const { id_token } = response.params;
-      console.log("Got ID token:", id_token ? "Yes" : "No");
-      
-      if (id_token) {
-        const credential = GoogleAuthProvider.credential(id_token);
-        signInWithCredential(auth, credential)
-          .then(async (result) => {
-            console.log('Google sign in successful:', result.user.email);
-            
-            try {
-              // Check if user exists in Firestore
-              const existingUserData = await getUserFromFirestore(result.user.uid);
-              
-              if (!existingUserData) {
-                // Create a new user record for Google Sign-In
-                const userData = {
-                  uid: result.user.uid,
-                  displayName: result.user.displayName || result.user.email.split('@')[0],
-                  email: result.user.email,
-                  photoURL: result.user.photoURL,
-                  createdAt: new Date().toISOString(),
-                  lastLogin: new Date().toISOString(),
-                  location: 'Default Location'
-                };
-                
-                console.log('Creating Google user in Firestore:', userData.displayName);
-                await createUserInFirestore(userData);
-              } else {
-                // Update lastLogin for existing user
-                await updateUserInFirestore(result.user.uid, {
-                  lastLogin: new Date().toISOString()
-                });
-              }
-            } catch (error) {
-              console.error('Error handling Google sign-in user data:', error);
-            }
-            
-            setUserInfo(result.user);
-          })
-          .catch((error) => {
-            console.error('Error signing in with Google:', error.message);
-          });
-      } else {
-        console.error('No ID token received in response');
-      }
-    }
-  }, [response]);
 
   // Show initialization error
   if (initError) {

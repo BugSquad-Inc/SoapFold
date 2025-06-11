@@ -19,12 +19,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { auth, getUserFromFirestore, updateUserInFirestore } from '../../config/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { theme, getTextStyle } from '../../utils/theme';
 import { LoadingContext } from '../../contexts/LoadingContext';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const SignInScreen = ({ navigation }) => {
   const { setIsLoading } = useContext(LoadingContext);
@@ -38,13 +34,6 @@ const SignInScreen = ({ navigation }) => {
   
   const emailInputRef = useRef(null);
   const passwordInputRef = useRef(null);
-
-  // Google Sign-in configuration
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    androidClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    webClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-  });
 
   // Animation values
   const loaderOpacity = useRef(new Animated.Value(0)).current;

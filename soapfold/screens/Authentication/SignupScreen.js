@@ -21,16 +21,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons, Entypo } from '@expo/vector-icons';
 import { auth, createUserInFirestore } from '../../config/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
 import { theme, getTextStyle } from '../../utils/theme';
 import { uploadToCloudinary } from '../../utils/imageUpload';
 import { LoadingContext } from '../../contexts/LoadingContext';
 
 const { width } = Dimensions.get('window');
-
-WebBrowser.maybeCompleteAuthSession();
 
 const SignUpScreen = ({ navigation }) => {
   const { setIsLoading } = useContext(LoadingContext);
@@ -66,116 +62,24 @@ const SignUpScreen = ({ navigation }) => {
   const confirmPasswordInputRef = useRef(null);
   const usernameInputRef = useRef(null);
 
-  // Google Sign-in configuration
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    androidClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    webClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-  });
-
-  // Animation values for progress indicator and preloader
-  const progressAnimation = useRef(new Animated.Value(0)).current;
-  const loaderOpacity = useRef(new Animated.Value(0)).current;
-  const loaderScale = useRef(new Animated.Value(0)).current;
-  
-  // Animate progress when step changes
-  useEffect(() => {
-    Animated.timing(progressAnimation, {
-      toValue: currentStep,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  }, [currentStep]);
-
-  // Function to start preloading animation
-  const startPreloadingAnimation = () => {
-    setIsPreloading(true);
-    
-    // Fade in and scale up animation
-    Animated.parallel([
-      Animated.timing(loaderOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(loaderScale, {
-        toValue: 1,
-        duration: 400,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      })
-    ]).start();
+  // Handle Google sign-in with preloading
+  const handleGoogleSignIn = async () => {
+    // Show message that Google Sign-in is disabled
+    Alert.alert(
+      "Feature Disabled",
+      "Google Sign-in is currently disabled. Please use email registration.",
+      [{ text: "OK" }]
+    );
   };
 
-  // Validation functions
-  const validateFirstPage = () => {
-    if (!firstName || !lastName || !username) {
-      return false;
-    }
-    return true;
-  };
-
-  const validateSecondPage = () => {
-    if (!password || !confirmPassword || !email) {
-      return false;
-    }
-    
-    if (password !== confirmPassword) {
-      // No Alert.alert - using required attribute instead
-      return false;
-    }
-    
-    return true;
-  };
-
-  // Navigation functions
-  const nextStep = () => {
-    if (currentStep === 0 && !validateFirstPage()) {
-      // Focus on the first empty field
-      if (!firstName.trim()) {
-        firstNameInputRef.current?.focus();
-      } else if (!lastName.trim()) {
-        lastNameInputRef.current?.focus();
-      } else if (!username.trim()) {
-        usernameInputRef.current?.focus();
-      }
-      return;
-    }
-    
-    if (currentStep === 1 && !validateSecondPage()) {
-      // Focus on the first empty field
-      if (!email.trim()) {
-        emailInputRef.current?.focus();
-      } else if (!password) {
-        passwordInputRef.current?.focus();
-      } else if (!confirmPassword) {
-        confirmPasswordInputRef.current?.focus();
-      } else if (password !== confirmPassword) {
-        confirmPasswordInputRef.current?.focus();
-      }
-      return;
-    }
-
-    const nextIndex = currentStep + 1;
-    setCurrentStep(nextIndex);
-    flatListRef.current.scrollToIndex({
-      index: nextIndex,
-      animated: true,
-    });
-  };
-
-  const prevStep = () => {
-    if (currentStep === 0) {
-      navigation.goBack();
-      return;
-    }
-
-    const prevIndex = currentStep - 1;
-    setCurrentStep(prevIndex);
-    flatListRef.current.scrollToIndex({
-      index: prevIndex,
-      animated: true,
-    });
+  // Handle phone sign-in
+  const handlePhoneSignIn = () => {
+    // Show message that Phone Sign-in is disabled
+    Alert.alert(
+      "Feature Disabled",
+      "Phone Sign-in is currently disabled. Please use email registration.",
+      [{ text: "OK" }]
+    );
   };
 
   // Image picker function
@@ -199,42 +103,15 @@ const SignUpScreen = ({ navigation }) => {
     }
   };
 
-  // Handle Google sign-in with preloading
-  const handleGoogleSignIn = async () => {
-    // Show message that Google Sign-in is disabled
-    Alert.alert(
-      "Feature Disabled",
-      "Google Sign-in is currently disabled. Please use email registration.",
-      [{ text: "OK" }]
-    );
-  };
-
-  // Handle phone sign-in
-  const handlePhoneSignIn = () => {
-    // Show message that Phone Sign-in is disabled
-    Alert.alert(
-      "Feature Disabled",
-      "Phone Sign-in is currently disabled. Please use email registration.",
-      [{ text: "OK" }]
-    );
-  };
-
   // Complete registration function
   const completeRegistration = async () => {
     // Start preloading animation immediately
-    startPreloadingAnimation();
+    setIsPreloading(true);
     setIsLoading(true);
     setFormLoading(true);
     setPreloaderText('Creating your account...');
     
     try {
-      // Animate to completed state (all dots filled)
-      Animated.timing(progressAnimation, {
-        toValue: 3,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
-      
       console.log(`Creating account for: ${firstName} ${lastName} (${email}) with username: ${username}`);
       
       // Check if Firebase auth is initialized
@@ -289,13 +166,6 @@ const SignUpScreen = ({ navigation }) => {
       });
       
     } catch (error) {
-      // Reset animation if error
-      Animated.timing(progressAnimation, {
-        toValue: 2,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
-      
       setIsLoading(false);
       setFormLoading(false);
       setIsPreloading(false);
