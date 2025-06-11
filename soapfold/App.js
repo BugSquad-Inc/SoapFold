@@ -16,6 +16,7 @@ import { theme } from './utils/theme';
 import { ThemeProvider } from './utils/ThemeContext';
 import ThemedStatusBar from './components/ThemedStatusBar';
 import { LoadingProvider } from './contexts/LoadingContext';
+import { configureGoogleSignIn } from './utils/googleSignIn';
 import React from 'react';
 
 // Auth Screens
@@ -147,6 +148,7 @@ const App = () => {
 
   // Initialize app
   useEffect(() => {
+    console.log('useEffect running, fontsLoaded:', fontsLoaded);
     const initializeApp = async () => {
       try {
         logInit('Starting app initialization...');
@@ -157,6 +159,10 @@ const App = () => {
           return;
         }
         logInit('Fonts loaded successfully');
+
+        // Configure Google Sign-in
+        configureGoogleSignIn();
+        logInit('Google Sign-in configured');
 
         // Check Firebase initialization
         const firebaseStatus = verifyFirebaseInitialized();
@@ -187,6 +193,7 @@ const App = () => {
         logInit('Setting up auth state listener...');
         
         unsubscribe = onAuthStateChanged(auth, async (user) => {
+          console.log('Auth state changed:', user);
           logInit('Auth state changed:', user ? 'User logged in' : 'No user');
           
           if (user) {

@@ -25,6 +25,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { theme, getTextStyle } from '../../utils/theme';
 import { uploadToCloudinary } from '../../utils/imageUpload';
 import { LoadingContext } from '../../contexts/LoadingContext';
+import { handleGoogleSignIn } from '../../utils/googleSignIn';
 
 const { width } = Dimensions.get('window');
 
@@ -62,14 +63,23 @@ const SignUpScreen = ({ navigation }) => {
   const confirmPasswordInputRef = useRef(null);
   const usernameInputRef = useRef(null);
 
-  // Handle Google sign-in with preloading
-  const handleGoogleSignIn = async () => {
-    // Show message that Google Sign-in is disabled
-    Alert.alert(
-      "Feature Disabled",
-      "Google Sign-in is currently disabled. Please use email registration.",
-      [{ text: "OK" }]
-    );
+  // Handle Google sign-in
+  const onGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      const user = await handleGoogleSignIn();
+      
+      // Navigate to home screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+    } catch (error) {
+      console.error('Google Sign-in error:', error);
+      Alert.alert('Error', error.message || 'Failed to sign in with Google');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle phone sign-in
@@ -323,7 +333,7 @@ const SignUpScreen = ({ navigation }) => {
                   <View style={styles.authOptionsContainer}>
                     <TouchableOpacity
                       style={styles.socialButton}
-                      onPress={handleGoogleSignIn}
+                      onPress={onGoogleSignIn}
                     >
                       <AntDesign name="google" size={18} color="#000000" />
                       <Text style={styles.socialButtonText}>Google</Text>
