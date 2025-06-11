@@ -165,9 +165,14 @@ const App = () => {
         }
         logInit('Fonts loaded successfully');
 
-        // Configure Google Sign-in
-        configureGoogleSignIn();
-        logInit('Google Sign-in configured');
+        // Configure Google Sign-in first
+        try {
+          configureGoogleSignIn();
+          logInit('Google Sign-in configured successfully');
+        } catch (error) {
+          console.error('Google Sign-in configuration error:', error);
+          throw new Error('Failed to configure Google Sign-in: ' + error.message);
+        }
 
         // Check Firebase initialization
         const firebaseStatus = verifyFirebaseInitialized();
@@ -183,6 +188,8 @@ const App = () => {
       } catch (error) {
         console.error('App initialization error:', error);
         setInitError(error.message);
+      } finally {
+        setIsLoading(false);
       }
     };
 

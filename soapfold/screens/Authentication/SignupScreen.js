@@ -157,6 +157,10 @@ const SignUpScreen = ({ navigation }) => {
     try {
       setIsLoading(true);
       setIsAnimating(true);
+      
+      // Log the start of Google Sign-in process
+      console.log('[Google Sign-in] Starting sign-in process...');
+      
       // Animate button press
       Animated.sequence([
         Animated.timing(buttonScale, {
@@ -171,11 +175,26 @@ const SignUpScreen = ({ navigation }) => {
         }),
       ]).start();
 
+      // Log before calling handleGoogleSignIn
+      console.log('[Google Sign-in] Calling handleGoogleSignIn...');
+      
       const user = await handleGoogleSignIn();
       
+      // Log the response from handleGoogleSignIn
+      console.log('[Google Sign-in] Response:', user ? 'Success' : 'No user returned');
+      
       if (!user) {
-        throw new Error('Failed to sign in with Google');
+        throw new Error('Failed to sign in with Google: No user returned');
       }
+
+      // Log successful sign-in
+      console.log('[Google Sign-in] Successfully signed in with Google');
+      console.log('[Google Sign-in] User details:', {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL ? 'Photo URL present' : 'No photo URL'
+      });
 
       // Navigate to home screen
       navigation.reset({
@@ -183,21 +202,64 @@ const SignUpScreen = ({ navigation }) => {
         routes: [{ name: 'Main' }],
       });
     } catch (error) {
-      console.error('Google Sign-in error:', error);
+      // Enhanced error logging
+      console.error('[Google Sign-in] Error details:', {
+        code: error.code,
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        customData: error.customData
+      });
+
       let errorMessage = 'Failed to sign in with Google';
       
-      // Handle specific Firebase errors
-      if (error.code === 'auth/argument-error') {
-        errorMessage = 'Google Sign-in configuration error. Please try again later.';
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        errorMessage = 'Sign-in was cancelled. Please try again.';
-      } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'Network error. Please check your internet connection.';
+      // Handle specific Firebase errors with more detailed messages
+      switch (error.code) {
+        case 'auth/argument-error':
+          errorMessage = 'Google Sign-in configuration error. Please check your Firebase configuration and ensure Google Sign-in is properly set up in the Firebase Console.';
+          console.error('[Google Sign-in] Configuration error. Please verify:');
+          console.error('1. Firebase config is properly initialized');
+          console.error('2. Google Sign-in is enabled in Firebase Console');
+          console.error('3. SHA-1 and SHA-256 fingerprints are added to Firebase project');
+          console.error('4. OAuth 2.0 Client ID is properly configured');
+          break;
+          
+        case 'auth/popup-closed-by-user':
+          errorMessage = 'Sign-in was cancelled. Please try again.';
+          break;
+          
+        case 'auth/network-request-failed':
+          errorMessage = 'Network error. Please check your internet connection.';
+          break;
+          
+        case 'auth/cancelled-popup-request':
+          errorMessage = 'Multiple sign-in attempts detected. Please try again.';
+          break;
+          
+        case 'auth/popup-blocked':
+          errorMessage = 'Pop-up was blocked by the browser. Please allow pop-ups for this site.';
+          break;
+          
+        default:
+          errorMessage = `Sign-in error: ${error.message || 'Unknown error occurred'}`;
       }
       
-      Alert.alert('Error', errorMessage);
-      // Reset animations on error
-      resetAnimations();
+      Alert.alert(
+        'Sign-in Error',
+        errorMessage,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Reset animations on error
+              resetAnimations();
+              // Additional cleanup if needed
+              setIsLoading(false);
+              setIsAnimating(false);
+            }
+          }
+        ]
+      );
     } finally {
       setIsLoading(false);
       setIsAnimating(false);
