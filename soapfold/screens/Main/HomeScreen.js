@@ -519,7 +519,7 @@ const HomeScreen = () => {
           buttonText: 'Redeem Now',
           iconName: 'arrow-right-circle'
         }))
-      : originalData;
+      : []; // Changed originalData to an empty array as it's not needed
 
     const handleMomentumScrollEnd = (event) => {
       const newIndex = Math.round(

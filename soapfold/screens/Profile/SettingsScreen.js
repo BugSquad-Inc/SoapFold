@@ -56,11 +56,15 @@ const SettingsScreen = ({ navigation }) => {
 
   const handleLogout = async () => {
     try {
+      setLoadingMessage('Signing out...');
       await signOut(auth);
-      // Auth state listener in App.js will handle navigation
+      // The auth state listener in App.js will handle navigation
+      // No need to manually navigate as the auth state change will trigger the navigation
     } catch (error) {
       console.error('Error signing out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
+    } finally {
+      setLoadingMessage('');
     }
   };
 
@@ -274,7 +278,7 @@ const SettingsScreen = ({ navigation }) => {
         ))}
         {renderSection('Login', (
           <>
-            {renderSettingItem('log-out-outline', 'Sign Out', () => setShowDeleteModal(true))}
+            {renderSettingItem('log-out-outline', 'Sign Out', handleLogout)}
             {renderSettingItem('trash-outline', 'Delete Account', () => setShowDeleteModal(true))}
           </>
         ))}
