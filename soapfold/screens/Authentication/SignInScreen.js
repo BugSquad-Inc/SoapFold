@@ -17,8 +17,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { auth, getUserFromFirestore, updateUserInFirestore, createUserInFirestore } from '../../config/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import auth from '@react-native-firebase/auth';
+import { getUserFromFirestore, updateUserInFirestore, createUserInFirestore } from '../../config/firebase';
 import { signInWithGoogle } from '../../config/authService';
 import { theme, getTextStyle } from '../../utils/theme';
 import { LoadingContext } from '../../contexts/LoadingContext';
@@ -72,8 +72,8 @@ const SignInScreen = ({ navigation }) => {
     setIsLoading(true);
 
     try {
-      // Sign in with email
-      const userCredential = await signInWithEmailAndPassword(auth, emailOrUsername, password);
+      // Sign in with email using React Native Firebase
+      const userCredential = await auth().signInWithEmailAndPassword(emailOrUsername, password);
       
       // Get user data from Firestore
       const firestoreUserData = await getUserFromFirestore(userCredential.user.uid);

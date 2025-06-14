@@ -54,6 +54,30 @@ const FoldIcon = ({ size, color }) => (
   <MaterialIcons name="layers" size={size} color={color} />
 );
 
+// Default promo data for when no offers are available
+const originalData = [
+  {
+    id: '1',
+    title: 'Welcome to SoapFold',
+    subtitle: 'Your Laundry Partner',
+    description: 'Get started with our premium laundry services',
+    backgroundColor: '#243D6E',
+    accentColor: '#FF9500',
+    buttonText: 'Explore Services',
+    iconName: 'arrow-right-circle'
+  },
+  {
+    id: '2',
+    title: 'Special Offer',
+    subtitle: 'Limited Time',
+    description: 'Get 20% off on your first order',
+    backgroundColor: '#000000',
+    accentColor: '#FF9500',
+    buttonText: 'Redeem Now',
+    iconName: 'arrow-right-circle'
+  }
+];
+
 const HomeScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -501,39 +525,25 @@ const HomeScreen = () => {
     }
   ];
 
-  // Add this before the PromoCarousel component
-  const defaultPromoData = [
-    {
-      id: '1',
-      title: 'Special Offer',
-      subtitle: 'Limited Time',
-      description: 'Get 30% off on your first order',
-      backgroundColor: '#000000',
-      accentColor: '#FF9500',
-      buttonText: 'Redeem Now',
-      iconName: 'arrow-right-circle'
-    }
-  ];
-
   // Promotional Carousel Component
   const PromoCarousel = () => {
+    const scrollViewRef = useRef(null);
     const [activeIndex, setActiveIndex] = useState(0);
-    const flatListRef = useRef(null);
     const scrolling = useRef(false);
 
-    // Use Firestore offers if available, otherwise fallback to defaultPromoData
+    // Use Firestore offers if available, otherwise fallback to originalData
     const promoData = offers.length > 0
       ? offers.map((offer, idx) => ({
-          id: offer.id || idx.toString(),
-          title: offer.title || '',
-          subtitle: '', // You can add a subtitle field in Firestore if needed
-          description: offer.description || '',
-          backgroundColor: '#000000',
-          accentColor: offer.accentColor || '#FF9500',
+          id: offer.id || `offer-${idx}`,
+          title: offer.title || 'Special Offer',
+          subtitle: 'Limited Time',
+          description: offer.description || 'Get amazing discounts on our services',
+          backgroundColor: '#243D6E',
+          accentColor: '#FF9500',
           buttonText: 'Redeem Now',
           iconName: 'arrow-right-circle'
         }))
-      : defaultPromoData;
+      : originalData;
 
     const handleMomentumScrollEnd = (event) => {
       const newIndex = Math.round(
@@ -601,7 +611,7 @@ const HomeScreen = () => {
     return (
       <View style={styles.promoContainer}>
         <FlatList
-          ref={flatListRef}
+          ref={scrollViewRef}
           data={promoData}
           renderItem={renderPromoItem}
           keyExtractor={(item) => item.id}
@@ -1464,4 +1474,3 @@ const styles = StyleSheet.create({
 });
 
 export default HomeScreen;
-

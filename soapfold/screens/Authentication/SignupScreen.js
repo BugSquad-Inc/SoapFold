@@ -19,8 +19,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons, Entypo } from '@expo/vector-icons';
-import { auth, createUserInFirestore } from '../../config/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import auth from '@react-native-firebase/auth';
+import { createUserInFirestore } from '../../config/firebase';
 import { signInWithGoogle } from '../../config/authService';
 import * as ImagePicker from 'expo-image-picker';
 import { theme, getTextStyle } from '../../utils/theme';
@@ -252,13 +252,8 @@ const SignUpScreen = ({ navigation }) => {
       
       console.log(`Creating account for: ${firstName} ${lastName} (${email}) with username: ${username}`);
       
-      // Check if Firebase auth is initialized
-      if (!auth) {
-        throw new Error('Firebase Authentication is not initialized');
-      }
-      
-      // Create user with email and password
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      // Create user with email and password using React Native Firebase
+      const userCredential = await auth().createUserWithEmailAndPassword(email.trim(), password);
       console.log('User created successfully:', userCredential.user.uid);
       
       // Upload profile image if available
@@ -270,7 +265,7 @@ const SignUpScreen = ({ navigation }) => {
       
       // Update user profile
       setPreloaderText('Setting up your profile...');
-      await updateProfile(userCredential.user, {
+      await userCredential.user.updateProfile({
         displayName: `${firstName} ${lastName}`,
         photoURL: photoURL || '',
       });

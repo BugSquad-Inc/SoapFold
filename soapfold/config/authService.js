@@ -1,15 +1,17 @@
 import { GoogleAuthProvider, getAuth, signInWithCredential } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getUserFromFirestore, createUserInFirestore, updateUserInFirestore } from './firebase';
+import Constants from 'expo-constants';
 
 // Configure Google Sign-In
 export const configureGoogleSignIn = () => {
   try {
     console.log('[Google Sign-In] Configuring Google Sign-In...');
-    console.log('[Google Sign-In] Web Client ID:', '192181548467-1bv6p70mdajjndfej7miimbri4e7blpr.apps.googleusercontent.com');
+    const webClientId = Constants.expoConfig.extra.googleWebClientId || '192181548467-1bv6p70mdajjndfej7miimbri4e7blpr.apps.googleusercontent.com';
+    console.log('[Google Sign-In] Web Client ID:', webClientId);
     
     GoogleSignin.configure({
-      webClientId: '192181548467-1bv6p70mdajjndfej7miimbri4e7blpr.apps.googleusercontent.com', // Your web client ID
+      webClientId: webClientId,
       offlineAccess: true,
       forceCodeForRefreshToken: true,
     });

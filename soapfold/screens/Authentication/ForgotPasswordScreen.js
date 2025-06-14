@@ -14,8 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { auth } from '../../config/firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import auth from '@react-native-firebase/auth';
 import { theme, getTextStyle } from '../../utils/theme';
 
 const ForgotPasswordScreen = ({ navigation }) => {
@@ -36,7 +35,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
 
     try {
       setIsLoading(true);
-      await sendPasswordResetEmail(auth, email);
+      await auth().sendPasswordResetEmail(email);
       setResetSent(true);
       setIsLoading(false);
     } catch (error) {

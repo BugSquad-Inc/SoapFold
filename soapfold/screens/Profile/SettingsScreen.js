@@ -23,12 +23,16 @@ import { useTheme } from '../../utils/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadToCloudinary } from '../../utils/imageUpload';
+import GoogleSignin from '@react-native-google-signin/google-signin';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CommonActions } from '@react-navigation/native';
 
 const SettingsScreen = ({ navigation }) => {
   const { theme: activeTheme, toggleDarkMode } = useTheme();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showImageActions, setShowImageActions] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [modalAnimation] = useState(new Animated.Value(0));
@@ -54,13 +58,75 @@ const SettingsScreen = ({ navigation }) => {
     }
   };
 
-  const handleLogout = async () => {
+  const handleSignOut = async () => {
     try {
-      await signOut(auth);
-      // Auth state listener in App.js will handle navigation
+      console.log('[SettingsScreen] Starting sign out process...');
+      setLoadingMessage('Signing out...');
+      const user = auth.currentUser;
+      
+      if (user) {
+        console.log('[SettingsScreen] Current user found:', user.email);
+        
+        // Sign out from Google if the user signed in with Google
+        if (user.providerData[0].providerId === 'google.com') {
+          console.log('[SettingsScreen] Signing out from Google...');
+          try {
+            await GoogleSignin.signOut();
+            console.log('[SettingsScreen] Successfully signed out from Google');
+          } catch (googleError) {
+            console.error('[SettingsScreen] Error signing out from Google:', googleError);
+          }
+        }
+        
+        // Clear any stored tokens or credentials
+        console.log('[SettingsScreen] Clearing stored data...');
+        try {
+          await AsyncStorage.multiRemove([
+            '@userToken',
+            '@userData',
+            '@unreadNotifications',
+            '@cartItems',
+            '@recentOrders'
+          ]);
+          console.log('[SettingsScreen] Successfully cleared stored data');
+        } catch (storageError) {
+          console.error('[SettingsScreen] Error clearing stored data:', storageError);
+        }
+        
+        // Sign out from Firebase
+        console.log('[SettingsScreen] Signing out from Firebase...');
+        await signOut(auth);
+        console.log('[SettingsScreen] Successfully signed out from Firebase');
+        
+        // Clear any cached data
+        setUserData(null);
+        console.log('[SettingsScreen] Cleared local user data');
+        
+        // Navigate to SignIn screen
+        console.log('[SettingsScreen] Navigating to SignIn screen...');
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'Auth',
+                state: {
+                  routes: [{ name: 'SignIn' }]
+                }
+              }
+            ]
+          })
+        );
+        console.log('[SettingsScreen] Navigation reset complete');
+      }
+      
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('[SettingsScreen] Error during sign out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
+    } finally {
+      console.log('[SettingsScreen] Sign out process completed');
+      setLoadingMessage('');
+      setShowSignOutModal(false);
     }
   };
 
@@ -274,12 +340,43 @@ const SettingsScreen = ({ navigation }) => {
         ))}
         {renderSection('Login', (
           <>
-            {renderSettingItem('log-out-outline', 'Sign Out', () => setShowDeleteModal(true))}
+            {renderSettingItem('log-out-outline', 'Sign Out', () => setShowSignOutModal(true))}
             {renderSettingItem('trash-outline', 'Delete Account', () => setShowDeleteModal(true))}
           </>
         ))}
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Sign Out Confirmation Modal */}
+      <Modal
+        visible={showSignOutModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSignOutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Sign Out</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to sign out?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowSignOutModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleSignOut}
+              >
+                <Text style={styles.buttonText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Delete Account Confirmation Modal */}
       <Modal

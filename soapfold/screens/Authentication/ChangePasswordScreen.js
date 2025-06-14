@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../../config/firebase';
-import { reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth';
+import auth from '@react-native-firebase/auth';
 
 const ChangePasswordScreen = ({ navigation }) => {
   const { theme: activeTheme } = useTheme();
@@ -24,10 +23,10 @@ const ChangePasswordScreen = ({ navigation }) => {
     }
     setLoading(true);
     try {
-      const user = auth.currentUser;
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
-      await updatePassword(user, newPassword);
+      const user = auth().currentUser;
+      const credential = auth.EmailAuthProvider.credential(user.email, currentPassword);
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(newPassword);
       Alert.alert('Success', 'Password updated successfully!');
       navigation.goBack();
     } catch (error) {

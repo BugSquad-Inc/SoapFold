@@ -8,7 +8,7 @@ import { BlurView } from 'expo-blur';
 import * as Animatable from 'react-native-animatable';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
-import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute, useNavigation } from '@react-navigation/native';
 
 // Import screens
 import HomeScreen from '../screens/Main/HomeScreen';
@@ -531,6 +531,7 @@ const BottomTabNavigator = () => {
   const isDarkMode = true; // FORCE DARK MODE FOR TESTING
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [currentRoute, setCurrentRoute] = useState('Home');
+  const navigation = useNavigation();
   
   useEffect(() => {
     console.log('[BottomTabNavigator] Initializing with route:', currentRoute);
@@ -548,8 +549,6 @@ const BottomTabNavigator = () => {
 
   const getTabBarStyle = (route) => {
     const routeName = getFocusedRouteNameFromRoute(route) ?? route.name;
-    console.log('[BottomTabNavigator] Current route:', routeName);
-    setCurrentRoute(routeName);
     
     if (routeName === 'EditProfile') {
       return { display: 'none' };
@@ -559,6 +558,17 @@ const BottomTabNavigator = () => {
       borderTopWidth: 0,
     };
   };
+
+  // Add effect to handle route changes
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('state', (e) => {
+      const routeName = getFocusedRouteNameFromRoute(e.data.state.routes[e.data.state.index]) ?? 'Home';
+      console.log('[BottomTabNavigator] Current route:', routeName);
+      setCurrentRoute(routeName);
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   return (
     <Tab.Navigator

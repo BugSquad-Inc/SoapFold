@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ImageBackground, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PhoneInput from 'react-native-phone-number-input';
-import { signInWithPhoneNumber } from '../../config/authService';
+import auth from '@react-native-firebase/auth';
 import { theme } from '../../utils/theme';
 
 export default function PhoneSignInScreen({ navigation }) {
@@ -14,7 +14,7 @@ export default function PhoneSignInScreen({ navigation }) {
       setLoading(true);
       
       // Use React Native Firebase phone authentication
-      const confirmation = await signInWithPhoneNumber(phoneNumber);
+      const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
       
       console.log('Verification code sent successfully');
       

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ImageBackground, Alert, ScrollView, ActivityIndicator, Dimensions, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { confirmPhoneCode, signInWithPhoneNumber } from '../../config/authService';
+import auth from '@react-native-firebase/auth';
 import { theme, getTextStyle } from '../../utils/theme';
 import { LoadingContext } from '../../contexts/LoadingContext';
 import { CommonActions } from '@react-navigation/native';
@@ -41,15 +41,18 @@ export default function VerifyCodeScreen({ route, navigation }) {
       console.log('[VerifyCodeScreen] Starting code verification...');
       setLoading(true);
       
-      console.log('[VerifyCodeScreen] Calling confirmCode()...');
-      const user = await confirmCode(verificationId, code);
+      // Verify the code using React Native Firebase
+      const verificationCode = code.join('');
+      const credential = auth.PhoneAuthProvider.credential(confirmation.verificationId, verificationCode);
       
-      console.log('[VerifyCodeScreen] Code verification successful:', user.phoneNumber);
-      console.log('[VerifyCodeScreen] User object:', JSON.stringify(user, null, 2));
+      // Sign in with the credential
+      const userCredential = await auth().signInWithCredential(credential);
+      
+      console.log('[VerifyCodeScreen] Code verification successful:', userCredential.user.phoneNumber);
+      console.log('[VerifyCodeScreen] User object:', JSON.stringify(userCredential.user, null, 2));
       
       // Let the auth state change in App.js handle navigation automatically
       console.log('[VerifyCodeScreen] Code verification completed, auth state should trigger navigation');
-      console.log('[VerifyCodeScreen] No manual navigation needed - App.js will handle it');
       
     } catch (error) {
       console.error('[VerifyCodeScreen] Code Verification Error:', error);
@@ -76,7 +79,7 @@ export default function VerifyCodeScreen({ route, navigation }) {
       setResendLoading(true);
       
       // Send new verification code using React Native Firebase
-      const newConfirmation = await signInWithPhoneNumber(phoneNumber);
+      const newConfirmation = await auth().signInWithPhoneNumber(phoneNumber);
       
       // Update confirmation in route params
       navigation.setParams({ confirmation: newConfirmation });

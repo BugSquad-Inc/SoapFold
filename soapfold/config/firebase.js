@@ -26,7 +26,7 @@ import NetInfo from '@react-native-community/netinfo';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI",
+  apiKey: Constants.expoConfig.extra.firebaseApiKey || "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI",
   authDomain: "soapfold.firebaseapp.com",
   projectId: "soapfold",
   storageBucket: "soapfold.firebasestorage.app",

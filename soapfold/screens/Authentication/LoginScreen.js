@@ -13,8 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { auth } from '../../config/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import auth from '@react-native-firebase/auth';
 import { theme, getTextStyle } from '../../utils/theme';
 
 const LoginScreen = ({ navigation }) => {
@@ -38,8 +37,8 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
     
     try {
-      // Sign in with email and password
-      await signInWithEmailAndPassword(auth, email, password);
+      // Sign in with email and password using React Native Firebase
+      await auth().signInWithEmailAndPassword(email, password);
       console.log('User logged in successfully!');
       // Navigation will happen automatically via the onAuthStateChanged listener in App.js
     } catch (error) {
