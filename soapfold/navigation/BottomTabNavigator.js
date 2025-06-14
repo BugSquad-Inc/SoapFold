@@ -395,7 +395,15 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
               });
 
               if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
+                if (route.name === 'Home') {
+                  // Reset the Home stack to its initial route
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Home' }],
+                  });
+                } else {
+                  navigation.navigate(route.name);
+                }
               }
             };
 
@@ -460,7 +468,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                 <View style={styles.iconContainer}>
                   <Component 
                     name={iconName} 
-                    size={32} // Increased icon size from 28 to 32
+                    size={32}
                     color={isFocused ? (isDarkMode ? '#fff' : '#243D6E') : '#AAAAAA'} 
                   />
                   
@@ -487,6 +495,7 @@ const HomeStack = () => (
       headerShown: false,
       animation: 'fade',
     }}
+    initialRouteName="HomeMain"
   >
     <Stack.Screen name="HomeMain" component={HomeScreen} />
     <Stack.Screen name="ServiceCategoryScreen" component={ServiceCategoryScreen} />
@@ -506,6 +515,7 @@ const SettingsStack = () => (
       headerShown: false,
       animation: 'fade',
     }}
+    initialRouteName="SettingsMain"
   >
     <Stack.Screen name="SettingsMain" component={SettingsScreen} />
     <Stack.Screen name="EditProfile" component={EditProfileScreen} />
@@ -520,9 +530,10 @@ const SettingsStack = () => (
 const BottomTabNavigator = () => {
   const isDarkMode = true; // FORCE DARK MODE FOR TESTING
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [currentRoute, setCurrentRoute] = useState('Home');
   
   useEffect(() => {
-    console.log('[BottomTabNavigator] Initializing');
+    console.log('[BottomTabNavigator] Initializing with route:', currentRoute);
     const checkUnreadNotifications = async () => {
       try {
         const count = await unreadNotificationsCount();
@@ -533,11 +544,12 @@ const BottomTabNavigator = () => {
     };
     
     checkUnreadNotifications();
-  }, []);
+  }, [currentRoute]);
 
   const getTabBarStyle = (route) => {
-    const routeName = getFocusedRouteNameFromRoute(route) ?? '';
+    const routeName = getFocusedRouteNameFromRoute(route) ?? route.name;
     console.log('[BottomTabNavigator] Current route:', routeName);
+    setCurrentRoute(routeName);
     
     if (routeName === 'EditProfile') {
       return { display: 'none' };
@@ -552,18 +564,28 @@ const BottomTabNavigator = () => {
     <Tab.Navigator
       initialRouteName="Home"
       tabBar={props => <CustomTabBar {...props} />}
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
         animation: 'fade',
-        gestureEnabled: false
-      }}
+        gestureEnabled: false,
+        tabBarStyle: getTabBarStyle(route),
+      })}
     >
       <Tab.Screen 
         name="Home" 
         component={HomeStack}
         options={{
           animation: 'fade',
-          gestureEnabled: false
+          gestureEnabled: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="cottage" size={32} color={color} />
+          ),
+          tabBarOnPress: ({ navigation }) => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }],
+            });
+          }
         }}
       />
       <Tab.Screen 
@@ -597,9 +619,11 @@ const BottomTabNavigator = () => {
         component={SettingsStack}
         options={({ route }) => ({
           title: 'Settings',
-          tabBarStyle: getTabBarStyle(route),
           animation: 'fade',
-          gestureEnabled: false
+          gestureEnabled: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="person" size={32} color={color} />
+          ),
         })}
       />
     </Tab.Navigator>
