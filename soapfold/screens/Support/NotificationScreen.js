@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
 import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 const mockNotifications = [
   {
@@ -56,9 +58,23 @@ const groupByDate = (notifications) => {
   return groups;
 };
 
+// Function to get unread notifications count
+export const unreadNotificationsCount = async () => {
+  try {
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(notificationsRef, where('read', '==', false));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  } catch (error) {
+    console.error('Error getting unread notifications count:', error);
+    return 0;
+  }
+};
+
 const NotificationScreen = ({ navigation }) => {
   const { theme: activeTheme } = useTheme();
-  const grouped = groupByDate(mockNotifications);
+  const [notifications, setNotifications] = useState(mockNotifications);
+  const grouped = groupByDate(notifications);
   const dateSections = Object.keys(grouped);
 
   return (

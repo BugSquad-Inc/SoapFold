@@ -24,17 +24,17 @@ export const configureGoogleSignIn = () => {
 // Google Sign-In function following official documentation
 export const signInWithGoogle = async () => {
   try {
-    console.log('[Google Sign-In] Starting Google Sign-In process...');
+    console.log('[AuthService] Starting Google Sign-In process...');
     
     // Check if your device supports Google Play
-    console.log('[Google Sign-In] Checking Google Play Services...');
+    console.log('[AuthService] Checking Google Play Services...');
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-    console.log('[Google Sign-In] Google Play Services check passed');
+    console.log('[AuthService] Google Play Services check passed');
     
     // Get the users ID token
-    console.log('[Google Sign-In] Requesting Google Sign-In...');
+    console.log('[AuthService] Requesting Google Sign-In...');
     const signInResult = await GoogleSignin.signIn();
-    console.log('[Google Sign-In] Google Sign-In completed, processing result...');
+    console.log('[AuthService] Google Sign-In completed, processing result...');
 
     // Try the new style of google-sign in result, from v13+ of that module
     let idToken = signInResult.data?.idToken;
@@ -46,25 +46,28 @@ export const signInWithGoogle = async () => {
       throw new Error('No ID token found');
     }
     
-    console.log('[Google Sign-In] ID token obtained successfully');
+    console.log('[AuthService] ID token obtained successfully');
 
     // Create a Google credential with the token
-    console.log('[Google Sign-In] Creating Firebase credential...');
+    console.log('[AuthService] Creating Firebase credential...');
     const googleCredential = GoogleAuthProvider.credential(idToken);
 
     // Sign-in the user with the credential
-    console.log('[Google Sign-In] Signing in to Firebase...');
+    console.log('[AuthService] Signing in to Firebase...');
     const userCredential = await signInWithCredential(getAuth(), googleCredential);
-    console.log('[Google Sign-In] Firebase sign-in successful:', userCredential.user.email);
+    console.log('[AuthService] Firebase sign-in successful:', userCredential.user.email);
+    console.log('[AuthService] User credential object:', JSON.stringify(userCredential, null, 2));
     
     // Handle user data in Firestore
-    console.log('[Google Sign-In] Handling user data in Firestore...');
+    console.log('[AuthService] Handling user data in Firestore...');
     await handleGoogleUserData(userCredential.user);
     
-    console.log('[Google Sign-In] Google Sign-In process completed successfully');
+    console.log('[AuthService] Google Sign-In process completed successfully');
+    console.log('[AuthService] Returning user object:', JSON.stringify(userCredential.user, null, 2));
     return userCredential.user;
   } catch (error) {
-    console.error('[Google Sign-In] Error during sign-in process:', error);
+    console.error('[AuthService] Error during sign-in process:', error);
+    console.error('[AuthService] Error details:', JSON.stringify(error, null, 2));
     throw error;
   }
 };
@@ -133,21 +136,28 @@ export const getCurrentUser = () => {
 // Phone authentication functions
 export const signInWithPhoneNumber = async (phoneNumber) => {
   try {
+    console.log('[AuthService] Starting phone sign-in for:', phoneNumber);
     const confirmation = await getAuth().signInWithPhoneNumber(phoneNumber);
+    console.log('[AuthService] Phone confirmation received:', confirmation);
     return confirmation;
   } catch (error) {
-    console.error('Phone sign-in error:', error);
+    console.error('[AuthService] Phone sign-in error:', error);
+    console.error('[AuthService] Phone sign-in error details:', JSON.stringify(error, null, 2));
     throw error;
   }
 };
 
 export const confirmPhoneCode = async (confirmation, code) => {
   try {
+    console.log('[AuthService] Confirming phone code:', code);
     const result = await confirmation.confirm(code);
+    console.log('[AuthService] Phone confirmation successful:', JSON.stringify(result, null, 2));
     await handlePhoneUserData(result.user);
+    console.log('[AuthService] Phone user data handled, returning user');
     return result.user;
   } catch (error) {
-    console.error('Phone code confirmation error:', error);
+    console.error('[AuthService] Phone code confirmation error:', error);
+    console.error('[AuthService] Phone confirmation error details:', JSON.stringify(error, null, 2));
     throw error;
   }
 };

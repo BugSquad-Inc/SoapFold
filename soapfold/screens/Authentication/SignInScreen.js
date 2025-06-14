@@ -22,6 +22,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { signInWithGoogle } from '../../config/authService';
 import { theme, getTextStyle } from '../../utils/theme';
 import { LoadingContext } from '../../contexts/LoadingContext';
+import { CommonActions } from '@react-navigation/native';
 
 const SignInScreen = ({ navigation }) => {
   const { setIsLoading } = useContext(LoadingContext);
@@ -130,21 +131,24 @@ const SignInScreen = ({ navigation }) => {
   // Function to handle Google sign-in
   const handleGoogleSignIn = async () => {
     try {
+      console.log('[SignInScreen] Starting Google sign-in process...');
       setFormLoading(true);
       setIsLoading(true);
       
       // Use React Native Firebase Google Sign-In
+      console.log('[SignInScreen] Calling signInWithGoogle()...');
       const user = await signInWithGoogle();
       
-      console.log('Google sign-in successful:', user.email);
+      console.log('[SignInScreen] Google sign-in successful:', user.email);
+      console.log('[SignInScreen] User object:', JSON.stringify(user, null, 2));
       
-      // Navigate to home screen
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
+      // Let the auth state change in App.js handle navigation automatically
+      console.log('[SignInScreen] Google sign-in completed, auth state should trigger navigation');
+      console.log('[SignInScreen] No manual navigation needed - App.js will handle it');
+      
     } catch (error) {
-      console.error('Google Sign-In Error:', error);
+      console.error('[SignInScreen] Google Sign-In Error:', error);
+      console.error('[SignInScreen] Error details:', JSON.stringify(error, null, 2));
       let errorMessage = 'Failed to sign in with Google. Please try again.';
       
       if (error.code === 'SIGN_IN_CANCELLED') {
@@ -157,6 +161,7 @@ const SignInScreen = ({ navigation }) => {
       
       Alert.alert('Google Sign-In Error', errorMessage);
     } finally {
+      console.log('[SignInScreen] Google sign-in process completed');
       setFormLoading(false);
       setIsLoading(false);
     }

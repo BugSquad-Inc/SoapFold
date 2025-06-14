@@ -1,8 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ImageBackground, Alert } from 'react-native';
+import React, { useState, useRef, useEffect, useContext } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ImageBackground, Alert, ScrollView, ActivityIndicator, Dimensions, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { confirmPhoneCode, signInWithPhoneNumber } from '../../config/authService';
-import { theme } from '../../utils/theme';
+import { theme, getTextStyle } from '../../utils/theme';
+import { LoadingContext } from '../../contexts/LoadingContext';
+import { CommonActions } from '@react-navigation/native';
 
 export default function VerifyCodeScreen({ route, navigation }) {
   const { phoneNumber, confirmation } = route.params;
@@ -29,32 +32,41 @@ export default function VerifyCodeScreen({ route, navigation }) {
   };
 
   const handleVerifyCode = async () => {
+    if (code.length !== 6) {
+      Alert.alert('Invalid Code', 'Please enter a 6-digit verification code.');
+      return;
+    }
+
     try {
+      console.log('[VerifyCodeScreen] Starting code verification...');
       setLoading(true);
-      const verificationCode = code.join('');
       
-      // Use React Native Firebase to confirm the code
-      const user = await confirmPhoneCode(confirmation, verificationCode);
+      console.log('[VerifyCodeScreen] Calling confirmCode()...');
+      const user = await confirmCode(verificationId, code);
       
-      console.log('Phone verification successful:', user.phoneNumber);
+      console.log('[VerifyCodeScreen] Code verification successful:', user.phoneNumber);
+      console.log('[VerifyCodeScreen] User object:', JSON.stringify(user, null, 2));
       
-      // Navigate to home screen
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
+      // Let the auth state change in App.js handle navigation automatically
+      console.log('[VerifyCodeScreen] Code verification completed, auth state should trigger navigation');
+      console.log('[VerifyCodeScreen] No manual navigation needed - App.js will handle it');
+      
     } catch (error) {
-      console.error('Error verifying code:', error);
+      console.error('[VerifyCodeScreen] Code Verification Error:', error);
+      console.error('[VerifyCodeScreen] Error details:', JSON.stringify(error, null, 2));
       let errorMessage = 'Failed to verify code. Please try again.';
       
       if (error.code === 'auth/invalid-verification-code') {
         errorMessage = 'Invalid verification code. Please check and try again.';
-      } else if (error.code === 'auth/invalid-verification-id') {
-        errorMessage = 'Verification session expired. Please request a new code.';
+      } else if (error.code === 'auth/code-expired') {
+        errorMessage = 'Verification code has expired. Please request a new one.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many attempts. Please try again later.';
       }
       
       Alert.alert('Verification Error', errorMessage);
     } finally {
+      console.log('[VerifyCodeScreen] Code verification process completed');
       setLoading(false);
     }
   };

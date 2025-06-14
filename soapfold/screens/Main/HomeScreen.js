@@ -501,13 +501,27 @@ const HomeScreen = () => {
     }
   ];
 
+  // Add this before the PromoCarousel component
+  const defaultPromoData = [
+    {
+      id: '1',
+      title: 'Special Offer',
+      subtitle: 'Limited Time',
+      description: 'Get 30% off on your first order',
+      backgroundColor: '#000000',
+      accentColor: '#FF9500',
+      buttonText: 'Redeem Now',
+      iconName: 'arrow-right-circle'
+    }
+  ];
+
   // Promotional Carousel Component
   const PromoCarousel = () => {
     const [activeIndex, setActiveIndex] = useState(0);
     const flatListRef = useRef(null);
     const scrolling = useRef(false);
 
-    // Use Firestore offers if available, otherwise fallback to originalData
+    // Use Firestore offers if available, otherwise fallback to defaultPromoData
     const promoData = offers.length > 0
       ? offers.map((offer, idx) => ({
           id: offer.id || idx.toString(),
@@ -519,7 +533,7 @@ const HomeScreen = () => {
           buttonText: 'Redeem Now',
           iconName: 'arrow-right-circle'
         }))
-      : originalData;
+      : defaultPromoData;
 
     const handleMomentumScrollEnd = (event) => {
       const newIndex = Math.round(

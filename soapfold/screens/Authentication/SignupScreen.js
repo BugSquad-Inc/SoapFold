@@ -26,6 +26,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { theme, getTextStyle } from '../../utils/theme';
 import { uploadToCloudinary } from '../../utils/imageUpload';
 import { LoadingContext } from '../../contexts/LoadingContext';
+import { CommonActions } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -192,21 +193,24 @@ const SignUpScreen = ({ navigation }) => {
   // Handle Google sign-in with preloading
   const handleGoogleSignIn = async () => {
     try {
+      console.log('[SignUpScreen] Starting Google sign-in process...');
       setFormLoading(true);
       setIsLoading(true);
       
       // Use React Native Firebase Google Sign-In
+      console.log('[SignUpScreen] Calling signInWithGoogle()...');
       const user = await signInWithGoogle();
       
-      console.log('Google sign-in successful:', user.email);
+      console.log('[SignUpScreen] Google sign-in successful:', user.email);
+      console.log('[SignUpScreen] User object:', JSON.stringify(user, null, 2));
       
-      // Navigate to home screen
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
+      // Let the auth state change in App.js handle navigation automatically
+      console.log('[SignUpScreen] Google sign-in completed, auth state should trigger navigation');
+      console.log('[SignUpScreen] No manual navigation needed - App.js will handle it');
+      
     } catch (error) {
-      console.error('Google Sign-In Error:', error);
+      console.error('[SignUpScreen] Google Sign-In Error:', error);
+      console.error('[SignUpScreen] Error details:', JSON.stringify(error, null, 2));
       let errorMessage = 'Failed to sign in with Google. Please try again.';
       
       if (error.code === 'SIGN_IN_CANCELLED') {
@@ -219,6 +223,7 @@ const SignUpScreen = ({ navigation }) => {
       
       Alert.alert('Google Sign-In Error', errorMessage);
     } finally {
+      console.log('[SignUpScreen] Google sign-in process completed');
       setFormLoading(false);
       setIsLoading(false);
     }

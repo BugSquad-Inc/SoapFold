@@ -518,18 +518,27 @@ const SettingsStack = () => (
 );
 
 const BottomTabNavigator = () => {
-  // const colorScheme = useColorScheme();
-  // const isDarkMode = colorScheme === 'dark';
   const isDarkMode = true; // FORCE DARK MODE FOR TESTING
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   
   useEffect(() => {
-    // ... existing code ...
+    console.log('[BottomTabNavigator] Initializing');
+    const checkUnreadNotifications = async () => {
+      try {
+        const count = await unreadNotificationsCount();
+        setUnreadNotifications(count);
+      } catch (error) {
+        console.error('[BottomTabNavigator] Error checking notifications:', error);
+      }
+    };
+    
+    checkUnreadNotifications();
   }, []);
 
-  // Helper to hide tab bar on EditProfileScreen
   const getTabBarStyle = (route) => {
     const routeName = getFocusedRouteNameFromRoute(route) ?? '';
+    console.log('[BottomTabNavigator] Current route:', routeName);
+    
     if (routeName === 'EditProfile') {
       return { display: 'none' };
     }
@@ -545,18 +554,52 @@ const BottomTabNavigator = () => {
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
+        animation: 'fade',
+        gestureEnabled: false
       }}
     >
-      <Tab.Screen name="Home" component={HomeStack} />
-      <Tab.Screen name="Orders" component={OrderScreenNavigator} options={{ title: 'Orders' }} />
-      <Tab.Screen name="CartScreen" component={CartScreen} />
-      <Tab.Screen name="NotificationScreen" component={NotificationScreen} options={{ title: 'Notifications' }} />
+      <Tab.Screen 
+        name="Home" 
+        component={HomeStack}
+        options={{
+          animation: 'fade',
+          gestureEnabled: false
+        }}
+      />
+      <Tab.Screen 
+        name="Orders" 
+        component={OrderScreenNavigator} 
+        options={{ 
+          title: 'Orders',
+          animation: 'fade',
+          gestureEnabled: false
+        }} 
+      />
+      <Tab.Screen 
+        name="CartScreen" 
+        component={CartScreen}
+        options={{
+          animation: 'fade',
+          gestureEnabled: false
+        }}
+      />
+      <Tab.Screen 
+        name="NotificationScreen" 
+        component={NotificationScreen} 
+        options={{ 
+          title: 'Notifications',
+          animation: 'fade',
+          gestureEnabled: false
+        }} 
+      />
       <Tab.Screen
         name="Settings"
         component={SettingsStack}
         options={({ route }) => ({
           title: 'Settings',
           tabBarStyle: getTabBarStyle(route),
+          animation: 'fade',
+          gestureEnabled: false
         })}
       />
     </Tab.Navigator>
