@@ -1,14 +1,14 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ImageBackground } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ImageBackground, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth } from '../../config/firebase';
-import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
+import { confirmPhoneCode, signInWithPhoneNumber } from '../../config/authService';
 import { theme } from '../../utils/theme';
 
 export default function VerifyCodeScreen({ route, navigation }) {
-  const { phoneNumber, verificationId } = route.params;
+  const { phoneNumber, confirmation } = route.params;
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const inputs = useRef([]);
 
   const handleCodeChange = (text, index) => {
@@ -33,17 +33,27 @@ export default function VerifyCodeScreen({ route, navigation }) {
       setLoading(true);
       const verificationCode = code.join('');
       
-      // Create credential
-      const credential = PhoneAuthProvider.credential(
-        verificationId,
-        verificationCode
-      );
+      // Use React Native Firebase to confirm the code
+      const user = await confirmPhoneCode(confirmation, verificationCode);
       
-      // Sign in with credential
-      await signInWithCredential(auth, credential);
+      console.log('Phone verification successful:', user.phoneNumber);
+      
+      // Navigate to home screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
     } catch (error) {
       console.error('Error verifying code:', error);
-      alert(error.message);
+      let errorMessage = 'Failed to verify code. Please try again.';
+      
+      if (error.code === 'auth/invalid-verification-code') {
+        errorMessage = 'Invalid verification code. Please check and try again.';
+      } else if (error.code === 'auth/invalid-verification-id') {
+        errorMessage = 'Verification session expired. Please request a new code.';
+      }
+      
+      Alert.alert('Verification Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -51,22 +61,26 @@ export default function VerifyCodeScreen({ route, navigation }) {
 
   const handleResendCode = async () => {
     try {
-      // Create a phone provider instance
-      const phoneProvider = new PhoneAuthProvider(auth);
+      setResendLoading(true);
       
-      // Send new verification code
-      const newVerificationId = await phoneProvider.verifyPhoneNumber(
-        phoneNumber,
-        auth
-      );
+      // Send new verification code using React Native Firebase
+      const newConfirmation = await signInWithPhoneNumber(phoneNumber);
       
-      // Update verification ID in route params
-      navigation.setParams({ verificationId: newVerificationId });
+      // Update confirmation in route params
+      navigation.setParams({ confirmation: newConfirmation });
       
-      alert('Verification code resent!');
+      Alert.alert('Success', 'Verification code resent!');
     } catch (error) {
       console.error('Error resending code:', error);
-      alert(error.message);
+      let errorMessage = 'Failed to resend code. Please try again.';
+      
+      if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many requests. Please wait before requesting another code.';
+      }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -124,11 +138,15 @@ export default function VerifyCodeScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.resendButton}
+            style={[
+              styles.resendButton,
+              resendLoading && styles.resendButtonDisabled
+            ]}
             onPress={handleResendCode}
+            disabled={resendLoading}
           >
             <Text style={styles.resendButtonText}>
-              You didn't receive any code? Resend Code
+              {resendLoading ? 'Resending...' : 'You didn\'t receive any code? Resend Code'}
             </Text>
           </TouchableOpacity>
         </KeyboardAvoidingView>
@@ -209,6 +227,9 @@ const styles = StyleSheet.create({
   resendButton: {
     alignItems: 'center',
     padding: 16,
+  },
+  resendButtonDisabled: {
+    opacity: 0.5,
   },
   resendButtonText: {
     color: theme.colors.secondary,

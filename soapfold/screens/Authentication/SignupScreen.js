@@ -21,16 +21,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons, Entypo } from '@expo/vector-icons';
 import { auth, createUserInFirestore } from '../../config/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import { signInWithGoogle } from '../../config/authService';
 import * as ImagePicker from 'expo-image-picker';
 import { theme, getTextStyle } from '../../utils/theme';
 import { uploadToCloudinary } from '../../utils/imageUpload';
 import { LoadingContext } from '../../contexts/LoadingContext';
 
 const { width } = Dimensions.get('window');
-
-WebBrowser.maybeCompleteAuthSession();
 
 const SignUpScreen = ({ navigation }) => {
   const { setIsLoading } = useContext(LoadingContext);
@@ -65,13 +62,6 @@ const SignUpScreen = ({ navigation }) => {
   const passwordInputRef = useRef(null);
   const confirmPasswordInputRef = useRef(null);
   const usernameInputRef = useRef(null);
-
-  // Google Sign-in configuration
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    androidClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    webClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-  });
 
   // Animation values for progress indicator and preloader
   const progressAnimation = useRef(new Animated.Value(0)).current;
@@ -201,22 +191,42 @@ const SignUpScreen = ({ navigation }) => {
 
   // Handle Google sign-in with preloading
   const handleGoogleSignIn = async () => {
-    // Show message that Google Sign-in is disabled
-    Alert.alert(
-      "Feature Disabled",
-      "Google Sign-in is currently disabled. Please use email registration.",
-      [{ text: "OK" }]
-    );
+    try {
+      setFormLoading(true);
+      setIsLoading(true);
+      
+      // Use React Native Firebase Google Sign-In
+      const user = await signInWithGoogle();
+      
+      console.log('Google sign-in successful:', user.email);
+      
+      // Navigate to home screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+    } catch (error) {
+      console.error('Google Sign-In Error:', error);
+      let errorMessage = 'Failed to sign in with Google. Please try again.';
+      
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        errorMessage = 'Sign-in was cancelled.';
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        errorMessage = 'Google Play Services is not available on this device.';
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      Alert.alert('Google Sign-In Error', errorMessage);
+    } finally {
+      setFormLoading(false);
+      setIsLoading(false);
+    }
   };
 
   // Handle phone sign-in
   const handlePhoneSignIn = () => {
-    // Show message that Phone Sign-in is disabled
-    Alert.alert(
-      "Feature Disabled",
-      "Phone Sign-in is currently disabled. Please use email registration.",
-      [{ text: "OK" }]
-    );
+    navigation.navigate('PhoneSignIn');
   };
 
   // Complete registration function
