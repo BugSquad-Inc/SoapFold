@@ -36,15 +36,9 @@ export const signInWithGoogle = async () => {
     
     // Get the users ID token
     console.log('[AuthService] Requesting Google Sign-In...');
-    const signInResult = await GoogleSignin.signIn();
+    const { idToken } = await GoogleSignin.signIn();
     console.log('[AuthService] Google Sign-In completed, processing result...');
 
-    // Try the new style of google-sign in result, from v13+ of that module
-    let idToken = signInResult.data?.idToken;
-    if (!idToken) {
-      // if you are using older versions of google-signin, try old style result
-      idToken = signInResult.idToken;
-    }
     if (!idToken) {
       throw new Error('No ID token found');
     }
@@ -59,18 +53,21 @@ export const signInWithGoogle = async () => {
     console.log('[AuthService] Signing in to Firebase...');
     const userCredential = await signInWithCredential(auth, googleCredential);
     console.log('[AuthService] Firebase sign-in successful:', userCredential.user.email);
-    console.log('[AuthService] User credential object:', JSON.stringify(userCredential, null, 2));
     
     // Handle user data in Firestore
     console.log('[AuthService] Handling user data in Firestore...');
     await handleGoogleUserData(userCredential.user);
     
     console.log('[AuthService] Google Sign-In process completed successfully');
-    console.log('[AuthService] Returning user object:', JSON.stringify(userCredential.user, null, 2));
     return userCredential.user;
   } catch (error) {
     console.error('[AuthService] Error during sign-in process:', error);
-    console.error('[AuthService] Error details:', JSON.stringify(error, null, 2));
+    if (error.code) {
+      console.error('[AuthService] Error code:', error.code);
+    }
+    if (error.message) {
+      console.error('[AuthService] Error message:', error.message);
+    }
     throw error;
   }
 };

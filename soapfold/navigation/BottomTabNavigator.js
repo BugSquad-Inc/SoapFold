@@ -9,6 +9,7 @@ import * as Animatable from 'react-native-animatable';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
 import { getFocusedRouteNameFromRoute, useNavigation } from '@react-navigation/native';
+import { auth } from '../config/firebase';
 
 // Import screens
 import HomeScreen from '../screens/Main/HomeScreen';
@@ -359,20 +360,26 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   
   // Check for unread notifications
   useEffect(() => {
-    const checkUnreadNotifications = async () => {
+    const checkNotifications = async () => {
       try {
-        const count = await AsyncStorage.getItem('@unreadNotifications');
-        setUnreadCount(count ? parseInt(count) : unreadNotificationsCount);
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          setUnreadCount(0);
+          return;
+        }
+
+        const count = await unreadNotificationsCount(currentUser.uid);
+        setUnreadCount(count);
       } catch (error) {
-        console.log('Error loading unread notifications count', error);
-        setUnreadCount(unreadNotificationsCount);
+        console.error('[BottomTabNavigator] Error checking notifications:', error);
+        setUnreadCount(0);
       }
     };
     
-    checkUnreadNotifications();
+    checkNotifications();
     
     // Check for unread notifications every time the tab bar is focused
-    const unsubscribe = navigation.addListener('focus', checkUnreadNotifications);
+    const unsubscribe = navigation.addListener('focus', checkNotifications);
     return unsubscribe;
   }, [navigation]);
 
@@ -535,16 +542,23 @@ const BottomTabNavigator = () => {
   
   useEffect(() => {
     console.log('[BottomTabNavigator] Initializing with route:', currentRoute);
-    const checkUnreadNotifications = async () => {
+    const checkNotifications = async () => {
       try {
-        const count = await unreadNotificationsCount();
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          setUnreadNotifications(0);
+          return;
+        }
+
+        const count = await unreadNotificationsCount(currentUser.uid);
         setUnreadNotifications(count);
       } catch (error) {
         console.error('[BottomTabNavigator] Error checking notifications:', error);
+        setUnreadNotifications(0);
       }
     };
     
-    checkUnreadNotifications();
+    checkNotifications();
   }, [currentRoute]);
 
   const getTabBarStyle = (route) => {

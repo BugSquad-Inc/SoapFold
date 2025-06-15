@@ -502,13 +502,29 @@ const HomeScreen = () => {
     }
   ];
 
+  // Default promotional data
+  const defaultPromoData = [
+    {
+      id: '1',
+      title: 'Welcome to SoapFold',
+      subtitle: 'Your Laundry Partner',
+      description: 'Get 30% off on your first order',
+      backgroundColor: '#000000',
+      accentColor: '#FF9500',
+      buttonText: 'Redeem Now',
+      iconName: 'arrow-right-circle'
+    }
+  ];
+
   // Promotional Carousel Component
   const PromoCarousel = () => {
     const [activeIndex, setActiveIndex] = useState(0);
     const flatListRef = useRef(null);
     const scrolling = useRef(false);
+    const scrollX = useRef(new Animated.Value(0)).current;
+    const autoScrollTimer = useRef(null);
 
-    // Use Firestore offers if available, otherwise fallback to originalData
+    // Use Firestore offers if available, otherwise fallback to defaultPromoData
     const promoData = offers.length > 0
       ? offers.map((offer, idx) => ({
           id: offer.id || idx.toString(),
@@ -520,54 +536,128 @@ const HomeScreen = () => {
           buttonText: 'Redeem Now',
           iconName: 'arrow-right-circle'
         }))
-      : originalData;
+      : defaultPromoData;
+
+    const startAutoScroll = () => {
+      autoScrollTimer.current = setInterval(() => {
+        if (!scrolling.current && flatListRef.current) {
+          const nextIndex = (activeIndex + 1) % promoData.length;
+          flatListRef.current.scrollToIndex({
+            index: nextIndex,
+            animated: true
+          });
+          setActiveIndex(nextIndex);
+        }
+      }, 1500);
+    };
+
+    const stopAutoScroll = () => {
+      if (autoScrollTimer.current) {
+        clearInterval(autoScrollTimer.current);
+      }
+    };
+
+    useEffect(() => {
+      startAutoScroll();
+      return () => stopAutoScroll();
+    }, [activeIndex, promoData.length]);
 
     const handleMomentumScrollEnd = (event) => {
       const newIndex = Math.round(
         event.nativeEvent.contentOffset.x / width
       );
       setActiveIndex(newIndex);
+      scrolling.current = false;
     };
 
-    const renderPromoItem = ({ item }) => (
-      <View style={[styles.promoCard, { backgroundColor: item.backgroundColor }]}>
-        <View style={styles.promoContentContainer}>
-          <View style={styles.promoTextContainer}>
-            <Text style={styles.promoTitle}>{item.title}</Text>
-            {item.subtitle ? (
-              <Text style={[styles.promoSubtitle, { color: item.accentColor }]}>{item.subtitle}</Text>
-            ) : null}
-            <Text style={styles.promoDescription}>{item.description}</Text>
-            <TouchableOpacity
-              style={[styles.promoActionButton, { backgroundColor: item.accentColor, marginTop: 10, marginBottom: 4 }]}
-              onPress={() => {
-                navigation.navigate('ServiceCategoryScreen', {
-                  category: {
-                    id: 'all',
-                    name: 'All Services',
-                    icon: 'local-laundry-service',
-                    color: activeTheme.colors.primary
-                  },
-                  offerExists: true,
-                  offerDiscountAmount: 30
-                });
-              }}
-            >
-              <Text style={styles.promoActionButtonText}>Redeem Now</Text>
-              <Feather name="arrow-right-circle" size={16} color="#FFFFFF" style={{ marginLeft: 5 }} />
-            </TouchableOpacity>
-          </View>
-          <View style={[styles.accentShape, { backgroundColor: item.accentColor }]} />
-          <View style={styles.promoImageContainer}>
-            <Image
-              source={require('../../assets/images/laundry.jpg')}
-              style={styles.promoImage}
-              resizeMode="cover"
-            />
-          </View>
-        </View>
-      </View>
+    const handleScroll = Animated.event(
+      [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+      { useNativeDriver: true }
     );
+
+    const renderPromoItem = ({ item, index }) => {
+      const inputRange = [
+        (index - 1) * width,
+        index * width,
+        (index + 1) * width
+      ];
+
+      const scale = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.9, 1, 0.9],
+        extrapolate: 'clamp'
+      });
+
+      const opacity = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.7, 1, 0.7],
+        extrapolate: 'clamp'
+      });
+
+      return (
+        <Animated.View 
+          style={[
+            styles.promoCard, 
+            { 
+              backgroundColor: item.backgroundColor,
+              transform: [{ scale }],
+              opacity
+            }
+          ]}
+        >
+          <View style={styles.promoContentContainer}>
+            <View style={styles.promoTextContainer}>
+              <Text style={styles.promoTitle}>{item.title}</Text>
+              {item.subtitle ? (
+                <Text style={[styles.promoSubtitle, { color: item.accentColor }]}>{item.subtitle}</Text>
+              ) : null}
+              <Text style={styles.promoDescription}>{item.description}</Text>
+              <TouchableOpacity
+                style={[styles.promoActionButton, { backgroundColor: item.accentColor }]}
+                onPress={() => {
+                  navigation.navigate('ServiceCategoryScreen', {
+                    category: {
+                      id: 'all',
+                      name: 'All Services',
+                      icon: 'local-laundry-service',
+                      color: activeTheme.colors.primary
+                    },
+                    offerExists: true,
+                    offerDiscountAmount: 30
+                  });
+                }}
+              >
+                <Text style={styles.promoActionButtonText}>Redeem Now</Text>
+                <Feather name="arrow-right-circle" size={16} color="#FFFFFF" style={{ marginLeft: 5 }} />
+              </TouchableOpacity>
+            </View>
+            <Animated.View 
+              style={[
+                styles.accentShape, 
+                { 
+                  backgroundColor: item.accentColor,
+                  transform: [
+                    { rotate: '-25deg' },
+                    { scale: scrollX.interpolate({
+                      inputRange,
+                      outputRange: [0.9, 1, 0.9],
+                      extrapolate: 'clamp'
+                    })}
+                  ]
+                }
+              ]} 
+            />
+            <View style={styles.promoImageContainer}>
+              <Image
+                source={require('../../assets/images/laundry.jpg')}
+                style={styles.promoImage}
+                resizeMode="cover"
+              />
+            </View>
+          </View>
+        </Animated.View>
+      );
+    };
 
     if (loadingOffers) {
       return (
@@ -587,7 +677,7 @@ const HomeScreen = () => {
 
     return (
       <View style={styles.promoContainer}>
-        <FlatList
+        <Animated.FlatList
           ref={flatListRef}
           data={promoData}
           renderItem={renderPromoItem}
@@ -596,18 +686,45 @@ const HomeScreen = () => {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleMomentumScrollEnd}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={styles.promoList}
+          onScrollBeginDrag={() => {
+            scrolling.current = true;
+            stopAutoScroll();
+          }}
+          onScrollEndDrag={() => {
+            scrolling.current = false;
+            startAutoScroll();
+          }}
         />
         <View style={styles.promoPagination}>
-          {promoData.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.promoDot,
-                index === activeIndex && styles.promoDotActive
-              ]}
-            />
-          ))}
+          {promoData.map((_, index) => {
+            const inputRange = [
+              (index - 1) * width,
+              index * width,
+              (index + 1) * width
+            ];
+
+            const opacity = scrollX.interpolate({
+              inputRange,
+              outputRange: [0.3, 1, 0.3],
+              extrapolate: 'clamp'
+            });
+
+            return (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.promoDot,
+                  {
+                    opacity,
+                    backgroundColor: index === activeIndex ? theme.colors.primary : '#888'
+                  }
+                ]}
+              />
+            );
+          })}
         </View>
       </View>
     );

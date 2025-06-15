@@ -1,6 +1,6 @@
 import { getApp, initializeApp } from '@react-native-firebase/app';
 import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore } from '@react-native-firebase/firestore';
+import { getFirestore, collection, doc, addDoc, updateDoc, getDoc, query, where, getDocs, serverTimestamp, deleteDoc, orderBy, setDoc } from '@react-native-firebase/firestore';
 import { getStorage } from '@react-native-firebase/storage';
 import { Alert } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
@@ -100,12 +100,13 @@ const createOrder = async (orderData) => {
   try {
     const orderWithTimestamp = {
       ...orderData,
-      createdAt: firestore.FieldValue.serverTimestamp(),
-      updatedAt: firestore.FieldValue.serverTimestamp(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
       status: orderData.status || 'pending'
     };
     
-    const docRef = await firestore().collection('orders').add(orderWithTimestamp);
+    const ordersCollection = collection(firestore, 'orders');
+    const docRef = await addDoc(ordersCollection, orderWithTimestamp);
     console.log("Order created with ID:", docRef.id);
     
     return { id: docRef.id, ...orderWithTimestamp };
@@ -118,14 +119,15 @@ const createOrder = async (orderData) => {
 // Update an existing order
 const updateOrder = async (orderId, updateData) => {
   try {
-    const orderRef = firestore().collection('orders').doc(orderId);
+    const ordersCollection = collection(firestore, 'orders');
+    const orderRef = doc(ordersCollection, orderId);
     
     const updatedData = {
       ...updateData,
-      updatedAt: firestore.FieldValue.serverTimestamp()
+      updatedAt: serverTimestamp()
     };
     
-    await orderRef.update(updatedData);
+    await updateDoc(orderRef, updatedData);
     console.log("Order updated successfully:", orderId);
     
     return { id: orderId, ...updatedData };
@@ -138,7 +140,9 @@ const updateOrder = async (orderId, updateData) => {
 // Get a single order by ID
 const getOrderById = async (orderId) => {
   try {
-    const orderDoc = await firestore().collection('orders').doc(orderId).get();
+    const ordersCollection = collection(firestore, 'orders');
+    const orderRef = doc(ordersCollection, orderId);
+    const orderDoc = await getDoc(orderRef);
     
     if (orderDoc.exists) {
       return { id: orderDoc.id, ...orderDoc.data() };
@@ -155,12 +159,14 @@ const getOrderById = async (orderId) => {
 // Get all orders for a customer
 const getCustomerOrders = async (customerId) => {
   try {
-    const querySnapshot = await firestore()
-      .collection('orders')
-      .where('customerId', '==', customerId)
-      .orderBy('createdAt', 'desc')
-      .get();
+    const ordersCollection = collection(firestore, 'orders');
+    const q = query(
+      ordersCollection,
+      where('customerId', '==', customerId),
+      orderBy('createdAt', 'desc')
+    );
     
+    const querySnapshot = await getDocs(q);
     const orders = [];
     
     querySnapshot.forEach((doc) => {
@@ -177,7 +183,9 @@ const getCustomerOrders = async (customerId) => {
 // Delete an order
 const deleteOrder = async (orderId) => {
   try {
-    await firestore().collection('orders').doc(orderId).delete();
+    const ordersCollection = collection(firestore, 'orders');
+    const orderRef = doc(ordersCollection, orderId);
+    await deleteDoc(orderRef);
     console.log("Order deleted successfully:", orderId);
     return true;
   } catch (error) {
@@ -201,20 +209,22 @@ const createUserInFirestore = async (userData) => {
       throw new Error(`Invalid user data: Missing required fields: ${missingFields.join(', ')}`);
     }
 
-    const userRef = firestore().collection('users').doc(userData.uid);
-    const userDoc = await userRef.get();
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, userData.uid);
+    const userDoc = await getDoc(userRef);
 
+    const currentTimestamp = serverTimestamp();
     const userDataToSave = {
       ...userData,
-      updatedAt: firestore.FieldValue.serverTimestamp(),
-      lastLogin: firestore.FieldValue.serverTimestamp(),
+      updatedAt: currentTimestamp,
+      lastLogin: currentTimestamp,
       // Ensure these fields are always present
       emailVerified: userData.emailVerified || false,
       phoneNumber: userData.phoneNumber || '',
       photoURL: userData.photoURL || '',
       // Add metadata
       _metadata: {
-        lastUpdated: firestore.FieldValue.serverTimestamp(),
+        lastUpdated: currentTimestamp,
         createdBy: 'app_signup',
         version: '1.0'
       }
@@ -222,14 +232,14 @@ const createUserInFirestore = async (userData) => {
 
     if (!userDoc.exists) {
       // Create new user document
-      await userRef.set({
+      await setDoc(userRef, {
         ...userDataToSave,
-        createdAt: firestore.FieldValue.serverTimestamp()
+        createdAt: currentTimestamp
       });
       console.log('User created in Firestore successfully');
     } else {
       // Update existing user document
-      await userRef.update(userDataToSave);
+      await updateDoc(userRef, userDataToSave);
       console.log('User updated in Firestore successfully');
     }
 
@@ -257,15 +267,16 @@ const handleFirestoreError = (error, operation) => {
   }
 };
 
-// Update the getUserFromFirestore function with better error handling
+// Update the getUserFromFirestore function
 const getUserFromFirestore = async (uid) => {
   try {
     if (!uid) {
       throw new Error('User ID is required');
     }
 
-    const userRef = firestore().collection('users').doc(uid);
-    const userDoc = await userRef.get();
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, uid);
+    const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists) {
       console.log('No user document found in Firestore');
@@ -292,10 +303,12 @@ const getUserFromFirestore = async (uid) => {
 
     return processedData;
   } catch (error) {
-    throw handleFirestoreError(error, 'getUserFromFirestore');
+    console.error('Error fetching user from Firestore:', error);
+    throw error;
   }
 };
 
+// Update the updateUserInFirestore function
 const updateUserInFirestore = async (uid, updateData) => {
   try {
     if (!uid) {
@@ -306,8 +319,9 @@ const updateUserInFirestore = async (uid, updateData) => {
       throw new Error('No update data provided');
     }
 
-    const userRef = firestore().collection('users').doc(uid);
-    const userDoc = await userRef.get();
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, uid);
+    const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists) {
       throw new Error('User document does not exist');
@@ -316,20 +330,20 @@ const updateUserInFirestore = async (uid, updateData) => {
     // Prepare update data with metadata
     const dataToUpdate = {
       ...updateData,
-      updatedAt: firestore.FieldValue.serverTimestamp(),
+      updatedAt: serverTimestamp(),
       _metadata: {
-        lastUpdated: firestore.FieldValue.serverTimestamp(),
+        lastUpdated: serverTimestamp(),
         updatedBy: 'app_update',
         version: '1.0'
       }
     };
 
     // Update the document
-    await userRef.update(dataToUpdate);
+    await updateDoc(userRef, dataToUpdate);
     console.log('User updated in Firestore successfully');
 
     // Get the updated document
-    const updatedDoc = await userRef.get();
+    const updatedDoc = await getDoc(userRef);
     return { id: updatedDoc.id, ...updatedDoc.data() };
   } catch (error) {
     console.error('Error updating user in Firestore:', error);

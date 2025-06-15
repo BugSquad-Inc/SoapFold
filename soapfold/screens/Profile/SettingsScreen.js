@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather, Ionicons } from '@expo/vector-icons';
-import { auth } from '../../config/firebase';
+import { auth, firestore } from '../../config/firebase';
 import { theme } from '../../utils/theme';
 import { useTheme } from '../../utils/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,7 +26,7 @@ import GoogleSignin from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CommonActions } from '@react-navigation/native';
 import { signOut as firebaseSignOut } from '@react-native-firebase/auth';
-import { updateUserInFirestore } from '../../config/firestore';
+import { doc, getDoc, updateDoc } from '@react-native-firebase/firestore';
 
 const SettingsScreen = ({ navigation }) => {
   const { theme: activeTheme, toggleDarkMode } = useTheme();
@@ -49,9 +49,9 @@ const SettingsScreen = ({ navigation }) => {
     try {
       const user = auth.currentUser;
       if (user) {
-        const firestoreUserData = await getUserFromFirestore(user.uid);
-        if (firestoreUserData) {
-          setUserData(firestoreUserData);
+        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+        if (userDoc.exists()) {
+          setUserData(userDoc.data());
         }
       }
     } catch (error) {
@@ -102,7 +102,11 @@ const SettingsScreen = ({ navigation }) => {
     try {
       const user = auth.currentUser;
       if (user) {
-        await updateUserInFirestore(user.uid, updates);
+        const userRef = doc(firestore, 'users', user.uid);
+        await updateDoc(userRef, {
+          ...updates,
+          updatedAt: new Date().toISOString()
+        });
         await fetchUserData(); // Refresh user data
       }
     } catch (error) {

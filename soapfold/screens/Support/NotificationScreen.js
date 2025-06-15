@@ -5,7 +5,7 @@ import { useTheme } from '../../utils/ThemeContext';
 import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
 import { auth, firestore } from '../../config/firebase';
-import { collection, query, where, orderBy, getDocs } from '@react-native-firebase/firestore';
+import { collection, query, where, getDocs, orderBy, onSnapshot, updateDoc, doc } from '@react-native-firebase/firestore';
 
 const mockNotifications = [
   {
@@ -60,10 +60,16 @@ const groupByDate = (notifications) => {
 };
 
 // Function to get unread notifications count
-export const unreadNotificationsCount = async () => {
+export const unreadNotificationsCount = async (userId) => {
   try {
-    const notificationsRef = firestore().collection('notifications');
-    const querySnapshot = await notificationsRef.where('read', '==', false).get();
+    const notificationsCollection = collection(firestore, 'notifications');
+    const q = query(
+      notificationsCollection,
+      where('userId', '==', userId),
+      where('read', '==', false)
+    );
+    
+    const querySnapshot = await getDocs(q);
     return querySnapshot.size;
   } catch (error) {
     console.error('Error getting unread notifications count:', error);
@@ -79,37 +85,76 @@ const NotificationScreen = ({ navigation }) => {
   const dateSections = Object.keys(grouped);
 
   useEffect(() => {
-    fetchNotifications();
+    let unsubscribe;
+    const setupNotifications = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          throw new Error('Please sign in to view notifications');
+        }
+
+        const notificationsRef = collection(firestore, 'notifications');
+        const q = query(
+          notificationsRef,
+          where('userId', '==', currentUser.uid),
+          orderBy('createdAt', 'desc')
+        );
+
+        // Set up real-time listener
+        unsubscribe = onSnapshot(q, 
+          (querySnapshot) => {
+            const notificationList = querySnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            setNotifications(notificationList);
+            setLoading(false);
+
+            // Mark unread notifications as read
+            querySnapshot.docs.forEach(async (docSnapshot) => {
+              const notification = docSnapshot.data();
+              if (!notification.read) {
+                try {
+                  await updateDoc(doc(firestore, 'notifications', docSnapshot.id), {
+                    read: true,
+                    readAt: new Date().toISOString()
+                  });
+                } catch (error) {
+                  console.error('Error marking notification as read:', error);
+                }
+              }
+            });
+          },
+          (error) => {
+            console.error('Error in notifications listener:', error);
+            Alert.alert('Error', 'Failed to load notifications. Please try again.');
+            setLoading(false);
+          }
+        );
+      } catch (error) {
+        console.error('Error setting up notifications:', error);
+        Alert.alert('Error', 'Failed to load notifications. Please try again.');
+        setLoading(false);
+      }
+    };
+
+    setupNotifications();
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
-  const fetchNotifications = async () => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error('Please sign in to view notifications');
-      }
-
-      const notificationsRef = collection(firestore, 'notifications');
-      const q = query(
-        notificationsRef,
-        where('userId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
-      );
-
-      const querySnapshot = await getDocs(q);
-      const notificationList = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      setNotifications(notificationList);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      Alert.alert('Error', 'Failed to load notifications. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <Feather name="bell" size={64} color="#888" />
+      <Text style={styles.emptyTitle}>No Notifications Yet</Text>
+      <Text style={styles.emptySubtitle}>We'll notify you when something arrives</Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: '#F5F1FF' }]}> 
@@ -120,24 +165,32 @@ const NotificationScreen = ({ navigation }) => {
         <Text style={styles.header}>Notification</Text>
         <View style={{ width: 32 }} />
       </View>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {dateSections.map((date) => (
-          <View key={date}>
-            <Text style={styles.sectionTitle}>{date}</Text>
-            {grouped[date].map((notif) => (
-              <View key={notif.id} style={styles.card}>
-                <View style={[styles.iconCircle, { backgroundColor: notif.color }]}> 
-                  <Feather name={notif.icon} size={22} color="#fff" />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#7B61FF" />
+        </View>
+      ) : notifications.length === 0 ? (
+        renderEmptyState()
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {dateSections.map((date) => (
+            <View key={date}>
+              <Text style={styles.sectionTitle}>{date}</Text>
+              {grouped[date].map((notif) => (
+                <View key={notif.id} style={styles.card}>
+                  <View style={[styles.iconCircle, { backgroundColor: notif.color }]}> 
+                    <Feather name={notif.icon} size={22} color="#fff" />
+                  </View>
+                  <View style={styles.textBlock}>
+                    <Text style={styles.titleText}>{notif.title}</Text>
+                    <Text style={styles.subtitleText}>{notif.subtitle}</Text>
+                  </View>
                 </View>
-                <View style={styles.textBlock}>
-                  <Text style={styles.titleText}>{notif.title}</Text>
-                  <Text style={styles.subtitleText}>{notif.subtitle}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        ))}
-      </ScrollView>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -153,6 +206,29 @@ const styles = StyleSheet.create({
   textBlock: { flex: 1 },
   titleText: { color: '#222', fontWeight: 'bold', fontSize: 15, marginBottom: 2 },
   subtitleText: { color: '#888', fontSize: 13 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#222',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+  },
 });
 
 export default NotificationScreen;
