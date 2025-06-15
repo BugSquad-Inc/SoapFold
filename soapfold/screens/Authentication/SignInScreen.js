@@ -19,11 +19,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { theme, getTextStyle } from '../../utils/theme';
 import { auth } from '../../config/firebase';
-import { GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
-import { getUserFromFirestore, createUserInFirestore } from '../../config/firestore';
+import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from '@react-native-firebase/auth';
+import { getUserFromFirestore, createUserInFirestore, updateUserInFirestore } from '../../config/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LoadingContext } from '../../contexts/LoadingContext';
 import { CommonActions } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SignInScreen = ({ navigation }) => {
   const { setIsLoading } = useContext(LoadingContext);
@@ -73,6 +74,7 @@ const SignInScreen = ({ navigation }) => {
     setIsLoading(true);
 
     try {
+      // Sign in with Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, emailOrUsername, password);
       const user = userCredential.user;
       
@@ -80,21 +82,69 @@ const SignInScreen = ({ navigation }) => {
       const userData = await getUserFromFirestore(user.uid);
       
       if (userData) {
-        // User exists in Firestore
-        navigation.replace('HomeScreen');
+        // User exists in Firestore, update last login
+        await updateUserInFirestore(user.uid, {
+          lastLogin: new Date().toISOString(),
+          isOnline: true
+        });
+
+        // Store user data in AsyncStorage
+        await AsyncStorage.setItem('@user_data', JSON.stringify(userData));
+        await AsyncStorage.setItem('@auth_token', user.credential?.accessToken || '');
+        
+        // Navigate to main app
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
       } else {
         // User doesn't exist in Firestore, create new user
-        await createUserInFirestore(user.uid, {
+        const newUserData = {
+          uid: user.uid,
           email: user.email,
-          name: user.displayName || '',
-          phoneNumber: user.phoneNumber || '',
-          createdAt: new Date().toISOString()
+          displayName: user.displayName || user.email.split('@')[0],
+          photoURL: user.photoURL || null,
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+          isOnline: true,
+          authProvider: 'email',
+          location: 'Default Location',
+          settings: {
+            notifications: true,
+            darkMode: false,
+            language: 'en'
+          }
+        };
+
+        await createUserInFirestore(user.uid, newUserData);
+        
+        // Store user data in AsyncStorage
+        await AsyncStorage.setItem('@user_data', JSON.stringify(newUserData));
+        await AsyncStorage.setItem('@auth_token', user.credential?.accessToken || '');
+        
+        // Navigate to main app
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
         });
-        navigation.replace('HomeScreen');
       }
     } catch (error) {
-      console.error('Sign in error:', error);
-      Alert.alert('Error', error.message || 'Failed to sign in');
+      console.error('[Auth] Sign in error:', error);
+      
+      let errorMessage = 'Failed to sign in';
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email. Please sign up first.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password. Please try again.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setFormLoading(false);
       setIsLoading(false);
