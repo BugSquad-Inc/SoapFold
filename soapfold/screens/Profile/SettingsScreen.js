@@ -345,7 +345,12 @@ const SettingsScreen = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Settings</Text>
       </View>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        contentContainerStyle={{ paddingBottom: 32 }}
+      >
         {renderSection('Account', (
           <>
             {renderSettingItem('person-outline', 'Edit Profile', () => navigation.navigate('EditProfile'))}
@@ -365,7 +370,6 @@ const SettingsScreen = ({ navigation }) => {
             {renderSettingItem('trash-outline', 'Delete Account', () => setShowDeleteModal(true))}
           </>
         ))}
-        <View style={{ height: 32 }} />
       </ScrollView>
 
       {/* Sign Out Confirmation Modal */}

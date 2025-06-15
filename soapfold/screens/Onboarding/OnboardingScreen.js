@@ -135,6 +135,27 @@ const OnboardingScreen = ({ navigation, markOnboardingAsSeen }) => {
     itemVisiblePercentThreshold: 50
   }).current;
 
+  // Add getItemLayout handler
+  const getItemLayout = (data, index) => ({
+    length: width,
+    offset: width * index,
+    index,
+  });
+
+  // Add onScrollToIndexFailed handler
+  const handleScrollToIndexFailed = (info) => {
+    const wait = new Promise(resolve => setTimeout(resolve, 500));
+    wait.then(() => {
+      if (flatListRef.current) {
+        flatListRef.current.scrollToIndex({
+          index: info.index,
+          animated: true,
+          viewPosition: 0.5
+        });
+      }
+    });
+  };
+
   return (
     <View style={styles.container}>
       {/* Skip button - moved higher with no background */}
@@ -160,6 +181,8 @@ const OnboardingScreen = ({ navigation, markOnboardingAsSeen }) => {
         keyExtractor={item => item.id}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        getItemLayout={getItemLayout}
+        onScrollToIndexFailed={handleScrollToIndexFailed}
       />
 
       {/* Global navigation controls fixed at the bottom */}

@@ -538,6 +538,27 @@ const HomeScreen = () => {
         }))
       : defaultPromoData;
 
+    // Add getItemLayout handler
+    const getItemLayout = (data, index) => ({
+      length: width,
+      offset: width * index,
+      index,
+    });
+
+    // Add onScrollToIndexFailed handler
+    const handleScrollToIndexFailed = (info) => {
+      const wait = new Promise(resolve => setTimeout(resolve, 500));
+      wait.then(() => {
+        if (flatListRef.current) {
+          flatListRef.current.scrollToIndex({
+            index: info.index,
+            animated: true,
+            viewPosition: 0.5
+          });
+        }
+      });
+    };
+
     const startAutoScroll = () => {
       autoScrollTimer.current = setInterval(() => {
         if (!scrolling.current && flatListRef.current) {
@@ -697,6 +718,8 @@ const HomeScreen = () => {
             scrolling.current = false;
             startAutoScroll();
           }}
+          getItemLayout={getItemLayout}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
         />
         <View style={styles.promoPagination}>
           {promoData.map((_, index) => {

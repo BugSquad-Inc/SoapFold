@@ -25,6 +25,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LoadingContext } from '../../contexts/LoadingContext';
 import { CommonActions } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { signInWithGoogle, configureGoogleSignIn } from '../../config/authService';
 
 const SignInScreen = ({ navigation }) => {
   const { setIsLoading } = useContext(LoadingContext);
@@ -43,6 +44,11 @@ const SignInScreen = ({ navigation }) => {
   const loaderOpacity = useRef(new Animated.Value(0)).current;
   const loaderScale = useRef(new Animated.Value(0)).current;
   
+  // Configure Google Sign-In on component mount
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
+
   // Function to start preloading animation
   const startPreloadingAnimation = () => {
     setIsPreloading(true);
@@ -154,31 +160,43 @@ const SignInScreen = ({ navigation }) => {
   // Function to handle Google sign-in
   const handleGoogleSignIn = async () => {
     try {
-      await GoogleSignin.hasPlayServices();
-      const { idToken } = await GoogleSignin.signIn();
-      const googleCredential = GoogleAuthProvider.credential(idToken);
-      const userCredential = await signInWithCredential(auth, googleCredential);
-      const user = userCredential.user;
-
-      // Get user data from Firestore
-      const userData = await getUserFromFirestore(user.uid);
+      setFormLoading(true);
+      setIsLoading(true);
       
-      if (userData) {
-        // User exists in Firestore
-        navigation.replace('HomeScreen');
-      } else {
-        // User doesn't exist in Firestore, create new user
-        await createUserInFirestore(user.uid, {
-          email: user.email,
-          name: user.displayName || '',
-          phoneNumber: user.phoneNumber || '',
-          createdAt: new Date().toISOString()
+      const user = await signInWithGoogle();
+      
+      if (user) {
+        // Get user data from Firestore
+        const userData = await getUserFromFirestore(user.uid);
+        
+        // Store user data in AsyncStorage
+        await AsyncStorage.setItem('@user_data', JSON.stringify(userData));
+        await AsyncStorage.setItem('@auth_token', user.credential?.accessToken || '');
+        
+        // Navigate to main app
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
         });
-        navigation.replace('HomeScreen');
       }
     } catch (error) {
-      console.error('Google sign in error:', error);
-      Alert.alert('Error', error.message || 'Failed to sign in with Google');
+      console.error('[Auth] Google sign in error:', error);
+      
+      let errorMessage = 'Failed to sign in with Google';
+      if (error.message) {
+        if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else if (error.message.includes('canceled')) {
+          errorMessage = 'Sign in was canceled.';
+        } else if (error.message.includes('play services')) {
+          errorMessage = 'Google Play Services is not available.';
+        }
+      }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setFormLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -186,6 +204,21 @@ const SignInScreen = ({ navigation }) => {
   const handlePhoneSignIn = () => {
     navigation.navigate('PhoneSignIn');
   };
+
+  // Add this function to handle scroll failures
+  const handleScrollToIndexFailed = (info) => {
+    const wait = new Promise(resolve => setTimeout(resolve, 500));
+    wait.then(() => {
+      scrollViewRef.current?.scrollToIndex({ 
+        index: info.index, 
+        animated: true,
+        viewPosition: 0.5
+      });
+    });
+  };
+
+  // Add ref for ScrollView
+  const scrollViewRef = useRef(null);
 
   return (
     <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
@@ -199,6 +232,7 @@ const SignInScreen = ({ navigation }) => {
             contentContainerStyle={styles.scrollContainer}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            bounces={false}
           >
             <View style={styles.header}>
               {/* Remove back button from header since we'll have it at the bottom */}

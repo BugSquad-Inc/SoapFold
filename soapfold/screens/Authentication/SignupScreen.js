@@ -32,7 +32,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
-const ITEM_HEIGHT = 400; // Adjust this value based on your actual item height
+const ITEM_HEIGHT = Dimensions.get('window').width;
 const ITEM_WIDTH = width;
 
 const SignUpScreen = ({ navigation }) => {
@@ -723,12 +723,18 @@ const SignUpScreen = ({ navigation }) => {
   const handleScrollToIndexFailed = (info) => {
     const wait = new Promise(resolve => setTimeout(resolve, 500));
     wait.then(() => {
-      flatListRef.current?.scrollToIndex({
-        index: info.index,
-        animated: true,
-      });
+      if (flatListRef.current) {
+        flatListRef.current.scrollToIndex({
+          index: info.index,
+          animated: true,
+          viewPosition: 0.5
+        });
+      }
     });
   };
+
+  // Add ref for ScrollView
+  const scrollViewRef = useRef(null);
 
   return (
     <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
@@ -762,6 +768,7 @@ const SignUpScreen = ({ navigation }) => {
             maxToRenderPerBatch={3}
             windowSize={3}
             removeClippedSubviews={true}
+            contentContainerStyle={{ width: ITEM_HEIGHT * 3 }}
           />
           
           {renderBottomButtons()}
@@ -1062,6 +1069,13 @@ const styles = StyleSheet.create({
     color: '#000000',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  header: {
+    padding: 20,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
 });
 
