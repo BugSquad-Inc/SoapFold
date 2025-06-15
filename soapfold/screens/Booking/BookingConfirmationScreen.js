@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,15 @@ import {
   SafeAreaView,
   ScrollView,
   StatusBar,
-  Image
+  Image,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
 import ScreenContainer from '../../components/ScreenContainer';
+import { auth } from '../../config/firebase';
+import { createBookingInFirestore } from '../../config/firestore';
 
 const BookingConfirmationScreen = ({ navigation, route }) => {
   const { 

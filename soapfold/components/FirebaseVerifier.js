@@ -1,143 +1,93 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import verifyFirebaseApiKey from '../utils/verifyFirebaseConfig';
-import { getAuth } from 'firebase/auth';
+import { verifyFirebaseConfig } from '../utils/verifyFirebaseConfig';
+import { auth, firestore, storage } from '../config/firebase';
 import { theme } from '../utils/theme';
 
-const API_KEY = "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI".trim();
-
 const FirebaseVerifier = () => {
-  const [verificationStatus, setVerificationStatus] = useState({ 
-    isChecking: true, 
-    isValid: false, 
-    message: 'Checking Firebase configuration...' 
-  });
+  const [verifying, setVerifying] = useState(true);
+  const [status, setStatus] = useState('Verifying Firebase configuration...');
 
   useEffect(() => {
-    const checkApiKey = async () => {
+    const verifyConfig = async () => {
       try {
-        // First, check if auth is already initialized
-        try {
-          const auth = getAuth();
-          console.log("Firebase auth is already initialized:", !!auth);
-        } catch (authError) {
-          console.log("Firebase auth is not initialized yet");
+        const isConfigured = await verifyFirebaseConfig();
+        if (isConfigured) {
+          setStatus('Firebase is properly configured');
+        } else {
+          setStatus('Firebase configuration error');
         }
-        
-        const result = await verifyFirebaseApiKey(API_KEY);
-        setVerificationStatus({ 
-          isChecking: false, 
-          isValid: result.isValid, 
-          message: result.message 
-        });
       } catch (error) {
-        setVerificationStatus({ 
-          isChecking: false, 
-          isValid: false, 
-          message: `Error during verification: ${error.message}` 
-        });
+        console.error('Error verifying Firebase:', error);
+        setStatus('Error verifying Firebase configuration');
+      } finally {
+        setVerifying(false);
       }
     };
 
-    checkApiKey();
+    verifyConfig();
   }, []);
 
-  if (!verificationStatus.isChecking && verificationStatus.isValid) {
+  if (!verifying && status === 'Firebase is properly configured') {
     // If the verification is successful, we don't need to show anything
     return null;
   }
 
   return (
-    <ScrollView>
       <View style={styles.container}>
-        <Text style={styles.title}>Firebase Configuration Status</Text>
-        
-        {verificationStatus.isChecking ? (
+      {verifying ? (
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-        ) : (
-          <>
-            <Text style={[
-              styles.status, 
-              { color: verificationStatus.isValid ? 'green' : 'red' }
-            ]}>
-              {verificationStatus.isValid ? 'Valid' : 'Invalid'}
+          <Text style={styles.loadingText}>{status}</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Firebase Configuration Error</Text>
+          <Text style={styles.errorMessage}>{status}</Text>
+          <Text style={styles.errorInstructions}>
+            Please check your Firebase configuration and make sure all required services are properly initialized.
             </Text>
-            <Text style={styles.message}>{verificationStatus.message}</Text>
-            
-            <View style={styles.detailsContainer}>
-              <Text style={styles.detailsTitle}>Configuration Details:</Text>
-              <Text style={styles.detailsText}>API Key: {API_KEY}</Text>
-              <Text style={styles.detailsText}>Length: {API_KEY.length} characters</Text>
-              <Text style={styles.detailsText}>
-                Firebase Project: soapfold.firebaseapp.com
-              </Text>
-              
-              <Text style={styles.troubleshooting}>
-                Troubleshooting Tips:
-              </Text>
-              <Text style={styles.troubleshootingText}>
-                1. Verify the API key is correct
-              </Text>
-              <Text style={styles.troubleshootingText}>
-                2. Enable Email/Password authentication in Firebase console
-              </Text>
-              <Text style={styles.troubleshootingText}>
-                3. Ensure your Firebase project is properly set up
-              </Text>
-            </View>
-          </>
+        </ScrollView>
         )}
       </View>
-    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    margin: 16,
+    flex: 1,
+    backgroundColor: '#fff'
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: 20
   },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  status: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  message: {
+  loadingText: {
+    marginTop: 10,
     fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
+    color: theme.colors.text
   },
-  detailsContainer: {
-    backgroundColor: '#ffffff',
-    padding: 12,
-    borderRadius: 6,
-    width: '100%',
+  errorContainer: {
+    flex: 1,
+    padding: 20
   },
-  detailsTitle: {
+  errorTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 8,
+    color: theme.colors.error,
+    marginBottom: 10
   },
-  detailsText: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    marginBottom: 4,
+  errorMessage: {
+    fontSize: 16,
+    color: theme.colors.text,
+    marginBottom: 20
   },
-  troubleshooting: {
-    fontWeight: 'bold',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  troubleshootingText: {
-    fontSize: 12,
-    marginBottom: 4,
+  errorInstructions: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    lineHeight: 20
   }
 });
 

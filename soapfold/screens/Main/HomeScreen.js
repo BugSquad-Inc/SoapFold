@@ -17,8 +17,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
-import { auth, verifyFirebaseInitialized, getUserFromFirestore } from '../../config/firebase';
-import { signOut } from 'firebase/auth';
+import { getUserFromFirestore } from '../../config/firestore';
+import { signOut } from '../../config/authService';
 import { BlurView } from 'expo-blur';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { theme, getTextStyle } from '../../utils/theme';
@@ -26,6 +26,7 @@ import { useTheme } from '../../utils/ThemeContext';
 import ThemedStatusBar from '../../components/ThemedStatusBar';
 import topSectionBg from '../../assets/topsection_bg.jpeg';
 import { getCustomerOrders, getActiveOffers, applyOffer } from '../../config/firestore'; // adjust path if needed
+import { auth } from '../../config/firebase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,30 +54,6 @@ const IronIcon = ({ size, color }) => (
 const FoldIcon = ({ size, color }) => (
   <MaterialIcons name="layers" size={size} color={color} />
 );
-
-// Default promo data for when no offers are available
-const originalData = [
-  {
-    id: '1',
-    title: 'Welcome to SoapFold',
-    subtitle: 'Your Laundry Partner',
-    description: 'Get started with our premium laundry services',
-    backgroundColor: '#243D6E',
-    accentColor: '#FF9500',
-    buttonText: 'Explore Services',
-    iconName: 'arrow-right-circle'
-  },
-  {
-    id: '2',
-    title: 'Special Offer',
-    subtitle: 'Limited Time',
-    description: 'Get 20% off on your first order',
-    backgroundColor: '#000000',
-    accentColor: '#FF9500',
-    buttonText: 'Redeem Now',
-    iconName: 'arrow-right-circle'
-  }
-];
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -144,7 +121,7 @@ const HomeScreen = () => {
         if (userData) {
           setUserData(userData);
           console.log('Using user data from Firestore in home');
-          fetchRecentOrder(currentUser.uid); // This is now safe!
+          fetchRecentOrder(currentUser.uid);
         } else {
           // No cached user data, create new user data from auth
           console.log('No user document exists, creating default user');
@@ -381,9 +358,9 @@ const HomeScreen = () => {
     try {
       console.log('Starting logout process from HomeScreen...');
       
-      // Sign out from Firebase
-      await signOut(auth);
-      console.log('User signed out from Firebase Auth');
+      // Sign out using authService
+      await signOut();
+      console.log('User signed out successfully');
       
       // The auth state listener in App.js will handle navigation automatically
     } catch (error) {
@@ -527,19 +504,19 @@ const HomeScreen = () => {
 
   // Promotional Carousel Component
   const PromoCarousel = () => {
-    const scrollViewRef = useRef(null);
     const [activeIndex, setActiveIndex] = useState(0);
+    const flatListRef = useRef(null);
     const scrolling = useRef(false);
 
     // Use Firestore offers if available, otherwise fallback to originalData
     const promoData = offers.length > 0
       ? offers.map((offer, idx) => ({
-          id: offer.id || `offer-${idx}`,
-          title: offer.title || 'Special Offer',
-          subtitle: 'Limited Time',
-          description: offer.description || 'Get amazing discounts on our services',
-          backgroundColor: '#243D6E',
-          accentColor: '#FF9500',
+          id: offer.id || idx.toString(),
+          title: offer.title || '',
+          subtitle: '', // You can add a subtitle field in Firestore if needed
+          description: offer.description || '',
+          backgroundColor: '#000000',
+          accentColor: offer.accentColor || '#FF9500',
           buttonText: 'Redeem Now',
           iconName: 'arrow-right-circle'
         }))
@@ -611,7 +588,7 @@ const HomeScreen = () => {
     return (
       <View style={styles.promoContainer}>
         <FlatList
-          ref={scrollViewRef}
+          ref={flatListRef}
           data={promoData}
           renderItem={renderPromoItem}
           keyExtractor={(item) => item.id}

@@ -1,41 +1,34 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ImageBackground, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ImageBackground, Alert, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PhoneInput from 'react-native-phone-number-input';
-import auth from '@react-native-firebase/auth';
+import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
+import { auth } from '../../config/firebase';
+import { PhoneAuthProvider, signInWithPhoneNumber } from '@react-native-firebase/auth';
 
 export default function PhoneSignInScreen({ navigation }) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSendCode = async () => {
+    if (!phoneNumber) {
+      Alert.alert('Error', 'Please enter your phone number');
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
+      const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+      const confirmation = await signInWithPhoneNumber(auth, formattedNumber);
       
-      // Use React Native Firebase phone authentication
-      const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
-      
-      console.log('Verification code sent successfully');
-      
-      // Navigate to verification screen with confirmation object
-      navigation.navigate('VerifyCode', { 
-        phoneNumber: phoneNumber,
-        confirmation: confirmation
+      navigation.navigate('VerifyCodeScreen', {
+        verificationId: confirmation.verificationId,
+        phoneNumber: formattedNumber
       });
     } catch (error) {
-      console.error('Error sending code:', error);
-      let errorMessage = 'Failed to send verification code. Please try again.';
-      
-      if (error.code === 'auth/invalid-phone-number') {
-        errorMessage = 'Invalid phone number format.';
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many requests. Please try again later.';
-      } else if (error.code === 'auth/quota-exceeded') {
-        errorMessage = 'SMS quota exceeded. Please try again later.';
-      }
-      
-      Alert.alert('Error', errorMessage);
+      console.error('Phone sign in error:', error);
+      Alert.alert('Error', error.message || 'Failed to send verification code');
     } finally {
       setLoading(false);
     }

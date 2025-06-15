@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Act
 import { MaterialIcons } from '@expo/vector-icons';
 import ScreenContainer from '../../components/ScreenContainer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getOrderById } from '../../config/firebase';
+import { theme } from '../../utils/theme';
+import { auth } from '../../config/firebase';
+import { getOrderFromFirestore, updateOrderInFirestore } from '../../config/firestore';
 
 const OrderDetailScreen = ({ route, navigation }) => {
   const { orderId } = route.params;
@@ -20,7 +22,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
         setError(null);
         
         // Fetch order from Firestore
-        const orderData = await getOrderById(orderId);
+        const orderData = await getOrderFromFirestore(orderId);
         
         if (!orderData) {
           setError('Order not found. Please try again.');
@@ -140,7 +142,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
             style={styles.retryButton}
             onPress={() => {
               setLoading(true);
-              getOrderById(orderId)
+              getOrderFromFirestore(orderId)
                 .then(data => {
                   if (data) {
                     setOrder(data);

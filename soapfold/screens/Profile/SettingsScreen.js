@@ -16,8 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather, Ionicons } from '@expo/vector-icons';
-import { auth, getUserFromFirestore, updateUserInFirestore } from '../../config/firebase';
-import { signOut, updateProfile, deleteUser } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 import { theme } from '../../utils/theme';
 import { useTheme } from '../../utils/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +25,8 @@ import { uploadToCloudinary } from '../../utils/imageUpload';
 import GoogleSignin from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CommonActions } from '@react-navigation/native';
+import { signOut as firebaseSignOut } from '@react-native-firebase/auth';
+import { updateUserInFirestore } from '../../config/firestore';
 
 const SettingsScreen = ({ navigation }) => {
   const { theme: activeTheme, toggleDarkMode } = useTheme();
@@ -37,6 +38,8 @@ const SettingsScreen = ({ navigation }) => {
   const [loadingMessage, setLoadingMessage] = useState('');
   const [modalAnimation] = useState(new Animated.Value(0));
   const [deleteModalAnimation] = useState(new Animated.Value(0));
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     fetchUserData();
@@ -60,73 +63,19 @@ const SettingsScreen = ({ navigation }) => {
 
   const handleSignOut = async () => {
     try {
-      console.log('[SettingsScreen] Starting sign out process...');
-      setLoadingMessage('Signing out...');
+      setLoading(true);
       const user = auth.currentUser;
-      
       if (user) {
-        console.log('[SettingsScreen] Current user found:', user.email);
-        
-        // Sign out from Google if the user signed in with Google
-        if (user.providerData[0].providerId === 'google.com') {
-          console.log('[SettingsScreen] Signing out from Google...');
-          try {
-            await GoogleSignin.signOut();
-            console.log('[SettingsScreen] Successfully signed out from Google');
-          } catch (googleError) {
-            console.error('[SettingsScreen] Error signing out from Google:', googleError);
-          }
-        }
-        
-        // Clear any stored tokens or credentials
-        console.log('[SettingsScreen] Clearing stored data...');
-        try {
-          await AsyncStorage.multiRemove([
-            '@userToken',
-            '@userData',
-            '@unreadNotifications',
-            '@cartItems',
-            '@recentOrders'
-          ]);
-          console.log('[SettingsScreen] Successfully cleared stored data');
-        } catch (storageError) {
-          console.error('[SettingsScreen] Error clearing stored data:', storageError);
-        }
-        
-        // Sign out from Firebase
-        console.log('[SettingsScreen] Signing out from Firebase...');
-        await signOut(auth);
-        console.log('[SettingsScreen] Successfully signed out from Firebase');
-        
-        // Clear any cached data
-        setUserData(null);
-        console.log('[SettingsScreen] Cleared local user data');
-        
-        // Navigate to SignIn screen
-        console.log('[SettingsScreen] Navigating to SignIn screen...');
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [
-              {
-                name: 'Auth',
-                state: {
-                  routes: [{ name: 'SignIn' }]
-                }
-              }
-            ]
-          })
-        );
-        console.log('[SettingsScreen] Navigation reset complete');
+        await updateUserInFirestore(user.uid, {
+          lastLogout: new Date().toISOString()
+        });
       }
-      
+      await firebaseSignOut(auth);
     } catch (error) {
-      console.error('[SettingsScreen] Error during sign out:', error);
+      console.error('Error signing out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
     } finally {
-      console.log('[SettingsScreen] Sign out process completed');
-      setLoadingMessage('');
-      setShowSignOutModal(false);
+      setLoading(false);
     }
   };
 
@@ -137,7 +86,7 @@ const SettingsScreen = ({ navigation }) => {
       
       if (user) {
         // Delete user from Firestore first
-        await deleteUser(user);
+        await user.delete();
         // Auth state listener in App.js will handle navigation
       }
     } catch (error) {

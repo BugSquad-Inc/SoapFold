@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useNavigation } from '@react-navigation/native';
 import { getCustomerProfile } from '../../config/firestore';
+import { MaterialIcons } from '@expo/vector-icons';
+import { theme } from '../../utils/theme';
+import { signOut } from '@react-native-firebase/auth';
 
-const MenuBar = () => {
-  const navigation = useNavigation();
+const MenuBar = ({ navigation }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 

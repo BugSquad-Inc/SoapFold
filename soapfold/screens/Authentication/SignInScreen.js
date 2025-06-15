@@ -17,10 +17,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
-import auth from '@react-native-firebase/auth';
-import { getUserFromFirestore, updateUserInFirestore, createUserInFirestore } from '../../config/firebase';
-import { signInWithGoogle } from '../../config/authService';
 import { theme, getTextStyle } from '../../utils/theme';
+import { auth } from '../../config/firebase';
+import { GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
+import { getUserFromFirestore, createUserInFirestore } from '../../config/firestore';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LoadingContext } from '../../contexts/LoadingContext';
 import { CommonActions } from '@react-navigation/native';
 
@@ -72,56 +73,28 @@ const SignInScreen = ({ navigation }) => {
     setIsLoading(true);
 
     try {
-      // Sign in with email using React Native Firebase
-      const userCredential = await auth().signInWithEmailAndPassword(emailOrUsername, password);
+      const userCredential = await signInWithEmailAndPassword(auth, emailOrUsername, password);
+      const user = userCredential.user;
       
       // Get user data from Firestore
-      const firestoreUserData = await getUserFromFirestore(userCredential.user.uid);
+      const userData = await getUserFromFirestore(user.uid);
       
-      if (firestoreUserData) {
-        // Update last login in Firestore
-        await updateUserInFirestore(userCredential.user.uid, {
-          lastLogin: new Date().toISOString()
-        });
+      if (userData) {
+        // User exists in Firestore
+        navigation.replace('HomeScreen');
       } else {
-        // If no Firestore data exists, create it
-        const newUserData = {
-          uid: userCredential.user.uid,
-          email: userCredential.user.email,
-          displayName: userCredential.user.displayName || userCredential.user.email.split('@')[0],
-          photoURL: userCredential.user.photoURL,
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString()
-        };
-        
-        await createUserInFirestore(newUserData);
+        // User doesn't exist in Firestore, create new user
+        await createUserInFirestore(user.uid, {
+          email: user.email,
+          name: user.displayName || '',
+          phoneNumber: user.phoneNumber || '',
+          createdAt: new Date().toISOString()
+        });
+        navigation.replace('HomeScreen');
       }
-      
-      // Navigate to home screen
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
     } catch (error) {
-      console.error('Sign-in error:', error);
-      let errorMessage = 'Failed to sign in. Please try again.';
-      
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'No account found with this email.';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'Incorrect password.';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'Invalid email format.';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'Too many failed attempts. Please try again later.';
-          break;
-      }
-      
-      Alert.alert('Error', errorMessage);
+      console.error('Sign in error:', error);
+      Alert.alert('Error', error.message || 'Failed to sign in');
     } finally {
       setFormLoading(false);
       setIsLoading(false);
@@ -131,39 +104,31 @@ const SignInScreen = ({ navigation }) => {
   // Function to handle Google sign-in
   const handleGoogleSignIn = async () => {
     try {
-      console.log('[SignInScreen] Starting Google sign-in process...');
-      setFormLoading(true);
-      setIsLoading(true);
+      await GoogleSignin.hasPlayServices();
+      const { idToken } = await GoogleSignin.signIn();
+      const googleCredential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(auth, googleCredential);
+      const user = userCredential.user;
+
+      // Get user data from Firestore
+      const userData = await getUserFromFirestore(user.uid);
       
-      // Use React Native Firebase Google Sign-In
-      console.log('[SignInScreen] Calling signInWithGoogle()...');
-      const user = await signInWithGoogle();
-      
-      console.log('[SignInScreen] Google sign-in successful:', user.email);
-      console.log('[SignInScreen] User object:', JSON.stringify(user, null, 2));
-      
-      // Let the auth state change in App.js handle navigation automatically
-      console.log('[SignInScreen] Google sign-in completed, auth state should trigger navigation');
-      console.log('[SignInScreen] No manual navigation needed - App.js will handle it');
-      
-    } catch (error) {
-      console.error('[SignInScreen] Google Sign-In Error:', error);
-      console.error('[SignInScreen] Error details:', JSON.stringify(error, null, 2));
-      let errorMessage = 'Failed to sign in with Google. Please try again.';
-      
-      if (error.code === 'SIGN_IN_CANCELLED') {
-        errorMessage = 'Sign-in was cancelled.';
-      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
-        errorMessage = 'Google Play Services is not available on this device.';
-      } else if (error.code === 'NETWORK_ERROR') {
-        errorMessage = 'Network error. Please check your internet connection.';
+      if (userData) {
+        // User exists in Firestore
+        navigation.replace('HomeScreen');
+      } else {
+        // User doesn't exist in Firestore, create new user
+        await createUserInFirestore(user.uid, {
+          email: user.email,
+          name: user.displayName || '',
+          phoneNumber: user.phoneNumber || '',
+          createdAt: new Date().toISOString()
+        });
+        navigation.replace('HomeScreen');
       }
-      
-      Alert.alert('Google Sign-In Error', errorMessage);
-    } finally {
-      console.log('[SignInScreen] Google sign-in process completed');
-      setFormLoading(false);
-      setIsLoading(false);
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      Alert.alert('Error', error.message || 'Failed to sign in with Google');
     }
   };
 

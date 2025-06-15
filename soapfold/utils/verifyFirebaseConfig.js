@@ -1,43 +1,28 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { auth, firestore, storage } from '../config/firebase';
 
 /**
- * Verifies if the Firebase API key and configuration are valid
- * @param {string} apiKey - The Firebase API key to verify
- * @returns {Promise<{isValid: boolean, message: string}>}
+ * Verifies if the Firebase configuration is valid
+ * @returns {Promise<boolean>}
  */
-export const verifyFirebaseApiKey = async (apiKey) => {
+export const verifyFirebaseConfig = async () => {
   try {
-    console.log("Verifying Firebase API key:", apiKey);
-    
-    // Trim any whitespace from the API key
-    const cleanApiKey = apiKey.trim();
-    
-    // Create a test configuration with the provided API key
-    const testConfig = {
-      apiKey: cleanApiKey,
-      authDomain: "soapfold.firebaseapp.com",
-      projectId: "soapfold",
-    };
-    
-    // Try to initialize Firebase with this config
-    const testApp = initializeApp(testConfig, 'verifier');
-    const testAuth = getAuth(testApp);
-    
-    // If we get here, the initialization was successful
-    console.log("Firebase configuration is valid");
-    
-    return {
-      isValid: true,
-      message: "Firebase configuration is valid"
-    };
+    // Test Auth
+    const currentUser = auth.currentUser;
+    console.log('Auth initialized:', !!currentUser);
+
+    // Test Firestore
+    const testDoc = await firestore.collection('test').doc('test').get();
+    console.log('Firestore initialized:', !!testDoc);
+
+    // Test Storage
+    const testRef = storage.ref('test/test.txt');
+    console.log('Storage initialized:', !!testRef);
+
+    return true;
   } catch (error) {
-    console.error("Firebase configuration verification failed:", error.code, error.message);
-    return {
-      isValid: false,
-      message: `Firebase configuration error: ${error.message}`
-    };
+    console.error('Firebase verification failed:', error);
+    return false;
   }
 };
 
-export default verifyFirebaseApiKey; 
+export default verifyFirebaseConfig; 

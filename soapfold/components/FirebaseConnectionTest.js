@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { auth, storage, verifyFirebaseInitialized } from '../config/firebase';
+import { testFirebaseConnection } from '../utils/testFirebaseConnection';
+import { auth, firestore, storage } from '../config/firebase';
+import { verifyFirebaseInitialized } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const FirebaseConnectionTest = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [testing, setTesting] = useState(true);
+  const [status, setStatus] = useState('Testing Firebase connection...');
   
   // Add logging helper
   const log = (message) => {
@@ -14,7 +18,23 @@ const FirebaseConnectionTest = () => {
   
   // Run tests on mount
   useEffect(() => {
-    runTests();
+    const testConnection = async () => {
+      try {
+        const isConnected = await testFirebaseConnection();
+        if (isConnected) {
+          setStatus('Firebase connection successful');
+        } else {
+          setStatus('Firebase connection failed');
+        }
+      } catch (error) {
+        console.error('Error testing Firebase connection:', error);
+        setStatus('Error testing Firebase connection');
+      } finally {
+        setTesting(false);
+      }
+    };
+
+    testConnection();
   }, []);
   
   const runTests = async () => {
@@ -25,121 +45,122 @@ const FirebaseConnectionTest = () => {
     log("\n1. Testing Firebase initialization...");
     const status = verifyFirebaseInitialized();
     
-    if (status.app) {
-      log("✅ Firebase app is initialized");
-    } else {
-      log("❌ Firebase app is not initialized");
-    }
-    
     if (status.auth) {
       log("✅ Firebase Auth is initialized");
     } else {
       log("❌ Firebase Auth is not initialized");
     }
     
+    if (status.firestore) {
+      log("✅ Firestore is initialized");
+    } else {
+      log("❌ Firestore is not initialized");
+    }
+    
     if (status.storage) {
       log("✅ Firebase Storage is initialized");
-      log(`Storage type: ${typeof storage}`);
     } else {
       log("❌ Firebase Storage is not initialized");
+    }
+    
+    // Test 2: Test Auth
+    log("\n2. Testing Auth...");
+    try {
+      const currentUser = auth().currentUser;
+      log(currentUser ? `✅ User is signed in: ${currentUser.email}` : "✅ No user is signed in");
+    } catch (error) {
+      log(`❌ Auth error: ${error.message}`);
     }
     
     // Test 3: Test AsyncStorage
     log("\n3. Testing AsyncStorage...");
     try {
-      // Generate test data
-      const testUser = {
-        id: 'test-' + Date.now(),
-        name: 'Test User',
-        timestamp: new Date().toISOString()
-      };
-      
-      // Try to save to AsyncStorage
-      log("Saving test user to AsyncStorage...");
-      await AsyncStorage.setItem('@testUser', JSON.stringify(testUser));
-      log("✅ Successfully saved user to AsyncStorage");
-      
-      log("Retrieving user from AsyncStorage...");
-      const savedUser = await AsyncStorage.getItem('@testUser');
-      
-      if (savedUser) {
-        log(`✅ Successfully retrieved user: ${savedUser}`);
-        // Clean up after the test
-        await AsyncStorage.removeItem('@testUser');
-        log("✅ Cleaned up test data from AsyncStorage");
-      } else {
-        log("❌ Could not retrieve user from AsyncStorage");
-      }
-    } catch (storageError) {
-      log(`❌ AsyncStorage error: ${storageError.message}`);
+      await AsyncStorage.setItem('@test', 'test');
+      const value = await AsyncStorage.getItem('@test');
+      await AsyncStorage.removeItem('@test');
+      log(value === 'test' ? "✅ AsyncStorage is working" : "❌ AsyncStorage test failed");
+    } catch (error) {
+      log(`❌ AsyncStorage error: ${error.message}`);
     }
     
-    // Test 4: Check auth state
-    log("\n4. Testing Auth state...");
-    if (auth) {
-      const user = auth.currentUser;
-      if (user) {
-        log(`✅ User is signed in: ${user.email}`);
-        log(`User ID: ${user.uid}`);
-        log(`Email verified: ${user.emailVerified}`);
-      } else {
-        log("ℹ️ No user is currently signed in");
-      }
-    } else {
-      log("❌ Auth is not initialized, cannot check user state");
+    // Test 4: Test Firestore
+    log("\n4. Testing Firestore...");
+    try {
+      const testDoc = await firestore()
+        .collection('_test')
+        .doc('connection_test')
+        .set({
+          timestamp: firestore.FieldValue.serverTimestamp(),
+          test: true
+        });
+      log("✅ Firestore write successful");
+      
+      // Clean up test document
+      await firestore()
+        .collection('_test')
+        .doc('connection_test')
+        .delete();
+      log("✅ Firestore cleanup successful");
+    } catch (error) {
+      log(`❌ Firestore error: ${error.message}`);
     }
-
-    log("\nTests completed!");
+    
+    // Test 5: Test Storage
+    log("\n5. Testing Storage...");
+    try {
+      const testRef = storage().ref('_test/connection_test.txt');
+      await testRef.putString('test');
+      log("✅ Storage write successful");
+      
+      // Clean up test file
+      await testRef.delete();
+      log("✅ Storage cleanup successful");
+    } catch (error) {
+      log(`❌ Storage error: ${error.message}`);
+    }
+    
     setLoading(false);
   };
   
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text style={styles.loadingText}>{status}</Text>
+      </View>
+    );
+  }
+  
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Firebase Connection Test</Text>
-      
-      {loading && (
-        <ActivityIndicator size="small" color="#0000ff" style={styles.loader} />
-      )}
-      
-      <ScrollView style={styles.logContainer}>
-        {logs.map((log, index) => (
-          <Text key={index} style={styles.logText}>{log}</Text>
-        ))}
-      </ScrollView>
-    </View>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Firebase Connection Test Results</Text>
+      {logs.map((log, index) => (
+        <Text key={index} style={styles.logText}>{log}</Text>
+      ))}
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#f8f8f8',
-    borderWidth: 1,
-    borderColor: '#eee',
-    margin: 16,
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#fff'
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 20
   },
-  loader: {
-    marginVertical: 12,
-  },
-  logContainer: {
-    maxHeight: 300,
-    backgroundColor: '#222',
-    borderRadius: 6,
-    padding: 12,
-    marginTop: 8,
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16
   },
   logText: {
-    color: '#00ff00',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 12,
-    lineHeight: 18,
-  },
+    fontSize: 14,
+    marginBottom: 5,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
+  }
 });
 
 export default FirebaseConnectionTest; 

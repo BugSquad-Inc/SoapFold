@@ -1,7 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, FlatList, StyleSheet, ScrollView, StatusBar, SafeAreaView, Alert } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Image, FlatList, StyleSheet, ScrollView, StatusBar, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { theme } from '../../utils/theme';
+import { auth } from '../../config/firebase';
+import { createOrderInFirestore } from '../../config/firestore';
 
 const imageMap = {
   'Shirt': require('../../assets/images/ironing.jpg'),

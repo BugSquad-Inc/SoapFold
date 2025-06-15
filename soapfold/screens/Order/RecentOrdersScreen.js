@@ -8,7 +8,8 @@ import {
   SafeAreaView,
   StatusBar,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { theme, getTextStyle } from '../../utils/theme';
@@ -24,66 +25,26 @@ const RecentOrdersScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Fetch orders from Firestore
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+  
   const fetchOrders = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      const user = auth.currentUser;
-      if (!user) {
-        setError('User not found. Please log in again.');
-        setLoading(false);
-        return;
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('Please sign in to view orders');
       }
-      
-      // Fetch orders using the new Firestore function
-      const ordersData = await getCustomerOrders(user.uid);
-      
-      if (ordersData.length === 0) {
-        setOrders([]);
-      } else {
-        // Process and format the order data
-        const formattedOrders = ordersData.map(order => {
-          // Format the date
-          const orderDate = order.createdAt?.toDate() || new Date();
-          const formattedDate = formatOrderDate(orderDate);
-          
-          // Calculate total items
-          const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
-          
-          return {
-            id: order.id,
-            date: formattedDate,
-            status: order.status,
-            totalItems: totalItems,
-            totalAmount: order.totalAmount,
-            paymentMethod: order.paymentMethod || 'Card',
-            deliveryAddress: order.address,
-            items: order.items,
-            pickupDate: order.pickupDate?.toDate(),
-            deliveryDate: order.deliveryDate?.toDate()
-          };
-        });
-        
-        setOrders(formattedOrders);
-      }
-      
-      // Auto-expand the recent order if it exists
-      if (recentOrder) {
-        setExpandedOrderId(recentOrder);
-      }
+
+      const userOrders = await getCustomerOrders(currentUser.uid);
+      setOrders(userOrders);
     } catch (error) {
       console.error('Error fetching orders:', error);
-      setError('Failed to load your orders. Please try again.');
+      Alert.alert('Error', 'Failed to load orders. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-  
-  useEffect(() => {
-    fetchOrders();
-  }, [recentOrder]);
   
   // Format the order date
   const formatOrderDate = (date) => {

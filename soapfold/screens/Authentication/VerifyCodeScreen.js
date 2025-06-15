@@ -2,16 +2,20 @@ import React, { useState, useRef, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ImageBackground, Alert, ScrollView, ActivityIndicator, Dimensions, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
-import auth from '@react-native-firebase/auth';
-import { theme, getTextStyle } from '../../utils/theme';
+import { theme } from '../../utils/theme';
+import { auth } from '../../config/firebase';
+import { PhoneAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
 import { LoadingContext } from '../../contexts/LoadingContext';
 import { CommonActions } from '@react-navigation/native';
+import { createUserInFirestore } from '../../config/firestore';
 
 export default function VerifyCodeScreen({ route, navigation }) {
-  const { phoneNumber, confirmation } = route.params;
+  const { phoneNumber, verificationId } = route.params;
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [resendDisabled, setResendDisabled] = useState(true);
+  const [countdown, setCountdown] = useState(60);
   const inputs = useRef([]);
 
   const handleCodeChange = (text, index) => {
@@ -43,16 +47,26 @@ export default function VerifyCodeScreen({ route, navigation }) {
       
       // Verify the code using React Native Firebase
       const verificationCode = code.join('');
-      const credential = auth.PhoneAuthProvider.credential(confirmation.verificationId, verificationCode);
+      const credential = PhoneAuthProvider.credential(verificationId, verificationCode);
       
       // Sign in with the credential
-      const userCredential = await auth().signInWithCredential(credential);
+      const userCredential = await signInWithCredential(auth, credential);
+      const user = userCredential.user;
       
-      console.log('[VerifyCodeScreen] Code verification successful:', userCredential.user.phoneNumber);
-      console.log('[VerifyCodeScreen] User object:', JSON.stringify(userCredential.user, null, 2));
+      console.log('[VerifyCodeScreen] Code verification successful:', user.phoneNumber);
+      console.log('[VerifyCodeScreen] User object:', JSON.stringify(user, null, 2));
       
-      // Let the auth state change in App.js handle navigation automatically
-      console.log('[VerifyCodeScreen] Code verification completed, auth state should trigger navigation');
+      // Create or update user in Firestore
+      await createUserInFirestore(user.uid, {
+        phoneNumber: user.phoneNumber,
+        lastLogin: new Date().toISOString()
+      });
+
+      // Navigate to home screen after successful verification
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'HomeScreen' }],
+      });
       
     } catch (error) {
       console.error('[VerifyCodeScreen] Code Verification Error:', error);
@@ -79,10 +93,13 @@ export default function VerifyCodeScreen({ route, navigation }) {
       setResendLoading(true);
       
       // Send new verification code using React Native Firebase
-      const newConfirmation = await auth().signInWithPhoneNumber(phoneNumber);
+      const newConfirmation = await auth.signInWithPhoneNumber(phoneNumber);
       
       // Update confirmation in route params
-      navigation.setParams({ confirmation: newConfirmation });
+      navigation.setParams({ verificationId: newConfirmation.verificationId });
+      
+      setResendDisabled(true);
+      setCountdown(60);
       
       Alert.alert('Success', 'Verification code resent!');
     } catch (error) {

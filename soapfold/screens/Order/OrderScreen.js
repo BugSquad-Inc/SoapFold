@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { getCustomerOrders } from '../../config/firestore';
+import { theme } from '../../utils/theme';
 import { auth } from '../../config/firebase';
+import { getCustomerOrders, getOrderFromFirestore } from '../../config/firestore';
 
 const getStatusLabel = (status) => {
   if (status === 'active') return 'Active';
@@ -20,7 +21,7 @@ const getStatusBadgeStyle = (status) => {
   return styles.completedStatusBadge;
 };
 
-const OrderScreen = ({ navigation }) => {
+const OrderScreen = ({ navigation, route }) => {
   const [filter, setFilter] = useState('all');
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState([]);
@@ -68,7 +69,7 @@ const OrderScreen = ({ navigation }) => {
     if (!orders || orders.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Icon name="shopping-bag" size={60} color="#243D6E" />
+          <MaterialIcons name="shopping-bag" size={60} color="#243D6E" />
           <Text style={[styles.emptyStateText, {color: '#243D6E', fontWeight: 'bold'}]}>No orders yet</Text>
         </View>
       );

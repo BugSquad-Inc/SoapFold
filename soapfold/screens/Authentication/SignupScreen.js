@@ -19,14 +19,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons, Entypo } from '@expo/vector-icons';
-import auth from '@react-native-firebase/auth';
-import { createUserInFirestore } from '../../config/firebase';
+import { createUserWithEmailAndPassword } from '@react-native-firebase/auth';
+import { createUserInFirestore } from '../../config/firestore';
 import { signInWithGoogle } from '../../config/authService';
 import * as ImagePicker from 'expo-image-picker';
 import { theme, getTextStyle } from '../../utils/theme';
 import { uploadToCloudinary } from '../../utils/imageUpload';
 import { LoadingContext } from '../../contexts/LoadingContext';
 import { CommonActions } from '@react-navigation/native';
+import { auth } from '../../config/firebase';
 
 const { width } = Dimensions.get('window');
 
@@ -253,8 +254,10 @@ const SignUpScreen = ({ navigation }) => {
       console.log(`Creating account for: ${firstName} ${lastName} (${email}) with username: ${username}`);
       
       // Create user with email and password using React Native Firebase
-      const userCredential = await auth().createUserWithEmailAndPassword(email.trim(), password);
-      console.log('User created successfully:', userCredential.user.uid);
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const user = userCredential.user;
+      
+      console.log('User created successfully:', user.uid);
       
       // Upload profile image if available
       let photoURL = null;
@@ -265,7 +268,7 @@ const SignUpScreen = ({ navigation }) => {
       
       // Update user profile
       setPreloaderText('Setting up your profile...');
-      await userCredential.user.updateProfile({
+      await user.updateProfile({
         displayName: `${firstName} ${lastName}`,
         photoURL: photoURL || '',
       });
@@ -273,7 +276,7 @@ const SignUpScreen = ({ navigation }) => {
       
       // Prepare user data for Firestore
       const userData = {
-        uid: userCredential.user.uid,
+        uid: user.uid,
         firstName: firstName,
         lastName: lastName,
         username: username,
@@ -282,7 +285,7 @@ const SignUpScreen = ({ navigation }) => {
         photoURL: photoURL || '',
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
-        phoneNumber: userCredential.user.phoneNumber || '',
+        phoneNumber: user.phoneNumber || '',
         emailVerified: true
       };
       

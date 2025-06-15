@@ -12,7 +12,7 @@ import { ThemeProvider } from './utils/ThemeContext';
 import ThemedStatusBar from './components/ThemedStatusBar';
 import { LoadingProvider } from './contexts/LoadingContext';
 import React from 'react';
-import auth from '@react-native-firebase/auth';
+import { auth } from './config/firebase';
 import { configureGoogleSignIn } from './config/authService';
 import { getCustomerProfile, createCustomer, updateCustomer } from './config/firestore';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -31,9 +31,6 @@ import BottomTabNavigator from './navigation/BottomTabNavigator';
 const RootStack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
-
-// Configure Google Sign In
-configureGoogleSignIn();
 
 const AuthNavigator = () => (
   <AuthStack.Navigator
@@ -108,54 +105,43 @@ const AppNavigator = () => {
 };
 
 const App = () => {
-  const [userInfo, setUserInfo] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState(null);
   const fontsLoaded = useLoadFonts();
 
-  // Auth state listener
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged(async (user) => {
-      console.log('[App] Auth state changed:', user ? 'User logged in' : 'No user');
+    // Configure Google Sign-In
+    configureGoogleSignIn();
       
+    // Listen for auth state changes
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
         try {
-          // Get user data from Firestore using the imported function
-          const userData = await getCustomerProfile(user.uid);
-          
-          if (userData) {
-            // Update lastLogin using the imported function
-            await updateCustomer(user.uid, {
-              lastLogin: new Date().toISOString()
-            });
-          } else {
-            // Create new user using the imported function
-            const newUserData = {
+          // Get or create customer profile
+          let customerProfile = await getCustomerProfile(user.uid);
+          if (!customerProfile) {
+            await createCustomer({
               uid: user.uid,
-              displayName: user.displayName || user.email.split('@')[0],
               email: user.email,
+              displayName: user.displayName,
+              phoneNumber: user.phoneNumber,
               photoURL: user.photoURL,
-              location: 'Default Location'
-            };
-            
-            await createCustomer(newUserData);
+              createdAt: new Date().toISOString()
+            });
           }
-          
-          setUserInfo(user);
         } catch (error) {
-          console.error('[App] Error handling user data:', error);
-          setUserInfo(user); // Still set user even if Firestore operations fail
+          console.error('Error handling user profile:', error);
         }
-      } else {
-        setUserInfo(null);
       }
-      setIsLoading(false);
+      setUser(user);
+      if (initializing) setInitializing(false);
     });
 
-    return () => unsubscribe();
+    return unsubscribe;
   }, []);
 
   // Show loading state
-  if (!fontsLoaded || isLoading) {
+  if (!fontsLoaded || initializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -173,7 +159,7 @@ const App = () => {
               <NavigationContainer>
                 <ThemedStatusBar />
                 <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {userInfo ? (
+        {user ? (
                     <RootStack.Screen name="Main" component={AppNavigator} />
         ) : (
                     <RootStack.Screen name="Auth" component={AuthNavigator} />

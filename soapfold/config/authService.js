@@ -2,6 +2,7 @@ import { GoogleAuthProvider, getAuth, signInWithCredential } from '@react-native
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getUserFromFirestore, createUserInFirestore, updateUserInFirestore } from './firebase';
 import Constants from 'expo-constants';
+import { auth } from './firebase';
 
 // Configure Google Sign-In
 export const configureGoogleSignIn = () => {
@@ -56,7 +57,7 @@ export const signInWithGoogle = async () => {
 
     // Sign-in the user with the credential
     console.log('[AuthService] Signing in to Firebase...');
-    const userCredential = await signInWithCredential(getAuth(), googleCredential);
+    const userCredential = await signInWithCredential(auth, googleCredential);
     console.log('[AuthService] Firebase sign-in successful:', userCredential.user.email);
     console.log('[AuthService] User credential object:', JSON.stringify(userCredential, null, 2));
     
@@ -116,7 +117,7 @@ export const signOut = async () => {
     await GoogleSignin.signOut();
     
     // Sign out from Firebase
-    await getAuth().signOut();
+    await auth.signOut();
     
     console.log('User signed out successfully');
   } catch (error) {
@@ -127,12 +128,12 @@ export const signOut = async () => {
 
 // Check if user is signed in
 export const isUserSignedIn = () => {
-  return getAuth().currentUser !== null;
+  return auth.currentUser !== null;
 };
 
 // Get current user
 export const getCurrentUser = () => {
-  return getAuth().currentUser;
+  return auth.currentUser;
 };
 
 // Phone authentication functions

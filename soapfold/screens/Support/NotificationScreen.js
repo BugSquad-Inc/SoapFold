@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
 import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { theme } from '../../utils/theme';
+import { auth, firestore } from '../../config/firebase';
+import { collection, query, where, orderBy, getDocs } from '@react-native-firebase/firestore';
 
 const mockNotifications = [
   {
@@ -61,9 +62,8 @@ const groupByDate = (notifications) => {
 // Function to get unread notifications count
 export const unreadNotificationsCount = async () => {
   try {
-    const notificationsRef = collection(db, 'notifications');
-    const q = query(notificationsRef, where('read', '==', false));
-    const querySnapshot = await getDocs(q);
+    const notificationsRef = firestore().collection('notifications');
+    const querySnapshot = await notificationsRef.where('read', '==', false).get();
     return querySnapshot.size;
   } catch (error) {
     console.error('Error getting unread notifications count:', error);
@@ -73,9 +73,43 @@ export const unreadNotificationsCount = async () => {
 
 const NotificationScreen = ({ navigation }) => {
   const { theme: activeTheme } = useTheme();
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const grouped = groupByDate(notifications);
   const dateSections = Object.keys(grouped);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('Please sign in to view notifications');
+      }
+
+      const notificationsRef = collection(firestore, 'notifications');
+      const q = query(
+        notificationsRef,
+        where('userId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+
+      const querySnapshot = await getDocs(q);
+      const notificationList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      setNotifications(notificationList);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      Alert.alert('Error', 'Failed to load notifications. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: '#F5F1FF' }]}> 

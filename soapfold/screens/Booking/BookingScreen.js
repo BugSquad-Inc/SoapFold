@@ -10,15 +10,19 @@ import {
   TextInput,
   Platform,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
 import ScreenContainer from '../../components/ScreenContainer';
 import Constants from 'expo-constants';
 import { createOrder, createPayment } from '../../config/firestore';
-import { auth, db } from '../../config/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getApp } from '@react-native-firebase/app';
+import { getFirestore, serverTimestamp } from '@react-native-firebase/firestore';
+import { getAuth } from '@react-native-firebase/auth';
+import { getUserFromFirestore } from '../../config/firestore';
+import { useTheme } from '../../utils/ThemeContext';
 import {
   validateService,
   validateQuantity,
@@ -29,6 +33,8 @@ import {
   DELIVERY_FEE,
   ERROR_MESSAGES
 } from '../../utils/bookingUtils';
+import { auth, firestore } from '../../config/firebase';
+import { createBookingInFirestore } from '../../config/firestore';
 
 // Modern approach to detect Expo environment
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
@@ -43,6 +49,7 @@ if (!isExpoGo) {
 }
 
 const BookingScreen = ({ navigation, route }) => {
+  const { theme: activeTheme } = useTheme();
   const { service, quantity = 1, totalPrice = 14.99, offerExists = false, offerDiscountAmount = 0 } = route.params || {};
   
   const [selectedDate, setSelectedDate] = useState('');
@@ -61,6 +68,43 @@ const BookingScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+  });
+
+  useEffect(() => {
+    if (route.params?.service) {
+      setSelectedService(route.params.service);
+    }
+    if (route.params?.address) {
+      setSelectedAddress(route.params.address);
+    }
+    fetchUserData();
+  }, [route.params]);
+
+  const fetchUserData = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const userData = await getUserFromFirestore(currentUser.uid);
+        if (userData) {
+          setUserData(userData);
+          setFormData(prev => ({
+            ...prev,
+            name: userData.name || '',
+            email: userData.email || '',
+            phone: userData.phone || '',
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      Alert.alert('Error', 'Failed to load user data');
+    }
+  };
 
   // Validate required params on mount
   useEffect(() => {
@@ -122,116 +166,6 @@ const BookingScreen = ({ navigation, route }) => {
     }
     return true;
   };
-
-  // Handle payment
-  // const handlePayment = async () => {
-  //   try {
-  //     if (!validateForm()) return;
-
-  //     setIsProcessing(true);
-  //     const amountInPaise = Math.round(parseFloat(finalPrice) * 100);
-
-  //     if (amountInPaise < 100) {
-  //       Alert.alert('Error', 'Amount must be at least ₹1');
-  //       return;
-  //     }
-
-  //     const options = {
-  //       description: `Payment for ${service?.name || 'Service'}`,
-  //       image: 'https://i.imgur.com/3g7nmJC.png',
-  //       currency: 'INR',
-  //       key: RAZORPAY_TEST_KEY,
-  //       amount: amountInPaise,
-  //       name: 'SoapFold',
-  //       prefill: {
-  //         email: auth.currentUser?.email || '',
-  //         contact: auth.currentUser?.phoneNumber || '',
-  //         name: auth.currentUser?.displayName || ''
-  //       },
-  //       theme: { color: '#000000' }
-  //     };
-
-  //     const paymentData = await RazorpayCheckout.open(options);
-  //     await handlePaymentSuccess(paymentData);
-  //   } catch (error) {
-  //     console.error('Payment Error:', error);
-  //     Alert.alert('Error', error.description || ERROR_MESSAGES.PAYMENT_FAILED);
-  //   } finally {
-  //     setIsProcessing(false);
-  //   }
-  // };
-
-  // // Handle successful payment
-  // const handlePaymentSuccess = async (paymentData) => {
-  //   try {
-  //     setIsProcessing(true);
-
-  //     const user = auth.currentUser;
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
-
-  //     // Format dates
-  //     const pickupDate = new Date(selectedDate.fullDate);
-  //     const deliveryDate = new Date(pickupDate);
-  //     deliveryDate.setDate(deliveryDate.getDate() + 2);
-
-  //     // Format items
-  //     const formattedItems = [
-  //       {
-  //         name: service.name,
-  //         quantity,
-  //         price: parseFloat(basePrice)
-  //       },
-  //       ...Object.entries(itemCounts)
-  //         .filter(([_, count]) => count > 0)
-  //         .map(([item, count]) => ({
-  //           name: item.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
-  //           quantity: count,
-  //           price: parseFloat(calculateAdditionalItemsPrice({ [item]: count }, basePrice))
-  //         }))
-  //     ];
-
-  //     // Create order
-  //     const orderData = {
-  //       customerId: user.uid,
-  //       items: formattedItems,
-  //       status: 'pending',
-  //       totalAmount: parseFloat(finalPrice),
-  //       pickupDateString: pickupDate.toISOString(),
-  //       deliveryDateString: deliveryDate.toISOString(),
-  //       address: {
-  //         street: address,
-  //         notes: notes
-  //       }
-  //     };
-
-  //     const orderId = await createOrder(orderData);
-
-  //     // Create payment record
-  //     const paymentRecord = {
-  //       orderId,
-  //       customerId: user.uid,
-  //       amount: parseFloat(finalPrice),
-  //       status: 'success',
-  //       method: 'razorpay',
-  //       transactionId: paymentData.razorpay_payment_id
-  //     };
-
-  //     await createPayment(paymentRecord);
-
-  //     // Navigate to success screen
-  //     navigation.replace('PaymentSuccessScreen', {
-  //       orderId,
-  //       amount: finalPrice
-  //     });
-  //   } catch (error) {
-  //     console.error('Error in payment success:', error);
-  //     Alert.alert('Error', 'Failed to process payment. Please contact support.');
-  //   } finally {
-  //     setIsProcessing(false);
-  //   }
-  // };
 
   // Show error state if there's an error
   if (error) {
@@ -387,16 +321,20 @@ const BookingScreen = ({ navigation, route }) => {
         offerApplied: offerExists,
         offerDiscountAmount: offerExists ? offerDiscountAmount : 0
       };
+
       // Log orderData
       console.log('orderData:', orderData);
+
       // Validate orderData
       if (!orderData.customerId || !orderData.service || !orderData.pickupDate || !orderData.pickupTime || !orderData.address || typeof orderData.service.finalPrice === 'undefined') {
         Alert.alert('Error', 'Order data is missing required fields.');
         setIsProcessing(false);
         return;
       }
+
       // Create order in Firestore and get the Firestore document ID
       const orderId = await createOrder(orderData);
+
       // Create payment record
       const paymentData = {
         orderId,
@@ -407,16 +345,20 @@ const BookingScreen = ({ navigation, route }) => {
         createdAt: serverTimestamp(),
         method: 'razorpay',
       };
+
       // Log paymentData
       console.log('paymentData:', paymentData);
+
       // Validate paymentData
       if (!paymentData.orderId || !paymentData.customerId || !paymentData.amount || !paymentData.paymentId) {
         Alert.alert('Error', 'Payment data is missing required fields.');
         setIsProcessing(false);
         return;
       }
+
       // Create payment record
       const paymentId = await createPayment(paymentData);
+
       // Navigate to confirmation screen with Firestore orderId
       navigation.replace('BookingConfirmationScreen', {
         bookingId: orderId,
