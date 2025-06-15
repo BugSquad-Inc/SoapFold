@@ -25,8 +25,7 @@ import { uploadToCloudinary } from '../../utils/imageUpload';
 import GoogleSignin from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CommonActions } from '@react-navigation/native';
-import { signOut as firebaseSignOut } from '@react-native-firebase/auth';
-import { doc, getDoc, updateDoc } from '@react-native-firebase/firestore';
+import { doc, updateDoc, getDoc } from '@react-native-firebase/firestore';
 
 const SettingsScreen = ({ navigation }) => {
   const { theme: activeTheme, toggleDarkMode } = useTheme();
@@ -49,8 +48,9 @@ const SettingsScreen = ({ navigation }) => {
     try {
       const user = auth.currentUser;
       if (user) {
-        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-        if (userDoc.exists()) {
+        const userRef = doc(firestore, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists) {
           setUserData(userDoc.data());
         }
       }
@@ -65,17 +65,85 @@ const SettingsScreen = ({ navigation }) => {
     try {
       setLoading(true);
       const user = auth.currentUser;
+      
       if (user) {
-        await updateUserInFirestore(user.uid, {
-          lastLogout: new Date().toISOString()
+        // 1. Update Firestore user status
+        try {
+          const userRef = doc(firestore, 'users', user.uid);
+          const userDoc = await getDoc(userRef);
+          
+          if (userDoc.exists) {
+            await updateDoc(userRef, {
+              lastLogout: new Date().toISOString(),
+              isOnline: false
+            });
+          }
+        } catch (firestoreError) {
+          console.warn('[Auth] Firestore update failed:', firestoreError);
+        }
+
+        // 2. Handle provider-specific sign out
+        const providers = user.providerData;
+        for (const provider of providers) {
+          switch (provider.providerId) {
+            case 'google.com':
+              try {
+                await GoogleSignin.signOut();
+                console.log('[Auth] Google sign out successful');
+              } catch (googleError) {
+                console.warn('[Auth] Google sign out error:', googleError);
+              }
+              break;
+            
+            case 'phone':
+              // Phone auth doesn't require special cleanup
+              console.log('[Auth] Phone auth cleanup completed');
+              break;
+            
+            case 'password':
+              // Email auth doesn't require special cleanup
+              console.log('[Auth] Email auth cleanup completed');
+              break;
+          }
+        }
+
+        // 3. Sign out from Firebase
+        await auth.signOut();
+        console.log('[Auth] Firebase sign out successful');
+
+        // 4. Clear local storage
+        await AsyncStorage.multiRemove([
+          '@user_data',
+          '@auth_token',
+          '@onboarding_complete',
+          '@user_profile',
+          '@user_settings',
+          '@has_seen_onboarding'
+        ]);
+
+        // Use the root navigation
+        navigation.getParent()?.reset({
+          index: 0,
+          routes: [
+            { 
+              name: 'SignIn',
+              params: {
+                fromSignOut: true
+              }
+            }
+          ],
         });
       }
-      await firebaseSignOut(auth);
     } catch (error) {
-      console.error('Error signing out:', error);
-      Alert.alert('Error', 'Failed to sign out. Please try again.');
+      console.error('[Auth] Error signing out:', error);
+      Alert.alert(
+        'Error',
+        'Failed to sign out. Please try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
+      setShowSignOutModal(false);
     }
   };
 

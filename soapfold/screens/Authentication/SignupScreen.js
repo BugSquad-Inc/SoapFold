@@ -20,16 +20,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons, Entypo } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword } from '@react-native-firebase/auth';
-import { createUserInFirestore } from '../../config/firestore';
+import { doc, setDoc, getDoc } from '@react-native-firebase/firestore';
 import { signInWithGoogle } from '../../config/authService';
 import * as ImagePicker from 'expo-image-picker';
 import { theme, getTextStyle } from '../../utils/theme';
 import { uploadToCloudinary } from '../../utils/imageUpload';
 import { LoadingContext } from '../../contexts/LoadingContext';
 import { CommonActions } from '@react-navigation/native';
-import { auth } from '../../config/firebase';
+import { auth, firestore } from '../../config/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
+
+const ITEM_HEIGHT = 400; // Adjust this value based on your actual item height
+const ITEM_WIDTH = width;
 
 const SignUpScreen = ({ navigation }) => {
   const { setIsLoading } = useContext(LoadingContext);
@@ -235,101 +239,131 @@ const SignUpScreen = ({ navigation }) => {
     navigation.navigate('PhoneSignIn');
   };
 
-  // Complete registration function
-  const completeRegistration = async () => {
-    // Start preloading animation immediately
-    startPreloadingAnimation();
-    setIsLoading(true);
-    setFormLoading(true);
-    setPreloaderText('Creating your account...');
-    
+  const createUserInFirestore = async (user) => {
     try {
-      // Animate to completed state (all dots filled)
-      Animated.timing(progressAnimation, {
-        toValue: 3,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
-      
-      console.log(`Creating account for: ${firstName} ${lastName} (${email}) with username: ${username}`);
-      
-      // Create user with email and password using React Native Firebase
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      const user = userCredential.user;
-      
-      console.log('User created successfully:', user.uid);
-      
-      // Upload profile image if available
-      let photoURL = null;
-      if (profileImage) {
-        setPreloaderText('Uploading profile picture...');
-        photoURL = await uploadToCloudinary(profileImage);
+      if (!user || !user.uid) {
+        throw new Error('Invalid user data');
       }
-      
-      // Update user profile
-      setPreloaderText('Setting up your profile...');
-      await user.updateProfile({
-        displayName: `${firstName} ${lastName}`,
-        photoURL: photoURL || '',
-      });
-      console.log('User profile updated successfully');
-      
-      // Prepare user data for Firestore
+
+      const userRef = doc(firestore, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists) {
+        const userData = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || user.email.split('@')[0],
+          photoURL: user.photoURL || null,
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+          isOnline: true,
+          authProvider: 'email',
+          location: 'Default Location',
+          settings: {
+            notifications: true,
+            darkMode: false,
+            language: 'en'
+          }
+        };
+
+        await setDoc(userRef, userData);
+        console.log('[Auth] New user created in Firestore:', userData.displayName);
+        return userData;
+      } else {
+        console.log('[Auth] User already exists in Firestore');
+        return userDoc.data();
+      }
+    } catch (error) {
+      console.error('[Auth] Error creating user in Firestore:', error);
+      throw error;
+    }
+  };
+
+  const handleSignUp = async () => {
+    try {
+      setIsLoading(true);
+      setFormLoading(true);
+      setPreloaderText('Creating your account...');
+
+      // Validate inputs
+      if (!email || !password || !confirmPassword) {
+        setIsLoading(false);
+        setFormLoading(false);
+        setIsPreloading(false);
+        Alert.alert('Error', 'Please fill in all fields');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setIsLoading(false);
+        setFormLoading(false);
+        setIsPreloading(false);
+        Alert.alert('Error', 'Passwords do not match');
+        return;
+      }
+
+      if (password.length < 6) {
+        setIsLoading(false);
+        setFormLoading(false);
+        setIsPreloading(false);
+        Alert.alert('Error', 'Password must be at least 6 characters');
+        return;
+      }
+
+      // Create user with email and password
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Prepare user data
       const userData = {
         uid: user.uid,
-        firstName: firstName,
-        lastName: lastName,
-        username: username,
-        displayName: `${firstName} ${lastName}`,
-        email: email,
-        photoURL: photoURL || '',
+        email: user.email,
+        displayName: `${firstName} ${lastName}`.trim() || user.email.split('@')[0],
+        photoURL: profileImage || null,
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
-        phoneNumber: user.phoneNumber || '',
-        emailVerified: true
+        isOnline: true,
+        authProvider: 'email',
+        location: 'Default Location',
+        settings: {
+          notifications: true,
+          darkMode: false,
+          language: 'en'
+        }
       };
-      
-      // Save user data to Firestore
-      setPreloaderText('Saving your information...');
-      await createUserInFirestore(userData);
-      
-      console.log('User data saved successfully');
-      
-      // Navigate to home screen
+
+      // Create user profile in Firestore
+      const userRef = doc(firestore, 'users', user.uid);
+      await setDoc(userRef, userData);
+      console.log('[Auth] New user created in Firestore:', userData.displayName);
+
+      // Store user data in AsyncStorage
+      await AsyncStorage.setItem('@user_data', JSON.stringify(userData));
+      await AsyncStorage.setItem('@auth_token', user.credential?.accessToken || '');
+      await AsyncStorage.setItem('@onboarding_complete', 'false');
+
+      // Navigate to onboarding
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Main' }],
+        routes: [{ name: 'Onboarding' }],
       });
-      
+
     } catch (error) {
-      // Reset animation if error
-      Animated.timing(progressAnimation, {
-        toValue: 2,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
-      
+      console.error('[Auth] Sign-up error:', error);
       setIsLoading(false);
       setFormLoading(false);
       setIsPreloading(false);
-      console.error('Sign-up error:', error.code, error.message);
       
-      switch(error.code) {
-        case 'auth/email-already-in-use':
-          Alert.alert('Error', 'This email is already in use. Try signing in instead.');
-          break;
-        case 'auth/invalid-email':
-          Alert.alert('Error', 'The email address is not valid.');
-          break;
-        case 'auth/weak-password':
-          Alert.alert('Error', 'The password is too weak. Please use a stronger password.');
-          break;
-        case 'auth/network-request-failed':
-          Alert.alert('Error', 'Network error. Please check your internet connection.');
-          break;
-        default:
-          Alert.alert('Error', error.message);
+      let errorMessage = 'Failed to create account';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please sign in instead.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please use a stronger password.';
       }
+      
+      Alert.alert('Error', errorMessage);
     }
   };
 
@@ -665,7 +699,7 @@ const SignUpScreen = ({ navigation }) => {
         {/* Next/Register button for steps 1 and 2 */}
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={currentStep === 2 ? completeRegistration : nextStep}
+          onPress={currentStep === 2 ? handleSignUp : nextStep}
           disabled={formLoading}
         >
           {formLoading ? (
@@ -680,6 +714,22 @@ const SignUpScreen = ({ navigation }) => {
     );
   };
 
+  const getItemLayout = (data, index) => ({
+    length: ITEM_HEIGHT,
+    offset: ITEM_HEIGHT * index,
+    index,
+  });
+
+  const handleScrollToIndexFailed = (info) => {
+    const wait = new Promise(resolve => setTimeout(resolve, 500));
+    wait.then(() => {
+      flatListRef.current?.scrollToIndex({
+        index: info.index,
+        animated: true,
+      });
+    });
+  };
+
   return (
     <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
       <SafeAreaView style={styles.safeArea}>
@@ -691,7 +741,7 @@ const SignUpScreen = ({ navigation }) => {
             {renderProgressIndicator()}
           </View>
 
-          <FlatList
+          <Animated.FlatList
             ref={flatListRef}
             data={[
               { id: 'name' },
@@ -706,6 +756,12 @@ const SignUpScreen = ({ navigation }) => {
             scrollEnabled={false}
             style={styles.flatList}
             keyboardShouldPersistTaps="handled"
+            getItemLayout={getItemLayout}
+            onScrollToIndexFailed={handleScrollToIndexFailed}
+            initialNumToRender={3}
+            maxToRenderPerBatch={3}
+            windowSize={3}
+            removeClippedSubviews={true}
           />
           
           {renderBottomButtons()}

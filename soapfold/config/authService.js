@@ -36,9 +36,15 @@ export const signInWithGoogle = async () => {
     
     // Get the users ID token
     console.log('[AuthService] Requesting Google Sign-In...');
-    const { idToken } = await GoogleSignin.signIn();
+    const signInResult = await GoogleSignin.signIn();
     console.log('[AuthService] Google Sign-In completed, processing result...');
 
+    // Try the new style of google-sign in result, from v13+ of that module
+    let idToken = signInResult.data?.idToken;
+    if (!idToken) {
+      // if you are using older versions of google-signin, try old style result
+      idToken = signInResult.idToken;
+    }
     if (!idToken) {
       throw new Error('No ID token found');
     }
@@ -88,7 +94,13 @@ const handleGoogleUserData = async (user) => {
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
         location: 'Default Location',
-        authProvider: 'google'
+        authProvider: 'google',
+        isOnline: true,
+        settings: {
+          notifications: true,
+          darkMode: false,
+          language: 'en'
+        }
       };
       
       await createUserInFirestore(userData);
@@ -97,7 +109,8 @@ const handleGoogleUserData = async (user) => {
       // Update last login for existing user
       await updateUserInFirestore(user.uid, {
         lastLogin: new Date().toISOString(),
-        authProvider: 'google'
+        authProvider: 'google',
+        isOnline: true
       });
       console.log('Existing Google user updated in Firestore:', user.displayName);
     }
