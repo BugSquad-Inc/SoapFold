@@ -21,6 +21,9 @@ const getStatusBadgeStyle = (status) => {
   return styles.completedStatusBadge;
 };
 
+const ACTIVE_STATUSES = ['active', 'pending', 'processing', 'in progress'];
+const COMPLETED_STATUSES = ['completed', 'delivered'];
+
 const OrderScreen = ({ navigation, route }) => {
   const [filter, setFilter] = useState('all');
   const insets = useSafeAreaInsets();
@@ -38,17 +41,21 @@ const OrderScreen = ({ navigation, route }) => {
         return;
       }
       const ordersData = await getCustomerOrders(user.uid);
-      // Format orders for your UI
+      // Map Firestore data to UI format
       const formattedOrders = ordersData.map(order => ({
         id: order.id,
         orderNumber: `#${order.id}`,
         date: order.createdAt?.toDate
           ? order.createdAt.toDate().toLocaleDateString()
-          : new Date(order.createdAt).toLocaleDateString(),
+          : (order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ''),
         status: order.status,
-        totalAmount: `₹${order.totalAmount}`,
-        items: order.items || [],
-        shippingAddress: order.address?.street || '',
+        // Use service.finalPrice for totalAmount
+        totalAmount: order.service?.finalPrice ? `₹${order.service.finalPrice}` : '₹0.00',
+        // Use service as the only item
+        items: order.service
+          ? [{ name: order.service.name, quantity: order.service.quantity }]
+          : [],
+        shippingAddress: order.address || '',
         paymentMethod: order.paymentMethod || '',
       }));
       setOrders(formattedOrders);
@@ -78,8 +85,8 @@ const OrderScreen = ({ navigation, route }) => {
     const filteredOrders = filter === 'all'
       ? orders
       : filter === 'active'
-        ? orders.filter(order => order.status === 'active' || order.status === 'pending')
-        : orders.filter(order => order.status === filter);
+        ? orders.filter(order => ACTIVE_STATUSES.includes(order.status?.toLowerCase()))
+        : orders.filter(order => COMPLETED_STATUSES.includes(order.status?.toLowerCase()));
 
     return filteredOrders.map(order => (
       <TouchableOpacity 
