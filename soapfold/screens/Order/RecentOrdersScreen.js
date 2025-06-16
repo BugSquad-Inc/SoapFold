@@ -164,11 +164,11 @@ const RecentOrdersScreen = ({ navigation, route }) => {
             <View style={styles.actionsContainer}>
               {(item.status === 'Processing' || item.status === 'In Transit' || item.status === 'In Progress' || item.status === 'Pending') ? (
                 <TouchableOpacity 
-                  style={styles.trackButton}
-                  onPress={() => navigation.navigate('OrderDetailScreen', { orderId: item.id })}
+                  style={[styles.trackButton, styles.disabledButton]}
+                  disabled={true}
                 >
-                  <MaterialIcons name="local-shipping" size={18} color="#FFFFFF" />
-                  <Text style={styles.trackButtonText}>Track Order</Text>
+                  <MaterialIcons name="local-shipping" size={18} color="#999999" />
+                  <Text style={[styles.trackButtonText, styles.disabledButtonText]}>Track Order</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity style={styles.reorderButton}>
@@ -178,11 +178,11 @@ const RecentOrdersScreen = ({ navigation, route }) => {
               )}
                 
               <TouchableOpacity 
-                style={styles.detailsButton}
-                onPress={() => navigation.navigate('OrderDetailScreen', { orderId: item.id })}
+                style={[styles.detailsButton, styles.disabledButton]}
+                disabled={true}
               >
-                <MaterialIcons name="receipt" size={16} color="#FFFFFF" />
-                <Text style={styles.detailsButtonText}>View Details</Text>
+                <MaterialIcons name="receipt" size={16} color="#999999" />
+                <Text style={[styles.detailsButtonText, styles.disabledButtonText]}>View Details</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -497,6 +497,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  disabledButton: {
+    backgroundColor: '#e0e0e0',
+    opacity: 0.7,
+  },
+  disabledButtonText: {
+    color: '#999999',
   },
 });
 

@@ -993,11 +993,8 @@ const HomeScreen = () => {
 
         {recentOrder ? (
           <TouchableOpacity 
-            style={styles.recentOrderCard}
-            onPress={() => navigation.navigate('OrderDetailScreen', {
-              orderId: recentOrder.id,
-              ...recentOrder // pass other order details as needed
-            })}
+            style={[styles.recentOrderCard, styles.disabledCard]}
+            disabled={true}
           >
             <View style={styles.recentOrderHeader}>
               <View style={styles.orderInfoContainer}>
@@ -1024,27 +1021,6 @@ const HomeScreen = () => {
                 {recentOrder.pickupDate?.formatted}
                 {recentOrder.pickupDate?.pickupTime ? ` | ${recentOrder.pickupDate.pickupTime}` : ''}
               </Text>
-            </View>
-            {/* Render items, total, etc. */}
-            <View style={styles.orderItemsPreview}>
-              {recentOrder.items && recentOrder.items.map((item, idx) => (
-                <View key={idx} style={styles.orderItemPreview}>
-                  <MaterialIcons name="checkroom" size={18} color="#666" />
-                  <Text style={styles.orderItemPreviewText}>
-                    {item.name} ({item.quantity})
-                  </Text>
-                </View>
-              ))}
-            </View>
-            <View style={styles.orderSummary}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Total</Text>
-                <Text style={styles.summaryValue}>₹{recentOrder.totalAmount || recentOrder.service?.finalPrice || recentOrder.service?.price || 0}</Text>
-              </View>
-              <TouchableOpacity style={styles.trackOrderButton}>
-                <Text style={styles.trackOrderText}>Track Order</Text>
-                <MaterialIcons name="arrow-forward" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         ) : (
@@ -1598,6 +1574,10 @@ const styles = StyleSheet.create({
   promoButtonText: {
     ...getTextStyle('medium', 'sm', '#FFFFFF'),
     fontSize: 13,
+  },
+  disabledCard: {
+    opacity: 0.7,
+    backgroundColor: '#f5f5f5',
   },
 });
 

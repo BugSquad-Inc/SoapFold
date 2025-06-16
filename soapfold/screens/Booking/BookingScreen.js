@@ -75,6 +75,7 @@ const BookingScreen = ({ navigation, route }) => {
     email: '',
     phone: '',
   });
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('razorpay');
 
   useEffect(() => {
     if (route.params?.service) {
@@ -305,7 +306,7 @@ const BookingScreen = ({ navigation, route }) => {
     try {
       setIsProcessing(true);
       
-      // Create order data (do not set orderId yet)
+      // Create order data
       const orderData = {
         customerId: auth.currentUser?.uid,
         service: {
@@ -320,7 +321,8 @@ const BookingScreen = ({ navigation, route }) => {
         status: 'Processing',
         createdAt: serverTimestamp(),
         offerApplied: offerExists,
-        offerDiscountAmount: offerExists ? offerDiscountAmount : 0
+        offerDiscountAmount: offerExists ? offerDiscountAmount : 0,
+        paymentMethod: selectedPaymentMethod
       };
 
       // Log orderData
@@ -336,22 +338,22 @@ const BookingScreen = ({ navigation, route }) => {
       // Create order in Firestore and get the Firestore document ID
       const orderId = await createOrder(orderData);
 
-      // Create payment record
+      // Create payment record with appropriate status
       const paymentData = {
         orderId,
         customerId: auth.currentUser?.uid,
         amount: finalPrice.toFixed(2),
-        paymentId: razorpayData.razorpay_payment_id,
-        status: 'completed',
+        paymentId: selectedPaymentMethod === 'razorpay' ? razorpayData.razorpay_payment_id : 'cod_' + Date.now(),
+        status: selectedPaymentMethod === 'razorpay' ? 'completed' : 'pending',
         createdAt: serverTimestamp(),
-        method: 'razorpay',
+        method: selectedPaymentMethod,
       };
 
       // Log paymentData
       console.log('paymentData:', paymentData);
 
       // Validate paymentData
-      if (!paymentData.orderId || !paymentData.customerId || !paymentData.amount || !paymentData.paymentId) {
+      if (!paymentData.orderId || !paymentData.customerId || !paymentData.amount) {
         Alert.alert('Error', 'Payment data is missing required fields.');
         setIsProcessing(false);
         return;
@@ -369,7 +371,8 @@ const BookingScreen = ({ navigation, route }) => {
         address: address,
         totalPrice: finalPrice.toFixed(2),
         offerApplied: offerExists,
-        offerDiscountAmount: offerExists ? offerDiscountAmount : 0
+        offerDiscountAmount: offerExists ? offerDiscountAmount : 0,
+        paymentMethod: selectedPaymentMethod
       });
       
     } catch (error) {
@@ -448,10 +451,16 @@ const BookingScreen = ({ navigation, route }) => {
     }
   };
 
-  // const handlePayment = isTestMode ? handleTestPayment : handleRazorpayPayment;
-  const handlePayment = handleRazorpayPayment;
-  console.log("HandlePayment ",handlePayment);
-  
+  // Modify handlePayment to handle both payment methods
+  const handlePayment = () => {
+    if (selectedPaymentMethod === 'razorpay') {
+      handleRazorpayPayment();
+    } else {
+      // For COD, directly call handlePaymentSuccess with a mock payment data
+      handlePaymentSuccess({});
+    }
+  };
+
   return (
     <ScreenContainer>
       <SafeAreaView style={styles.safeArea}>
@@ -643,6 +652,52 @@ const BookingScreen = ({ navigation, route }) => {
               <View style={styles.summaryRow}>
                 <Text style={styles.totalLabel}>Total:</Text>
                 <Text style={styles.totalValue}>₹{finalPrice.toFixed(2)}</Text>
+              </View>
+            </View>
+
+            {/* Payment Method */}
+            <View style={styles.paymentMethodContainer}>
+              <Text style={styles.sectionTitle}>Payment Method</Text>
+              <View style={styles.paymentMethodOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.paymentMethodOption,
+                    selectedPaymentMethod === 'razorpay' && styles.selectedPaymentMethod
+                  ]}
+                  onPress={() => setSelectedPaymentMethod('razorpay')}
+                >
+                  <MaterialIcons 
+                    name="payment" 
+                    size={24} 
+                    color={selectedPaymentMethod === 'razorpay' ? '#fff' : '#666'} 
+                  />
+                  <Text style={[
+                    styles.paymentMethodText,
+                    selectedPaymentMethod === 'razorpay' && styles.selectedPaymentMethodText
+                  ]}>
+                    Online Payment
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.paymentMethodOption,
+                    selectedPaymentMethod === 'cod' && styles.selectedPaymentMethod
+                  ]}
+                  onPress={() => setSelectedPaymentMethod('cod')}
+                >
+                  <MaterialIcons 
+                    name="local-atm" 
+                    size={24} 
+                    color={selectedPaymentMethod === 'cod' ? '#fff' : '#666'} 
+                  />
+                  <Text style={[
+                    styles.paymentMethodText,
+                    selectedPaymentMethod === 'cod' && styles.selectedPaymentMethodText
+                  ]}>
+                    Cash on Delivery
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -942,6 +997,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  paymentMethodContainer: {
+    marginBottom: 20,
+  },
+  paymentMethodOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  paymentMethodOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    marginHorizontal: 5,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  selectedPaymentMethod: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  paymentMethodText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  selectedPaymentMethodText: {
+    color: '#fff',
   },
 });
 
