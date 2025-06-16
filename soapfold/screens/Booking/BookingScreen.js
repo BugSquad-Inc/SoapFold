@@ -69,6 +69,7 @@ const BookingScreen = ({ navigation, route }) => {
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [selectedService, setSelectedService] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
