@@ -1,16 +1,13 @@
-import React, { useState, useRef, useEffect, useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ImageBackground, Alert, ScrollView, ActivityIndicator, Dimensions, Animated } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
-import { auth } from '../../config/firebase';
-import { PhoneAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
-import { LoadingContext } from '../../contexts/LoadingContext';
-import { CommonActions } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth';
 import { createUserInFirestore } from '../../config/firestore';
 
 export default function VerifyCodeScreen({ route, navigation }) {
-  const { phoneNumber, verificationId } = route.params;
+  const { phoneNumber, confirmation } = route.params;
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -36,54 +33,47 @@ export default function VerifyCodeScreen({ route, navigation }) {
   };
 
   const handleVerifyCode = async () => {
-    if (code.length !== 6) {
-      Alert.alert('Invalid Code', 'Please enter a 6-digit verification code.');
+    const verificationCode = code.join('');
+    if (verificationCode.length !== 6) {
+      Alert.alert('Error', 'Please enter a 6-digit code.');
       return;
     }
 
+    setLoading(true);
     try {
-      console.log('[VerifyCodeScreen] Starting code verification...');
-      setLoading(true);
-      
-      // Verify the code using React Native Firebase
-      const verificationCode = code.join('');
-      const credential = PhoneAuthProvider.credential(verificationId, verificationCode);
-      
-      // Sign in with the credential
-      const userCredential = await signInWithCredential(auth, credential);
-      const user = userCredential.user;
+      const result = await confirmation.confirm(verificationCode);
+      const user = result.user;
       
       console.log('[VerifyCodeScreen] Code verification successful:', user.phoneNumber);
-      console.log('[VerifyCodeScreen] User object:', JSON.stringify(user, null, 2));
       
       // Create or update user in Firestore
       await createUserInFirestore(user.uid, {
         phoneNumber: user.phoneNumber,
-        lastLogin: new Date().toISOString()
+        lastLogin: new Date().toISOString(),
+        authProvider: 'phone'
       });
 
-      // Navigate to home screen after successful verification
+      // Navigate to main screen after successful verification
       navigation.reset({
         index: 0,
-        routes: [{ name: 'HomeScreen' }],
+        routes: [{ name: 'Main' }],
       });
-      
     } catch (error) {
       console.error('[VerifyCodeScreen] Code Verification Error:', error);
-      console.error('[VerifyCodeScreen] Error details:', JSON.stringify(error, null, 2));
-      let errorMessage = 'Failed to verify code. Please try again.';
+      let errorMessage = 'Invalid code. Please try again.';
       
       if (error.code === 'auth/invalid-verification-code') {
-        errorMessage = 'Invalid verification code. Please check and try again.';
-      } else if (error.code === 'auth/code-expired') {
-        errorMessage = 'Verification code has expired. Please request a new one.';
+        errorMessage = 'The code is incorrect.';
+      } else if (error.code === 'auth/session-expired') {
+        errorMessage = 'The code has expired. Request a new one.';
       } else if (error.code === 'auth/too-many-requests') {
         errorMessage = 'Too many attempts. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
       }
       
-      Alert.alert('Verification Error', errorMessage);
+      Alert.alert('Error', errorMessage);
     } finally {
-      console.log('[VerifyCodeScreen] Code verification process completed');
       setLoading(false);
     }
   };
@@ -92,11 +82,11 @@ export default function VerifyCodeScreen({ route, navigation }) {
     try {
       setResendLoading(true);
       
-      // Send new verification code using React Native Firebase
-      const newConfirmation = await auth.signInWithPhoneNumber(phoneNumber);
+      // Send new verification code
+      const newConfirmation = await auth().signInWithPhoneNumber(phoneNumber);
       
       // Update confirmation in route params
-      navigation.setParams({ verificationId: newConfirmation.verificationId });
+      navigation.setParams({ confirmation: newConfirmation });
       
       setResendDisabled(true);
       setCountdown(60);
@@ -108,6 +98,8 @@ export default function VerifyCodeScreen({ route, navigation }) {
       
       if (error.code === 'auth/too-many-requests') {
         errorMessage = 'Too many requests. Please wait before requesting another code.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
       }
       
       Alert.alert('Error', errorMessage);
@@ -117,81 +109,79 @@ export default function VerifyCodeScreen({ route, navigation }) {
   };
 
   return (
-    <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
+    <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : null}
-          style={styles.keyboardAvoid}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Text style={styles.backText}>←</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.title}>Enter verification code</Text>
+        <Text style={styles.subtitle}>
+          Sent to {phoneNumber}
+        </Text>
+
+        <View style={styles.codeContainer}>
+          {code.map((digit, index) => (
+            <TextInput
+              key={index}
+              ref={(ref) => (inputs.current[index] = ref)}
+              style={styles.codeInput}
+              value={digit}
+              onChangeText={(text) => handleCodeChange(text, index)}
+              onKeyPress={(e) => handleKeyPress(e, index)}
+              keyboardType="number-pad"
+              maxLength={1}
+            />
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.continueButton,
+            loading && styles.continueButtonDisabled
+          ]}
+          onPress={handleVerifyCode}
+          disabled={loading}
         >
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-            >
-              <Text style={styles.backText}>←</Text>
-            </TouchableOpacity>
-          </View>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.continueButtonText}>Verify Code</Text>
+          )}
+        </TouchableOpacity>
 
-          <Text style={styles.title}>Enter code</Text>
-          <Text style={styles.subtitle}>
-            We sent a verification code to your phone{'\n'}
-            {phoneNumber}
-          </Text>
-
-          <View style={styles.codeContainer}>
-            {code.map((digit, index) => (
-              <TextInput
-                key={index}
-                ref={ref => inputs.current[index] = ref}
-                style={styles.codeInput}
-                value={digit}
-                onChangeText={text => handleCodeChange(text, index)}
-                onKeyPress={e => handleKeyPress(e, index)}
-                keyboardType="number-pad"
-                maxLength={1}
-                selectTextOnFocus
-                autoFocus={index === 0}
-              />
-            ))}
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.continueButton,
-              (!code.every(digit => digit) || loading) && styles.continueButtonDisabled
-            ]}
-            onPress={handleVerifyCode}
-            disabled={!code.every(digit => digit) || loading}
-          >
-            <Text style={styles.continueButtonText}>
-              {loading ? 'Verifying...' : 'Continue'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.resendButton,
-              resendLoading && styles.resendButtonDisabled
-            ]}
-            onPress={handleResendCode}
-            disabled={resendLoading}
-          >
+        <TouchableOpacity
+          style={[
+            styles.resendButton,
+            (resendDisabled || resendLoading) && styles.resendButtonDisabled
+          ]}
+          onPress={handleResendCode}
+          disabled={resendDisabled || resendLoading}
+        >
+          {resendLoading ? (
+            <ActivityIndicator color={theme.colors.primary} />
+          ) : (
             <Text style={styles.resendButtonText}>
-              {resendLoading ? 'Resending...' : 'You didn\'t receive any code? Resend Code'}
+              {resendDisabled ? `Resend code in ${countdown}s` : 'Resend code'}
             </Text>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
+          )}
+        </TouchableOpacity>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
+    backgroundColor: '#f8f8f8',
   },
-  keyboardAvoid: {
+  safeArea: {
     flex: 1,
     padding: 20,
   },
@@ -231,21 +221,18 @@ const styles = StyleSheet.create({
   codeInput: {
     width: 45,
     height: 60,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    color: '#000',
-    fontSize: 24,
-    textAlign: 'center',
-    marginHorizontal: 4,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#ccc',
+    borderRadius: 8,
+    textAlign: 'center',
+    fontSize: 20,
+    backgroundColor: '#fff',
   },
   continueButton: {
     backgroundColor: theme.colors.primary,
     padding: 16,
     borderRadius: 25,
     alignItems: 'center',
-    marginBottom: 16,
     height: 52,
   },
   continueButtonDisabled: {
@@ -257,16 +244,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   resendButton: {
-    alignItems: 'center',
+    marginTop: 16,
     padding: 16,
+    alignItems: 'center',
   },
   resendButtonDisabled: {
     opacity: 0.5,
   },
   resendButtonText: {
-    color: theme.colors.secondary,
-    fontSize: 14,
-    fontWeight: '500',
-    textDecorationLine: 'underline',
+    color: theme.colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 
