@@ -81,16 +81,26 @@ export const signInWithGoogle = async () => {
 // Handle Google user data in Firestore
 const handleGoogleUserData = async (user) => {
   try {
+    if (!user || !user.uid) {
+      throw new Error('Invalid user data');
+    }
+
     // Check if user exists in Firestore
-    const existingUserData = await getUserFromFirestore(user.uid);
+    let existingUserData;
+    try {
+      existingUserData = await getUserFromFirestore(user.uid);
+    } catch (error) {
+      console.log('[AuthService] User not found in Firestore, will create new account');
+      existingUserData = null;
+    }
     
     if (!existingUserData) {
       // Create new user in Firestore
       const userData = {
         uid: user.uid,
-        displayName: user.displayName || user.email.split('@')[0],
-        email: user.email,
-        photoURL: user.photoURL,
+        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        email: user.email || '',
+        photoURL: user.photoURL || '',
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
         location: 'Default Location',
@@ -103,20 +113,47 @@ const handleGoogleUserData = async (user) => {
         }
       };
       
-      await createUserInFirestore(userData);
-      console.log('New Google user created in Firestore:', userData.displayName);
+      try {
+        await createUserInFirestore(userData);
+        console.log('[AuthService] New Google user created in Firestore:', userData.displayName);
+        return userData;
+      } catch (createError) {
+        console.error('[AuthService] Error creating new user:', createError);
+        // If creation fails, return the user data anyway so the user can still sign in
+        return userData;
+      }
     } else {
       // Update last login for existing user
-      await updateUserInFirestore(user.uid, {
+      const updatedData = {
         lastLogin: new Date().toISOString(),
         authProvider: 'google',
-        isOnline: true
-      });
-      console.log('Existing Google user updated in Firestore:', user.displayName);
+        isOnline: true,
+        displayName: user.displayName || existingUserData.displayName,
+        photoURL: user.photoURL || existingUserData.photoURL
+      };
+      
+      try {
+        await updateUserInFirestore(user.uid, updatedData);
+        console.log('[AuthService] Existing Google user updated in Firestore:', user.displayName);
+        return { ...existingUserData, ...updatedData };
+      } catch (updateError) {
+        console.error('[AuthService] Error updating user:', updateError);
+        // If update fails, return the existing data anyway
+        return existingUserData;
+      }
     }
   } catch (error) {
-    console.error('Error handling Google user data:', error);
-    // Don't throw error here as the user is already signed in
+    console.error('[AuthService] Error handling Google user data:', error);
+    // Instead of throwing, return a basic user object so the user can still sign in
+    return {
+      uid: user.uid,
+      displayName: user.displayName || user.email?.split('@')[0] || 'User',
+      email: user.email || '',
+      photoURL: user.photoURL || '',
+      lastLogin: new Date().toISOString(),
+      isOnline: true,
+      authProvider: 'google'
+    };
   }
 };
 

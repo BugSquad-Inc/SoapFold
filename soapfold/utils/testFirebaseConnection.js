@@ -1,5 +1,6 @@
 import { auth, firestore, storage } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getDoc, doc, collection } from 'firebase/firestore';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
@@ -17,7 +18,7 @@ export const testFirebaseConnection = async () => {
     console.log('Auth connection test:', !!currentUser);
 
     // Test Firestore
-    const testDoc = await firestore.collection('test').doc('test').get();
+    const testDoc = await getDoc(doc(collection(firestore, 'test'), 'test'));
     console.log('Firestore connection test:', !!testDoc);
 
     // Test Storage

@@ -211,7 +211,6 @@ const createUserInFirestore = async (userData) => {
 
     const usersCollection = collection(firestore, 'users');
     const userRef = doc(usersCollection, userData.uid);
-    const userDoc = await getDoc(userRef);
 
     const currentTimestamp = serverTimestamp();
     const userDataToSave = {
@@ -230,20 +229,23 @@ const createUserInFirestore = async (userData) => {
       }
     };
 
-    if (!userDoc.exists) {
-      // Create new user document
+    // Try to create the document first
+    try {
       await setDoc(userRef, {
         ...userDataToSave,
         createdAt: currentTimestamp
       });
       console.log('User created in Firestore successfully');
-    } else {
-      // Update existing user document
-      await updateDoc(userRef, userDataToSave);
-      console.log('User updated in Firestore successfully');
+      return userDataToSave;
+    } catch (error) {
+      // If the document already exists, update it
+      if (error.code === 'already-exists') {
+        await updateDoc(userRef, userDataToSave);
+        console.log('User updated in Firestore successfully');
+        return userDataToSave;
+      }
+      throw error;
     }
-
-    return userDataToSave;
   } catch (error) {
     console.error('Error managing user in Firestore:', error);
     throw new Error(`Failed to save user data: ${error.message}`);

@@ -27,6 +27,7 @@ import ThemedStatusBar from '../../components/ThemedStatusBar';
 import topSectionBg from '../../assets/topsection_bg.jpeg';
 import { getCustomerOrders, getActiveOffers, applyOffer } from '../../config/firestore'; // adjust path if needed
 import { auth } from '../../config/firebase';
+import { createUserInFirestore } from '../../config/firestore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -154,10 +155,20 @@ const HomeScreen = () => {
             photoURL: currentUser.photoURL,
             createdAt: new Date().toISOString(),
             lastLogin: new Date().toISOString(),
-            location: 'Cembung Dafur, Yogyakarta'
+            location: 'Cembung Dafur, Yogyakarta',
+            authProvider: googleProvider ? 'google' : 'email',
+            isOnline: true,
+            settings: {
+              notifications: true,
+              darkMode: false,
+              language: 'en'
+            }
           };
           
           console.log('Created default user:', defaultUser);
+          
+          // Create user in Firestore
+          await createUserInFirestore(defaultUser);
           
           // Set user data in state
           setUserData(defaultUser);

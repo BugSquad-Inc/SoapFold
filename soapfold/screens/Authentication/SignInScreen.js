@@ -163,21 +163,27 @@ const SignInScreen = ({ navigation }) => {
       setFormLoading(true);
       setIsLoading(true);
       
-      const user = await signInWithGoogle();
+      const userData = await signInWithGoogle();
       
-      if (user) {
-        // Get user data from Firestore
-        const userData = await getUserFromFirestore(user.uid);
-        
-        // Store user data in AsyncStorage
-        await AsyncStorage.setItem('@user_data', JSON.stringify(userData));
-        await AsyncStorage.setItem('@auth_token', user.credential?.accessToken || '');
-        
-        // Navigate to main app
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
+      if (userData) {
+        try {
+          // Store user data in AsyncStorage
+          await AsyncStorage.setItem('@user_data', JSON.stringify(userData));
+          await AsyncStorage.setItem('@auth_token', userData.uid || '');
+          
+          // Navigate to main app
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
+        } catch (storageError) {
+          console.error('[Auth] Error storing user data:', storageError);
+          // Even if storage fails, still navigate to main app
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
+        }
       }
     } catch (error) {
       console.error('[Auth] Google sign in error:', error);
@@ -193,7 +199,22 @@ const SignInScreen = ({ navigation }) => {
         }
       }
       
-      Alert.alert('Error', errorMessage);
+      // Show error but don't block the user
+      Alert.alert(
+        'Sign In Notice',
+        'There was an issue with your sign in, but you can still proceed. Some features may be limited.',
+        [
+          {
+            text: 'Continue',
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main' }],
+              });
+            }
+          }
+        ]
+      );
     } finally {
       setFormLoading(false);
       setIsLoading(false);

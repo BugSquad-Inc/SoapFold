@@ -228,9 +228,19 @@ export const getOrderReviews = async (orderId) => {
 };
 
 // User Management
-export const createUserInFirestore = async (userId, userData) => {
+export const createUserInFirestore = async (userDataOrId, userData) => {
   try {
-    await firestore.collection('users').doc(userId).set(userData);
+    // Handle both single parameter (userData with uid) and two parameters (userId, userData)
+    const userId = userDataOrId.uid || userDataOrId;
+    const dataToSave = userData || userDataOrId;
+
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, userId);
+    await setDoc(userRef, dataToSave);
     return true;
   } catch (error) {
     console.error('Error creating user in Firestore:', error);
@@ -240,7 +250,9 @@ export const createUserInFirestore = async (userId, userData) => {
 
 export const getUserFromFirestore = async (userId) => {
   try {
-    const userDoc = await firestore.collection('users').doc(userId).get();
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, userId);
+    const userDoc = await getDoc(userRef);
     return userDoc.exists ? userDoc.data() : null;
   } catch (error) {
     console.error('Error getting user from Firestore:', error);
@@ -250,7 +262,9 @@ export const getUserFromFirestore = async (userId) => {
 
 export const updateUserInFirestore = async (userId, userData) => {
   try {
-    await firestore.collection('users').doc(userId).update(userData);
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, userId);
+    await updateDoc(userRef, userData);
     return true;
   } catch (error) {
     console.error('Error updating user in Firestore:', error);
