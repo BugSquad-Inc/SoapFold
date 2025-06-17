@@ -171,7 +171,10 @@ const BookingConfirmationScreen = ({ navigation, route }) => {
           
           <TouchableOpacity 
             style={styles.homeButton}
-            onPress={() => navigation.navigate('Main')}
+            onPress={() => navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            })}
           >
             <Text style={styles.homeButtonText}>Go to Home</Text>
           </TouchableOpacity>

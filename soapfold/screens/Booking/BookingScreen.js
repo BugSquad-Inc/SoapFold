@@ -131,24 +131,22 @@ const BookingScreen = ({ navigation, route }) => {
   // Calculate prices only if service exists
   const basePrice = service ? (service.totalPrice || calculateBasePrice(service, quantity)) : 0;
   
-  // Add defensive programming for additionalItemsPrice
-  let additionalItemsPrice = 0;
-  try {
-    if (service) {
-      const calculatedPrice = calculateAdditionalItemsPrice(itemCounts, basePrice);
-      additionalItemsPrice = typeof calculatedPrice === 'number' ? calculatedPrice : 0;
-    }
-  } catch (error) {
-    console.warn('Error calculating additional items price:', error);
-    additionalItemsPrice = 0;
-  }
-
-  // Add logging to help diagnose the issue
-  console.log('Price calculations:', {
-    basePrice,
-    additionalItemsPrice,
-    itemCounts,
-    service
+  // Calculate original and discounted prices with defensive programming
+  const originalServicePrice = (service?.price || 14.99) * quantity;
+  const discountAmount = offerExists ? (originalServicePrice * offerDiscountAmount / 100) : 0;
+  const discountedServicePrice = originalServicePrice - discountAmount;
+  const deliveryFee = 5.00;
+  
+  // Ensure all values are numbers before calculation and round to 2 decimal places
+  const finalPrice = Math.round((Number(discountedServicePrice) + Number(deliveryFee)) * 100) / 100;
+  
+  // Add logging for price calculations
+  console.log('Final price calculations:', {
+    originalServicePrice,
+    discountAmount,
+    discountedServicePrice,
+    deliveryFee,
+    finalPrice
   });
 
   // Update item count with validation
@@ -232,25 +230,6 @@ const BookingScreen = ({ navigation, route }) => {
   
   // Calculate total items
   const totalItems = Object.values(itemCounts).reduce((sum, count) => sum + count, 0) + quantity;
-  
-  // Calculate original and discounted prices with defensive programming
-  const originalServicePrice = (service?.price || 14.99) * quantity;
-  const discountAmount = offerExists ? (originalServicePrice * offerDiscountAmount / 100) : 0;
-  const discountedServicePrice = originalServicePrice - discountAmount;
-  const deliveryFee = 5.00;
-  
-  // Ensure all values are numbers before calculation
-  const finalPrice = Number(discountedServicePrice) + Number(additionalItemsPrice) + Number(deliveryFee);
-  
-  // Add logging for price calculations
-  console.log('Final price calculations:', {
-    originalServicePrice,
-    discountAmount,
-    discountedServicePrice,
-    additionalItemsPrice,
-    deliveryFee,
-    finalPrice
-  });
   
   const dates = generateDates();
 
@@ -393,7 +372,7 @@ const BookingScreen = ({ navigation, route }) => {
     try {
       setIsProcessing(true);
       // Defensive logging
-      console.log('finalPrice:', finalPrice, 'discountedServicePrice:', discountedServicePrice, 'additionalItemsPrice:', additionalItemsPrice, 'deliveryFee:', deliveryFee);
+      console.log('finalPrice:', finalPrice, 'discountedServicePrice:', discountedServicePrice, 'deliveryFee:', deliveryFee);
       if (isNaN(finalPrice) || finalPrice <= 0) {
         Alert.alert('Error', 'Calculated total amount is invalid. Please check your order details.');
         setIsProcessing(false);
@@ -498,14 +477,14 @@ const BookingScreen = ({ navigation, route }) => {
                 <Text style={styles.baseItemLabel}>{service?.name || 'Wash & Fold'}</Text>
                 <View style={styles.baseQuantityContainer}>
                   <Text style={styles.baseQuantityValue}>{quantity} kg</Text>
-                  <Text style={styles.baseItemPrice}>₹{finalPrice}</Text>
+                  <Text style={styles.baseItemPrice}>₹{finalPrice.toFixed(2)}</Text>
                 </View>
               </View>
             </View>
             
-            <Text style={styles.sectionSubtitle}>Additional Items</Text>
+            <Text style={styles.sectionSubtitle}>Items Chosen</Text>
             
-            {/* Additional Items */}
+            {/* Items Selection */}
             {Object.entries(itemCounts).map(([item, count]) => (
               <View key={item} style={styles.itemRow}>
                 <Text style={styles.itemLabel}>
@@ -640,10 +619,6 @@ const BookingScreen = ({ navigation, route }) => {
                   <Text style={styles.summaryValue}>₹{discountedServicePrice.toFixed(2)}</Text>
                 </View>
               )}
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Additional Items:</Text>
-                <Text style={styles.summaryValue}>₹{Number(additionalItemsPrice).toFixed(2)}</Text>
-              </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Delivery Fee:</Text>
                 <Text style={styles.summaryValue}>₹{deliveryFee.toFixed(2)}</Text>
