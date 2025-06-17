@@ -1,113 +1,121 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ImageBackground } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PhoneInput from 'react-native-phone-number-input';
-import { auth } from '../../config/firebase';
-import { PhoneAuthProvider, RecaptchaVerifier } from 'firebase/auth';
+import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { getApp } from '@react-native-firebase/app';
 
 export default function PhoneSignInScreen({ navigation }) {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [formattedValue, setFormattedValue] = useState('');
   const [loading, setLoading] = useState(false);
-  const recaptchaVerifier = useRef(null);
+  const phoneInput = useRef(null);
 
   const handleSendCode = async () => {
+    if (!formattedValue) {
+      Alert.alert('Error', 'Please enter a valid phone number');
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
+      // Get the Firebase app instance
+      const app = getApp();
       
-      // Create a phone provider instance
-      const phoneProvider = new PhoneAuthProvider(auth);
+      // Sign in with phone number
+      const confirmation = await auth(app).signInWithPhoneNumber(formattedValue);
       
-      // Create reCAPTCHA verifier
-      if (!recaptchaVerifier.current) {
-        recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: (response) => {
-            // reCAPTCHA solved, allow signInWithPhoneNumber
-          }
-        });
-      }
+      console.log('[PhoneSignInScreen] Code sent successfully');
       
-      // Send verification code
-      const verificationId = await phoneProvider.verifyPhoneNumber(
-        phoneNumber,
-        recaptchaVerifier.current
-      );
-      
-      navigation.navigate('VerifyCode', { 
-        phoneNumber: phoneNumber,
-        verificationId: verificationId
+      // Navigate to verification screen
+      navigation.navigate('VerifyCode', {
+        phoneNumber: formattedValue,
+        confirmation,
       });
     } catch (error) {
-      console.error('Error sending code:', error);
-      alert(error.message);
+      console.error('[PhoneSignInScreen] Phone sign in error:', error);
+      let errorMessage = 'Failed to send verification code. Please try again.';
+      
+      if (error.code === 'auth/invalid-phone-number') {
+        errorMessage = 'The phone number format is incorrect.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many requests. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
+    <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : null}
-          style={styles.keyboardAvoid}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-        >
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-            >
-              <Text style={styles.backText}>←</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.title}>Enter phone number</Text>
-          <Text style={styles.subtitle}>
-            We'll send you a verification code
-          </Text>
-
-          <View style={styles.inputContainer}>
-            <PhoneInput
-              defaultCode="IN"
-              layout="first"
-              onChangeFormattedText={text => setPhoneNumber(text)}
-              withDarkTheme
-              withShadow
-              autoFocus
-              containerStyle={styles.phoneInput}
-              textContainerStyle={styles.phoneTextContainer}
-              textInputStyle={styles.phoneTextInput}
-              codeTextStyle={styles.phoneCodeText}
-            />
-          </View>
-
-          <View id="recaptcha-container" style={styles.recaptchaContainer} />
-
-          <TouchableOpacity
-            style={[
-              styles.continueButton,
-              (!phoneNumber || loading) && styles.continueButtonDisabled
-            ]}
-            onPress={handleSendCode}
-            disabled={!phoneNumber || loading}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
           >
-            <Text style={styles.continueButtonText}>
-              {loading ? 'Sending...' : 'Continue'}
-            </Text>
+            <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
-        </KeyboardAvoidingView>
+        </View>
+
+        <Text style={styles.title}>Enter your phone number</Text>
+        <Text style={styles.subtitle}>
+          We'll send you a verification code
+        </Text>
+
+        <View style={styles.phoneInputContainer}>
+          <PhoneInput
+            ref={phoneInput}
+            defaultValue={phoneNumber}
+            defaultCode="US"
+            layout="first"
+            onChangeText={(text) => {
+              setPhoneNumber(text);
+            }}
+            onChangeFormattedText={(text) => {
+              setFormattedValue(text);
+            }}
+            withDarkTheme
+            withShadow
+            autoFocus
+            containerStyle={styles.phoneInput}
+            textContainerStyle={styles.phoneInputText}
+            textInputStyle={styles.phoneInputTextInput}
+            codeTextStyle={styles.phoneInputCodeText}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.continueButton,
+            loading && styles.continueButtonDisabled
+          ]}
+          onPress={handleSendCode}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.continueButtonText}>Continue</Text>
+          )}
+        </TouchableOpacity>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
+    backgroundColor: '#f8f8f8',
   },
-  keyboardAvoid: {
+  safeArea: {
     flex: 1,
     padding: 20,
   },
@@ -139,7 +147,7 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 32,
   },
-  inputContainer: {
+  phoneInputContainer: {
     marginBottom: 32,
   },
   phoneInput: {
@@ -147,20 +155,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 12,
   },
-  phoneTextContainer: {
+  phoneInputText: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 12,
   },
-  phoneTextInput: {
+  phoneInputTextInput: {
     color: '#000',
     fontSize: 16,
   },
-  phoneCodeText: {
+  phoneInputCodeText: {
     color: '#000',
     fontSize: 16,
-  },
-  recaptchaContainer: {
-    display: 'none',
   },
   continueButton: {
     backgroundColor: theme.colors.primary,

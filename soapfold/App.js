@@ -1,25 +1,21 @@
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator, Platform, Text, Alert, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { onAuthStateChanged, getAuth } from 'firebase/auth';
-import { auth, storage, db, getUserFromFirestore, createUserInFirestore, updateUserInFirestore, verifyFirebaseInitialized } from './config/firebase';
 import { useState, useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { store } from './store';
-import { MaterialIcons } from '@expo/vector-icons';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import Constants from 'expo-constants';
-import FirebaseVerifier from './components/FirebaseVerifier';
 import { useLoadFonts } from './utils/fonts';
 import { theme } from './utils/theme';
 import { ThemeProvider } from './utils/ThemeContext';
 import ThemedStatusBar from './components/ThemedStatusBar';
 import { LoadingProvider } from './contexts/LoadingContext';
 import React from 'react';
+import { auth } from './config/firebase';
+import { configureGoogleSignIn } from './config/authService';
+import { getCustomerProfile, createCustomer, updateCustomer } from './config/firestore';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Auth Screens
 import OnboardingScreen from './screens/Onboarding/OnboardingScreen';
@@ -29,44 +25,12 @@ import SignInScreen from './screens/Authentication/SignInScreen';
 import SignUpScreen from './screens/Authentication/SignupScreen';
 import ForgotPasswordScreen from './screens/Authentication/ForgotPasswordScreen';
 
-// Main App Screens
-import HomeScreen from './screens/Main/HomeScreen';
-import SettingsScreen from './screens/Profile/SettingsScreen';
-import ErrorBoundary from './components/ErrorBoundary';
-import CategoryScreen from './screens/Service/CategoryScreen';
-import CalendarScreen from './screens/Booking/CalendarScreen';
-import CartScreen from './screens/Order/CartScreen';
-
-// New Screens for the flows
-import RedeemScreen from './screens/Payment/RedeemScreen';
-import OffersScreen from './screens/Offer/OffersScreen';
-import ServiceWithOffersScreen from './screens/Offer/ServiceWithOffersScreen';
-import ServiceScreen from './screens/Service/ServiceScreen';
-import ClothesScreen from './screens/Profile/ClothesScreen';
-// import PaymentScreen from './screens/PaymentScreen';
-// import RazorpayScreen from './screens/RazorpayScreen';
-import PaymentSuccessScreen from './screens/Payment/PaymentSuccessScreen';
-import RecentOrdersScreen from './screens/Order/RecentOrdersScreen';
-
-// New Laundry Service Screens
-import ServiceCategoryScreen from './screens/Service/ServiceCategoryScreen';
-import ServiceDetailScreen from './screens/Service/ServiceDetailScreen';
-import BookingScreen from './screens/Booking/BookingScreen';
-import BookingConfirmationScreen from './screens/Booking/BookingConfirmationScreen';
-import OrderDetailScreen from './screens/Order/OrderDetailScreen';
-
 // Import BottomTabNavigator
 import BottomTabNavigator from './navigation/BottomTabNavigator';
-import OrdersNavigator from './navigation/OrdersNavigator';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const RootStack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
-
-// Update redirect URI to match your Expo development URL
-const redirectUri = 'https://auth.expo.io/@soapfold/soapfold';
 
 const AuthNavigator = () => (
   <AuthStack.Navigator
@@ -137,239 +101,76 @@ const AppNavigator = () => {
         }}
       />
     </AppStack.Navigator>
-  );
-};
-
-// Add diagnostic logging
-const logInit = (message) => {
-  console.log(`[App Init] ${message}`);
+);
 };
 
 const App = () => {
-  const [userInfo, setUserInfo] = useState(null);
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [initError, setInitError] = useState(null);
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState(null);
   const fontsLoaded = useLoadFonts();
 
-  // Google Sign-in configuration
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    androidClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    webClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-  });
-
-  // Initialize app
   useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        logInit('Starting app initialization...');
-        
-        // Wait for fonts to load
-        if (!fontsLoaded) {
-          logInit('Waiting for fonts to load...');
-          return;
-        }
-        logInit('Fonts loaded successfully');
-
-        // Check Firebase initialization
-        const firebaseStatus = verifyFirebaseInitialized();
-        logInit('Firebase status:', firebaseStatus);
-
-        if (!firebaseStatus.app || !firebaseStatus.auth || !firebaseStatus.storage || !firebaseStatus.firestore) {
-          throw new Error('Firebase services not properly initialized');
-        }
-        logInit('Firebase services verified');
-        
-        setIsInitialized(true);
-        logInit('App initialization completed successfully');
-      } catch (error) {
-        console.error('App initialization error:', error);
-        setInitError(error.message);
-      }
-    };
-
-    initializeApp();
-  }, [fontsLoaded]);
-
-  // Auth state listener
-  useEffect(() => {
-    let unsubscribe;
-    
-    const setupAuthListener = async () => {
-      try {
-        logInit('Setting up auth state listener...');
-        
-        unsubscribe = onAuthStateChanged(auth, async (user) => {
-          logInit('Auth state changed:', user ? 'User logged in' : 'No user');
-          
-          if (user) {
-            try {
-              // Get user data from Firestore
-              const firestoreUserData = await getUserFromFirestore(user.uid);
-              
-              if (firestoreUserData) {
-                // Update lastLogin
-                await updateUserInFirestore(user.uid, { 
-                  lastLogin: new Date().toISOString() 
-                });
-                logInit('User data updated in Firestore');
-              } else {
-                // Create new user
-                const userData = {
-                  uid: user.uid,
-                  displayName: user.displayName || user.email.split('@')[0],
-                  email: user.email,
-                  photoURL: user.photoURL,
-                  createdAt: new Date().toISOString(),
-                  lastLogin: new Date().toISOString(),
-                  location: 'Default Location'
-                };
-                
-                await createUserInFirestore(userData);
-                logInit('New user created in Firestore');
-              }
-              
-              setUserInfo(user);
-            } catch (error) {
-              console.error('Error handling user data:', error);
-              setUserInfo(user); // Still set user even if Firestore operations fail
-            }
-          } else {
-            setUserInfo(null);
+    // Configure Google Sign-In
+    configureGoogleSignIn();
+      
+    // Listen for auth state changes
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        try {
+          // Get or create customer profile
+          let customerProfile = await getCustomerProfile(user.uid);
+          if (!customerProfile) {
+            await createCustomer({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              phoneNumber: user.phoneNumber,
+              photoURL: user.photoURL,
+              createdAt: new Date().toISOString()
+            });
           }
-          setIsLoading(false);
-        });
-        
-        logInit('Auth state listener setup complete');
-      } catch (error) {
-        console.error('Error setting up auth listener:', error);
-        setIsLoading(false);
+        } catch (error) {
+          console.error('Error handling user profile:', error);
+        }
       }
-    };
+      setUser(user);
+      if (initializing) setInitializing(false);
+    });
 
-    setupAuthListener();
-    
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    return unsubscribe;
   }, []);
 
-  // Handle Google Sign-in
-  useEffect(() => {
-    if (response?.type === "success") {
-      const { id_token } = response.params;
-      console.log("Got ID token:", id_token ? "Yes" : "No");
-      
-      if (id_token) {
-        const credential = GoogleAuthProvider.credential(id_token);
-        signInWithCredential(auth, credential)
-          .then(async (result) => {
-            console.log('Google sign in successful:', result.user.email);
-            
-            try {
-              // Check if user exists in Firestore
-              const existingUserData = await getUserFromFirestore(result.user.uid);
-              
-              if (!existingUserData) {
-                // Create a new user record for Google Sign-In
-                const userData = {
-                  uid: result.user.uid,
-                  displayName: result.user.displayName || result.user.email.split('@')[0],
-                  email: result.user.email,
-                  photoURL: result.user.photoURL,
-                  createdAt: new Date().toISOString(),
-                  lastLogin: new Date().toISOString(),
-                  location: 'Default Location'
-                };
-                
-                console.log('Creating Google user in Firestore:', userData.displayName);
-                await createUserInFirestore(userData);
-              } else {
-                // Update lastLogin for existing user
-                await updateUserInFirestore(result.user.uid, {
-                  lastLogin: new Date().toISOString()
-                });
-              }
-            } catch (error) {
-              console.error('Error handling Google sign-in user data:', error);
-            }
-            
-            setUserInfo(result.user);
-          })
-          .catch((error) => {
-            console.error('Error signing in with Google:', error.message);
-          });
-      } else {
-        console.error('No ID token received in response');
-      }
-    }
-  }, [response]);
-
-  // Show initialization error
-  if (initError) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ color: 'red', fontSize: 16, marginBottom: 10 }}>
-          Initialization Error:
-        </Text>
-        <Text style={{ color: 'red', fontSize: 14 }}>
-          {initError}
-        </Text>
-        <TouchableOpacity 
-          style={{ 
-            marginTop: 20, 
-            padding: 10, 
-            backgroundColor: theme.colors.primary,
-            borderRadius: 5
-          }}
-          onPress={() => {
-            setInitError(null);
-            setIsInitialized(false);
-          }}
-        >
-          <Text style={{ color: 'white' }}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   // Show loading state
-  if (!isInitialized || !fontsLoaded || isLoading) {
+  if (!fontsLoaded || initializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={{ marginTop: 10 }}>Initializing app...</Text>
+        <Text style={{ marginTop: 10 }}>Loading...</Text>
       </View>
     );
   }
 
   return (
-    <Provider store={store}>
-      <ThemeProvider>
-        <LoadingProvider>
-          <SafeAreaProvider>
-            <ErrorBoundary>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <ThemeProvider>
+          <LoadingProvider>
+            <SafeAreaProvider>
               <NavigationContainer>
                 <ThemedStatusBar />
                 <RootStack.Navigator screenOptions={{ headerShown: false }}>
-                  {userInfo ? (
-                    <>
-                      <RootStack.Screen name="Main" component={AppNavigator} />
-                    </>
-                  ) : (
+        {user ? (
+                    <RootStack.Screen name="Main" component={AppNavigator} />
+        ) : (
                     <RootStack.Screen name="Auth" component={AuthNavigator} />
-                  )}
-                </RootStack.Navigator>
-              </NavigationContainer>
-            </ErrorBoundary>
-          </SafeAreaProvider>
-        </LoadingProvider>
-      </ThemeProvider>
-    </Provider>
+        )}
+      </RootStack.Navigator>
+    </NavigationContainer>
+            </SafeAreaProvider>
+          </LoadingProvider>
+        </ThemeProvider>
+      </Provider>
+    </ErrorBoundary>
   );
 };
 

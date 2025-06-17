@@ -8,7 +8,8 @@ import { BlurView } from 'expo-blur';
 import * as Animatable from 'react-native-animatable';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
-import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute, useNavigation } from '@react-navigation/native';
+import { auth } from '../config/firebase';
 
 // Import screens
 import HomeScreen from '../screens/Main/HomeScreen';
@@ -359,20 +360,26 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   
   // Check for unread notifications
   useEffect(() => {
-    const checkUnreadNotifications = async () => {
+    const checkNotifications = async () => {
       try {
-        const count = await AsyncStorage.getItem('@unreadNotifications');
-        setUnreadCount(count ? parseInt(count) : unreadNotificationsCount);
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          setUnreadCount(0);
+          return;
+        }
+
+        const count = await unreadNotificationsCount(currentUser.uid);
+        setUnreadCount(count);
       } catch (error) {
-        console.log('Error loading unread notifications count', error);
-        setUnreadCount(unreadNotificationsCount);
+        console.error('[BottomTabNavigator] Error checking notifications:', error);
+        setUnreadCount(0);
       }
     };
     
-    checkUnreadNotifications();
+    checkNotifications();
     
     // Check for unread notifications every time the tab bar is focused
-    const unsubscribe = navigation.addListener('focus', checkUnreadNotifications);
+    const unsubscribe = navigation.addListener('focus', checkNotifications);
     return unsubscribe;
   }, [navigation]);
 
@@ -395,7 +402,15 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
               });
 
               if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
+                if (route.name === 'Home') {
+                  // Reset the Home stack to its initial route
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Home' }],
+                  });
+                } else {
+                  navigation.navigate(route.name);
+                }
               }
             };
 
@@ -460,7 +475,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                 <View style={styles.iconContainer}>
                   <Component 
                     name={iconName} 
-                    size={32} // Increased icon size from 28 to 32
+                    size={32}
                     color={isFocused ? (isDarkMode ? '#fff' : '#243D6E') : '#AAAAAA'} 
                   />
                   
@@ -487,6 +502,7 @@ const HomeStack = () => (
       headerShown: false,
       animation: 'fade',
     }}
+    initialRouteName="HomeMain"
   >
     <Stack.Screen name="HomeMain" component={HomeScreen} />
     <Stack.Screen name="ServiceCategoryScreen" component={ServiceCategoryScreen} />
@@ -506,6 +522,7 @@ const SettingsStack = () => (
       headerShown: false,
       animation: 'fade',
     }}
+    initialRouteName="SettingsMain"
   >
     <Stack.Screen name="SettingsMain" component={SettingsScreen} />
     <Stack.Screen name="EditProfile" component={EditProfileScreen} />
@@ -518,18 +535,35 @@ const SettingsStack = () => (
 );
 
 const BottomTabNavigator = () => {
-  // const colorScheme = useColorScheme();
-  // const isDarkMode = colorScheme === 'dark';
   const isDarkMode = true; // FORCE DARK MODE FOR TESTING
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [currentRoute, setCurrentRoute] = useState('Home');
+  const navigation = useNavigation();
   
   useEffect(() => {
-    // ... existing code ...
-  }, []);
+    console.log('[BottomTabNavigator] Initializing with route:', currentRoute);
+    const checkNotifications = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          setUnreadNotifications(0);
+          return;
+        }
 
-  // Helper to hide tab bar on EditProfileScreen
+        const count = await unreadNotificationsCount(currentUser.uid);
+        setUnreadNotifications(count);
+      } catch (error) {
+        console.error('[BottomTabNavigator] Error checking notifications:', error);
+        setUnreadNotifications(0);
+      }
+    };
+    
+    checkNotifications();
+  }, [currentRoute]);
+
   const getTabBarStyle = (route) => {
-    const routeName = getFocusedRouteNameFromRoute(route) ?? '';
+    const routeName = getFocusedRouteNameFromRoute(route) ?? route.name;
+    
     if (routeName === 'EditProfile') {
       return { display: 'none' };
     }
@@ -539,24 +573,81 @@ const BottomTabNavigator = () => {
     };
   };
 
+  // Add effect to handle route changes
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('state', (e) => {
+      const routeName = getFocusedRouteNameFromRoute(e.data.state.routes[e.data.state.index]) ?? 'Home';
+      console.log('[BottomTabNavigator] Current route:', routeName);
+      setCurrentRoute(routeName);
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   return (
     <Tab.Navigator
       initialRouteName="Home"
       tabBar={props => <CustomTabBar {...props} />}
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
-      }}
+        animation: 'fade',
+        gestureEnabled: false,
+        tabBarStyle: getTabBarStyle(route),
+      })}
     >
-      <Tab.Screen name="Home" component={HomeStack} />
-      <Tab.Screen name="Orders" component={OrderScreenNavigator} options={{ title: 'Orders' }} />
-      <Tab.Screen name="CartScreen" component={CartScreen} />
-      <Tab.Screen name="NotificationScreen" component={NotificationScreen} options={{ title: 'Notifications' }} />
+      <Tab.Screen 
+        name="Home" 
+        component={HomeStack}
+        options={{
+          animation: 'fade',
+          gestureEnabled: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="cottage" size={32} color={color} />
+          ),
+          tabBarOnPress: ({ navigation }) => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }],
+            });
+          }
+        }}
+      />
+      <Tab.Screen 
+        name="Orders" 
+        component={OrderScreenNavigator} 
+        options={{ 
+          title: 'Orders',
+          animation: 'fade',
+          gestureEnabled: false
+        }} 
+      />
+      <Tab.Screen 
+        name="CartScreen" 
+        component={CartScreen}
+        options={{
+          animation: 'fade',
+          gestureEnabled: false
+        }}
+      />
+      <Tab.Screen 
+        name="NotificationScreen" 
+        component={NotificationScreen} 
+        options={{ 
+          title: 'Notifications',
+          animation: 'fade',
+          gestureEnabled: false
+        }} 
+      />
       <Tab.Screen
         name="Settings"
         component={SettingsStack}
         options={({ route }) => ({
           title: 'Settings',
-          tabBarStyle: getTabBarStyle(route),
+          animation: 'fade',
+          gestureEnabled: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="person" size={32} color={color} />
+          ),
         })}
       />
     </Tab.Navigator>

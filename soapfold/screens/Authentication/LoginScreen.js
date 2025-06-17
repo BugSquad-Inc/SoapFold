@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,16 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
-import { auth } from '../../config/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { theme, getTextStyle } from '../../utils/theme';
+import { auth } from '../../config/firebase';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
+import { getUserFromFirestore, createUserInFirestore } from '../../config/firestore';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -24,37 +27,67 @@ const LoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
-    // Validate inputs
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
-      return;
-    }
-    
-    if (!password) {
-      Alert.alert('Error', 'Please enter your password');
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
     
     setLoading(true);
-    
     try {
-      // Sign in with email and password
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log('User logged in successfully!');
-      // Navigation will happen automatically via the onAuthStateChanged listener in App.js
-    } catch (error) {
-      let errorMessage = 'Failed to log in. Please check your credentials and try again.';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        errorMessage = 'Invalid email or password.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Please enter a valid email address.';
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many failed login attempts. Please try again later.';
-      }
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
       
-      Alert.alert('Error', errorMessage);
-      console.error('Error logging in:', error);
+      // Get user data from Firestore
+      const userData = await getUserFromFirestore(user.uid);
+      
+      if (userData) {
+        // User exists in Firestore
+        navigation.replace('HomeScreen');
+      } else {
+        // User doesn't exist in Firestore, create new user
+        await createUserInFirestore(user.uid, {
+          email: user.email,
+          name: user.displayName || '',
+          phoneNumber: user.phoneNumber || '',
+          createdAt: new Date().toISOString()
+        });
+        navigation.replace('HomeScreen');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Error', error.message || 'Failed to login');
+    } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const { idToken } = await GoogleSignin.signIn();
+      const googleCredential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(auth, googleCredential);
+      const user = userCredential.user;
+
+      // Get user data from Firestore
+      const userData = await getUserFromFirestore(user.uid);
+      
+      if (userData) {
+        // User exists in Firestore
+        navigation.replace('HomeScreen');
+      } else {
+        // User doesn't exist in Firestore, create new user
+        await createUserInFirestore(user.uid, {
+          email: user.email,
+          name: user.displayName || '',
+          phoneNumber: user.phoneNumber || '',
+          createdAt: new Date().toISOString()
+        });
+        navigation.replace('HomeScreen');
+      }
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      Alert.alert('Error', error.message || 'Failed to sign in with Google');
     }
   };
 

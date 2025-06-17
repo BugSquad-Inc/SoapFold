@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
+import { theme } from '../../utils/theme';
+import { auth } from '../../config/firebase';
+import { getBookingsFromFirestore } from '../../config/firestore';
 
-const CalendarScreen = () => {
+const CalendarScreen = ({ navigation }) => {
   const [selectedDate, setSelectedDate] = useState('');
 
   const handleDayPress = (day) => {

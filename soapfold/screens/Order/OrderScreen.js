@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { getCustomerOrders } from '../../config/firestore';
+import { theme } from '../../utils/theme';
 import { auth } from '../../config/firebase';
+import { getCustomerOrders, getOrderFromFirestore } from '../../config/firestore';
 
 const getStatusLabel = (status) => {
   if (status === 'active') return 'Active';
@@ -20,7 +21,10 @@ const getStatusBadgeStyle = (status) => {
   return styles.completedStatusBadge;
 };
 
-const OrderScreen = ({ navigation }) => {
+const ACTIVE_STATUSES = ['active', 'pending', 'processing', 'in progress'];
+const COMPLETED_STATUSES = ['completed', 'delivered'];
+
+const OrderScreen = ({ navigation, route }) => {
   const [filter, setFilter] = useState('all');
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState([]);
@@ -37,17 +41,21 @@ const OrderScreen = ({ navigation }) => {
         return;
       }
       const ordersData = await getCustomerOrders(user.uid);
-      // Format orders for your UI
+      // Map Firestore data to UI format
       const formattedOrders = ordersData.map(order => ({
         id: order.id,
         orderNumber: `#${order.id}`,
         date: order.createdAt?.toDate
           ? order.createdAt.toDate().toLocaleDateString()
-          : new Date(order.createdAt).toLocaleDateString(),
+          : (order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ''),
         status: order.status,
-        totalAmount: `₹${order.totalAmount}`,
-        items: order.items || [],
-        shippingAddress: order.address?.street || '',
+        // Use service.finalPrice for totalAmount
+        totalAmount: order.service?.finalPrice ? `₹${order.service.finalPrice}` : '₹0.00',
+        // Use service as the only item
+        items: order.service
+          ? [{ name: order.service.name, quantity: order.service.quantity }]
+          : [],
+        shippingAddress: order.address || '',
         paymentMethod: order.paymentMethod || '',
       }));
       setOrders(formattedOrders);
@@ -68,7 +76,7 @@ const OrderScreen = ({ navigation }) => {
     if (!orders || orders.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Icon name="shopping-bag" size={60} color="#243D6E" />
+          <MaterialIcons name="shopping-bag" size={60} color="#243D6E" />
           <Text style={[styles.emptyStateText, {color: '#243D6E', fontWeight: 'bold'}]}>No orders yet</Text>
         </View>
       );
@@ -77,14 +85,14 @@ const OrderScreen = ({ navigation }) => {
     const filteredOrders = filter === 'all'
       ? orders
       : filter === 'active'
-        ? orders.filter(order => order.status === 'active' || order.status === 'pending')
-        : orders.filter(order => order.status === filter);
+        ? orders.filter(order => ACTIVE_STATUSES.includes(order.status?.toLowerCase()))
+        : orders.filter(order => COMPLETED_STATUSES.includes(order.status?.toLowerCase()));
 
     return filteredOrders.map(order => (
       <TouchableOpacity 
         key={order.id} 
         style={styles.orderCard}
-        onPress={() => navigation.navigate('OrderDetail', { order })}
+        onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
       >
         <View style={styles.orderHeader}>
           <Text style={styles.orderNumber}>{order.orderNumber}</Text>
@@ -113,15 +121,11 @@ const OrderScreen = ({ navigation }) => {
         </View>
         
         <View style={styles.orderFooter}>
-          <TouchableOpacity 
-            style={styles.orderButton}
-            onPress={() => navigation.navigate('OrderDetail', { order })}
-          >
-            <Text style={styles.orderButtonText}>View Details</Text>
-          </TouchableOpacity>
-          
           {order.status === 'active' && (
-            <TouchableOpacity style={styles.orderButton}>
+            <TouchableOpacity 
+              style={styles.orderButton}
+              onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+            >
               <Text style={styles.orderButtonText}>Track Order</Text>
             </TouchableOpacity>
           )}
@@ -299,6 +303,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginTop: 10,
+  },
+  disabledButton: {
+    backgroundColor: '#e0e0e0',
+    opacity: 0.7,
+  },
+  disabledButtonText: {
+    color: '#999',
   },
 });
 

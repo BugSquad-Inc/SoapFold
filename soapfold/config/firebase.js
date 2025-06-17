@@ -1,103 +1,38 @@
-import { initializeApp, getApps } from "firebase/app";
-import { initializeAuth, getReactNativePersistence } from "firebase/auth";
-import { getStorage } from "firebase/storage";
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  doc, 
-  deleteDoc, 
-  orderBy, 
-  serverTimestamp, 
-  setDoc,
-  enableIndexedDbPersistence,
-  CACHE_SIZE_UNLIMITED
-} from "firebase/firestore";
-import { Alert } from "react-native";
-import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getAuth } from "firebase/auth";
+import { getApp, initializeApp } from '@react-native-firebase/app';
+import { getAuth } from '@react-native-firebase/auth';
+import { getFirestore, collection, doc, addDoc, updateDoc, getDoc, query, where, getDocs, serverTimestamp, deleteDoc, orderBy, setDoc } from '@react-native-firebase/firestore';
+import { getStorage } from '@react-native-firebase/storage';
+import { Alert } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyA25WB_mlRL8tPj-_WD2-ieNkF7NSHRnuI",
-  authDomain: "soapfold.firebaseapp.com",
-  projectId: "soapfold",
-  storageBucket: "soapfold.firebasestorage.app",
-  messagingSenderId: "192181548467",
-  appId: "1:192181548467:web:f9c4135dcf4b5061a547c6"
-};
+// Initialize Firebase if it hasn't been initialized
+let app;
+try {
+  app = getApp();
+} catch (error) {
+  // Firebase hasn't been initialized yet
+  app = initializeApp({
+    // Your Firebase config here
+  });
+}
 
-// Initialize Firebase
-let app = null;
-let auth = null;
-let storage = null;
-let db = null;
+// Initialize Firebase services
+export const auth = getAuth(app);
+export const firestore = getFirestore(app);
+export const storage = getStorage(app);
 
+// Initialize Firebase services
 const initializeFirebase = async () => {
   try {
-    console.log("[Firebase] Starting initialization...");
+    console.log('[Firebase] Starting initialization...');
     
-    // Check if app is already initialized
-    if (!getApps().length) {
-      console.log("[Firebase] No existing apps found, initializing new app...");
-      app = initializeApp(firebaseConfig);
-      console.log("[Firebase] New app initialized successfully");
-    } else {
-      console.log("[Firebase] Using existing app instance");
-      app = getApps()[0];
-    }
-
-    // Initialize Auth with persistence
-    try {
-      console.log("[Firebase] Initializing Auth...");
-      auth = initializeAuth(app, {
-        persistence: getReactNativePersistence(AsyncStorage)
-      });
-      console.log("[Firebase] Auth initialized successfully");
-    } catch (authError) {
-      console.error("[Firebase] Auth initialization failed:", authError);
-      throw new Error(`Auth initialization failed: ${authError.message}`);
-    }
-
-    // Initialize Storage
-    try {
-      console.log("[Firebase] Initializing Storage...");
-      storage = getStorage(app);
-      console.log("[Firebase] Storage initialized successfully");
-    } catch (storageError) {
-      console.error("[Firebase] Storage initialization failed:", storageError);
-      throw new Error(`Storage initialization failed: ${storageError.message}`);
-    }
-
-    // Initialize Firestore with offline persistence
-    try {
-      console.log("[Firebase] Initializing Firestore...");
-      db = getFirestore(app);
-      
-      // Enable offline persistence
-      await enableIndexedDbPersistence(db, {
-        synchronizeTabs: true,
-        cacheSizeBytes: CACHE_SIZE_UNLIMITED
-      }).catch((err) => {
-        if (err.code === 'failed-precondition') {
-          console.warn('[Firebase] Multiple tabs open, persistence can only be enabled in one tab at a time.');
-        } else if (err.code === 'unimplemented') {
-          console.warn('[Firebase] The current browser does not support persistence.');
-        }
-      });
-      
-      console.log("[Firebase] Firestore initialized successfully with offline persistence");
-    } catch (firestoreError) {
-      console.error("[Firebase] Firestore initialization failed:", firestoreError);
-      throw new Error(`Firestore initialization failed: ${firestoreError.message}`);
-    }
+    // Enable offline persistence for Firestore
+    await firestore.settings({
+      persistence: true,
+      cacheSizeBytes: firestore.CACHE_SIZE_UNLIMITED
+    });
+    console.log('[Firebase] Firestore persistence enabled');
 
     // Set up network state monitoring
     NetInfo.addEventListener(state => {
@@ -113,11 +48,11 @@ const initializeFirebase = async () => {
       }
     });
 
-    console.log("[Firebase] All services initialized successfully");
+    console.log('[Firebase] All services initialized successfully');
     return true;
   } catch (error) {
-    console.error("[Firebase] Initialization error:", error);
-    console.error("[Firebase] Error details:", JSON.stringify(error, null, 2));
+    console.error('[Firebase] Initialization error:', error);
+    console.error('[Firebase] Error details:', JSON.stringify(error, null, 2));
     
     // Show error alert after a delay to ensure UI is ready
     setTimeout(() => {
@@ -134,34 +69,29 @@ const initializeFirebase = async () => {
 // Initialize Firebase immediately
 initializeFirebase().then(success => {
   if (!success) {
-    console.error("[Firebase] Initialization failed");
+    console.error('[Firebase] Initialization failed');
   }
 });
 
 // Function to verify Firebase initialization status
 export const verifyFirebaseInitialized = () => {
   try {
-    const auth = getAuth();
-    const app = auth.app;
-    const firestore = getFirestore();
-    const storage = getStorage();
-
     return {
-      app: !!app,
       auth: !!auth,
-      storage: !!storage,
-      firestore: !!firestore
+      firestore: !!firestore,
+      storage: !!storage
     };
   } catch (error) {
-    console.error('Error verifying Firebase initialization:', error);
+    console.error('[Firebase] Error verifying initialization:', error);
     return {
-      app: false,
       auth: false,
-      storage: false,
-      firestore: false
+      firestore: false,
+      storage: false
     };
   }
 };
+
+export default app;
 
 // ====== FIRESTORE ORDERS FUNCTIONS ======
 
@@ -175,7 +105,8 @@ const createOrder = async (orderData) => {
       status: orderData.status || 'pending'
     };
     
-    const docRef = await addDoc(collection(db, 'orders'), orderWithTimestamp);
+    const ordersCollection = collection(firestore, 'orders');
+    const docRef = await addDoc(ordersCollection, orderWithTimestamp);
     console.log("Order created with ID:", docRef.id);
     
     return { id: docRef.id, ...orderWithTimestamp };
@@ -188,7 +119,8 @@ const createOrder = async (orderData) => {
 // Update an existing order
 const updateOrder = async (orderId, updateData) => {
   try {
-    const orderRef = doc(db, 'orders', orderId);
+    const ordersCollection = collection(firestore, 'orders');
+    const orderRef = doc(ordersCollection, orderId);
     
     const updatedData = {
       ...updateData,
@@ -208,9 +140,11 @@ const updateOrder = async (orderId, updateData) => {
 // Get a single order by ID
 const getOrderById = async (orderId) => {
   try {
-    const orderDoc = await getDoc(doc(db, 'orders', orderId));
+    const ordersCollection = collection(firestore, 'orders');
+    const orderRef = doc(ordersCollection, orderId);
+    const orderDoc = await getDoc(orderRef);
     
-    if (orderDoc.exists()) {
+    if (orderDoc.exists) {
       return { id: orderDoc.id, ...orderDoc.data() };
     } else {
       console.log("No order found with ID:", orderId);
@@ -225,13 +159,14 @@ const getOrderById = async (orderId) => {
 // Get all orders for a customer
 const getCustomerOrders = async (customerId) => {
   try {
-    const ordersQuery = query(
-      collection(db, 'orders'),
+    const ordersCollection = collection(firestore, 'orders');
+    const q = query(
+      ordersCollection,
       where('customerId', '==', customerId),
       orderBy('createdAt', 'desc')
     );
     
-    const querySnapshot = await getDocs(ordersQuery);
+    const querySnapshot = await getDocs(q);
     const orders = [];
     
     querySnapshot.forEach((doc) => {
@@ -248,7 +183,9 @@ const getCustomerOrders = async (customerId) => {
 // Delete an order
 const deleteOrder = async (orderId) => {
   try {
-    await deleteDoc(doc(db, 'orders', orderId));
+    const ordersCollection = collection(firestore, 'orders');
+    const orderRef = doc(ordersCollection, orderId);
+    await deleteDoc(orderRef);
     console.log("Order deleted successfully:", orderId);
     return true;
   } catch (error) {
@@ -272,39 +209,43 @@ const createUserInFirestore = async (userData) => {
       throw new Error(`Invalid user data: Missing required fields: ${missingFields.join(', ')}`);
     }
 
-    const userRef = doc(db, 'users', userData.uid);
-    const userDoc = await getDoc(userRef);
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, userData.uid);
 
+    const currentTimestamp = serverTimestamp();
     const userDataToSave = {
       ...userData,
-      updatedAt: serverTimestamp(),
-      lastLogin: serverTimestamp(),
+      updatedAt: currentTimestamp,
+      lastLogin: currentTimestamp,
       // Ensure these fields are always present
       emailVerified: userData.emailVerified || false,
       phoneNumber: userData.phoneNumber || '',
       photoURL: userData.photoURL || '',
       // Add metadata
       _metadata: {
-        lastUpdated: serverTimestamp(),
+        lastUpdated: currentTimestamp,
         createdBy: 'app_signup',
         version: '1.0'
       }
     };
 
-    if (!userDoc.exists()) {
-      // Create new user document
+    // Try to create the document first
+    try {
       await setDoc(userRef, {
         ...userDataToSave,
-        createdAt: serverTimestamp()
+        createdAt: currentTimestamp
       });
       console.log('User created in Firestore successfully');
-    } else {
-      // Update existing user document
-      await updateDoc(userRef, userDataToSave);
-      console.log('User updated in Firestore successfully');
+      return userDataToSave;
+    } catch (error) {
+      // If the document already exists, update it
+      if (error.code === 'already-exists') {
+        await updateDoc(userRef, userDataToSave);
+        console.log('User updated in Firestore successfully');
+        return userDataToSave;
+      }
+      throw error;
     }
-
-    return userDataToSave;
   } catch (error) {
     console.error('Error managing user in Firestore:', error);
     throw new Error(`Failed to save user data: ${error.message}`);
@@ -328,17 +269,18 @@ const handleFirestoreError = (error, operation) => {
   }
 };
 
-// Update the getUserFromFirestore function with better error handling
+// Update the getUserFromFirestore function
 const getUserFromFirestore = async (uid) => {
   try {
     if (!uid) {
       throw new Error('User ID is required');
     }
 
-    const userRef = doc(db, 'users', uid);
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, uid);
     const userDoc = await getDoc(userRef);
 
-    if (!userDoc.exists()) {
+    if (!userDoc.exists) {
       console.log('No user document found in Firestore');
       return null;
     }
@@ -363,10 +305,12 @@ const getUserFromFirestore = async (uid) => {
 
     return processedData;
   } catch (error) {
-    throw handleFirestoreError(error, 'getUserFromFirestore');
+    console.error('Error fetching user from Firestore:', error);
+    throw error;
   }
 };
 
+// Update the updateUserInFirestore function
 const updateUserInFirestore = async (uid, updateData) => {
   try {
     if (!uid) {
@@ -377,10 +321,11 @@ const updateUserInFirestore = async (uid, updateData) => {
       throw new Error('No update data provided');
     }
 
-    const userRef = doc(db, 'users', uid);
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, uid);
     const userDoc = await getDoc(userRef);
 
-    if (!userDoc.exists()) {
+    if (!userDoc.exists) {
       throw new Error('User document does not exist');
     }
 
@@ -410,9 +355,6 @@ const updateUserInFirestore = async (uid, updateData) => {
 
 // Export all services
 export { 
-  auth,
-  storage,
-  db,
   // User management functions
   createUserInFirestore,
   getUserFromFirestore,

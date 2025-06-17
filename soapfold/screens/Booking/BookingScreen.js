@@ -10,15 +10,19 @@ import {
   TextInput,
   Platform,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
 import ScreenContainer from '../../components/ScreenContainer';
 import Constants from 'expo-constants';
 import { createOrder, createPayment } from '../../config/firestore';
-import { auth, db } from '../../config/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getApp } from '@react-native-firebase/app';
+import { getFirestore, serverTimestamp } from '@react-native-firebase/firestore';
+import { getAuth } from '@react-native-firebase/auth';
+import { getUserFromFirestore } from '../../config/firestore';
+import { useTheme } from '../../utils/ThemeContext';
 import {
   validateService,
   validateQuantity,
@@ -29,6 +33,8 @@ import {
   DELIVERY_FEE,
   ERROR_MESSAGES
 } from '../../utils/bookingUtils';
+import { auth, firestore } from '../../config/firebase';
+import { createBookingInFirestore } from '../../config/firestore';
 
 // Modern approach to detect Expo environment
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
@@ -43,6 +49,7 @@ if (!isExpoGo) {
 }
 
 const BookingScreen = ({ navigation, route }) => {
+  const { theme: activeTheme } = useTheme();
   const { service, quantity = 1, totalPrice = 14.99, offerExists = false, offerDiscountAmount = 0 } = route.params || {};
   
   const [selectedDate, setSelectedDate] = useState('');
@@ -61,6 +68,45 @@ const BookingScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [selectedService, setSelectedService] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+  });
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('razorpay');
+
+  useEffect(() => {
+    if (route.params?.service) {
+      setSelectedService(route.params.service);
+    }
+    if (route.params?.address) {
+      setSelectedAddress(route.params.address);
+    }
+    fetchUserData();
+  }, [route.params]);
+
+  const fetchUserData = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const userData = await getUserFromFirestore(currentUser.uid);
+        if (userData) {
+          setUserData(userData);
+          setFormData(prev => ({
+            ...prev,
+            name: userData.name || '',
+            email: userData.email || '',
+            phone: userData.phone || '',
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      Alert.alert('Error', 'Failed to load user data');
+    }
+  };
 
   // Validate required params on mount
   useEffect(() => {
@@ -85,24 +131,22 @@ const BookingScreen = ({ navigation, route }) => {
   // Calculate prices only if service exists
   const basePrice = service ? (service.totalPrice || calculateBasePrice(service, quantity)) : 0;
   
-  // Add defensive programming for additionalItemsPrice
-  let additionalItemsPrice = 0;
-  try {
-    if (service) {
-      const calculatedPrice = calculateAdditionalItemsPrice(itemCounts, basePrice);
-      additionalItemsPrice = typeof calculatedPrice === 'number' ? calculatedPrice : 0;
-    }
-  } catch (error) {
-    console.warn('Error calculating additional items price:', error);
-    additionalItemsPrice = 0;
-  }
-
-  // Add logging to help diagnose the issue
-  console.log('Price calculations:', {
-    basePrice,
-    additionalItemsPrice,
-    itemCounts,
-    service
+  // Calculate original and discounted prices with defensive programming
+  const originalServicePrice = (service?.price || 14.99) * quantity;
+  const discountAmount = offerExists ? (originalServicePrice * offerDiscountAmount / 100) : 0;
+  const discountedServicePrice = originalServicePrice - discountAmount;
+  const deliveryFee = 5.00;
+  
+  // Ensure all values are numbers before calculation and round to 2 decimal places
+  const finalPrice = Math.round((Number(discountedServicePrice) + Number(deliveryFee)) * 100) / 100;
+  
+  // Add logging for price calculations
+  console.log('Final price calculations:', {
+    originalServicePrice,
+    discountAmount,
+    discountedServicePrice,
+    deliveryFee,
+    finalPrice
   });
 
   // Update item count with validation
@@ -122,116 +166,6 @@ const BookingScreen = ({ navigation, route }) => {
     }
     return true;
   };
-
-  // Handle payment
-  // const handlePayment = async () => {
-  //   try {
-  //     if (!validateForm()) return;
-
-  //     setIsProcessing(true);
-  //     const amountInPaise = Math.round(parseFloat(finalPrice) * 100);
-
-  //     if (amountInPaise < 100) {
-  //       Alert.alert('Error', 'Amount must be at least ₹1');
-  //       return;
-  //     }
-
-  //     const options = {
-  //       description: `Payment for ${service?.name || 'Service'}`,
-  //       image: 'https://i.imgur.com/3g7nmJC.png',
-  //       currency: 'INR',
-  //       key: RAZORPAY_TEST_KEY,
-  //       amount: amountInPaise,
-  //       name: 'SoapFold',
-  //       prefill: {
-  //         email: auth.currentUser?.email || '',
-  //         contact: auth.currentUser?.phoneNumber || '',
-  //         name: auth.currentUser?.displayName || ''
-  //       },
-  //       theme: { color: '#000000' }
-  //     };
-
-  //     const paymentData = await RazorpayCheckout.open(options);
-  //     await handlePaymentSuccess(paymentData);
-  //   } catch (error) {
-  //     console.error('Payment Error:', error);
-  //     Alert.alert('Error', error.description || ERROR_MESSAGES.PAYMENT_FAILED);
-  //   } finally {
-  //     setIsProcessing(false);
-  //   }
-  // };
-
-  // // Handle successful payment
-  // const handlePaymentSuccess = async (paymentData) => {
-  //   try {
-  //     setIsProcessing(true);
-
-  //     const user = auth.currentUser;
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
-
-  //     // Format dates
-  //     const pickupDate = new Date(selectedDate.fullDate);
-  //     const deliveryDate = new Date(pickupDate);
-  //     deliveryDate.setDate(deliveryDate.getDate() + 2);
-
-  //     // Format items
-  //     const formattedItems = [
-  //       {
-  //         name: service.name,
-  //         quantity,
-  //         price: parseFloat(basePrice)
-  //       },
-  //       ...Object.entries(itemCounts)
-  //         .filter(([_, count]) => count > 0)
-  //         .map(([item, count]) => ({
-  //           name: item.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
-  //           quantity: count,
-  //           price: parseFloat(calculateAdditionalItemsPrice({ [item]: count }, basePrice))
-  //         }))
-  //     ];
-
-  //     // Create order
-  //     const orderData = {
-  //       customerId: user.uid,
-  //       items: formattedItems,
-  //       status: 'pending',
-  //       totalAmount: parseFloat(finalPrice),
-  //       pickupDateString: pickupDate.toISOString(),
-  //       deliveryDateString: deliveryDate.toISOString(),
-  //       address: {
-  //         street: address,
-  //         notes: notes
-  //       }
-  //     };
-
-  //     const orderId = await createOrder(orderData);
-
-  //     // Create payment record
-  //     const paymentRecord = {
-  //       orderId,
-  //       customerId: user.uid,
-  //       amount: parseFloat(finalPrice),
-  //       status: 'success',
-  //       method: 'razorpay',
-  //       transactionId: paymentData.razorpay_payment_id
-  //     };
-
-  //     await createPayment(paymentRecord);
-
-  //     // Navigate to success screen
-  //     navigation.replace('PaymentSuccessScreen', {
-  //       orderId,
-  //       amount: finalPrice
-  //     });
-  //   } catch (error) {
-  //     console.error('Error in payment success:', error);
-  //     Alert.alert('Error', 'Failed to process payment. Please contact support.');
-  //   } finally {
-  //     setIsProcessing(false);
-  //   }
-  // };
 
   // Show error state if there's an error
   if (error) {
@@ -297,25 +231,6 @@ const BookingScreen = ({ navigation, route }) => {
   // Calculate total items
   const totalItems = Object.values(itemCounts).reduce((sum, count) => sum + count, 0) + quantity;
   
-  // Calculate original and discounted prices with defensive programming
-  const originalServicePrice = (service?.price || 14.99) * quantity;
-  const discountAmount = offerExists ? (originalServicePrice * offerDiscountAmount / 100) : 0;
-  const discountedServicePrice = originalServicePrice - discountAmount;
-  const deliveryFee = 5.00;
-  
-  // Ensure all values are numbers before calculation
-  const finalPrice = Number(discountedServicePrice) + Number(additionalItemsPrice) + Number(deliveryFee);
-  
-  // Add logging for price calculations
-  console.log('Final price calculations:', {
-    originalServicePrice,
-    discountAmount,
-    discountedServicePrice,
-    additionalItemsPrice,
-    deliveryFee,
-    finalPrice
-  });
-  
   const dates = generateDates();
 
   // Define the items to be passed to payment
@@ -370,7 +285,7 @@ const BookingScreen = ({ navigation, route }) => {
     try {
       setIsProcessing(true);
       
-      // Create order data (do not set orderId yet)
+      // Create order data
       const orderData = {
         customerId: auth.currentUser?.uid,
         service: {
@@ -385,38 +300,47 @@ const BookingScreen = ({ navigation, route }) => {
         status: 'Processing',
         createdAt: serverTimestamp(),
         offerApplied: offerExists,
-        offerDiscountAmount: offerExists ? offerDiscountAmount : 0
+        offerDiscountAmount: offerExists ? offerDiscountAmount : 0,
+        paymentMethod: selectedPaymentMethod
       };
+
       // Log orderData
       console.log('orderData:', orderData);
+
       // Validate orderData
       if (!orderData.customerId || !orderData.service || !orderData.pickupDate || !orderData.pickupTime || !orderData.address || typeof orderData.service.finalPrice === 'undefined') {
         Alert.alert('Error', 'Order data is missing required fields.');
         setIsProcessing(false);
         return;
       }
+
       // Create order in Firestore and get the Firestore document ID
       const orderId = await createOrder(orderData);
-      // Create payment record
+
+      // Create payment record with appropriate status
       const paymentData = {
         orderId,
         customerId: auth.currentUser?.uid,
         amount: finalPrice.toFixed(2),
-        paymentId: razorpayData.razorpay_payment_id,
-        status: 'completed',
+        paymentId: selectedPaymentMethod === 'razorpay' ? razorpayData.razorpay_payment_id : 'cod_' + Date.now(),
+        status: selectedPaymentMethod === 'razorpay' ? 'completed' : 'pending',
         createdAt: serverTimestamp(),
-        method: 'razorpay',
+        method: selectedPaymentMethod,
       };
+
       // Log paymentData
       console.log('paymentData:', paymentData);
+
       // Validate paymentData
-      if (!paymentData.orderId || !paymentData.customerId || !paymentData.amount || !paymentData.paymentId) {
+      if (!paymentData.orderId || !paymentData.customerId || !paymentData.amount) {
         Alert.alert('Error', 'Payment data is missing required fields.');
         setIsProcessing(false);
         return;
       }
+
       // Create payment record
       const paymentId = await createPayment(paymentData);
+
       // Navigate to confirmation screen with Firestore orderId
       navigation.replace('BookingConfirmationScreen', {
         bookingId: orderId,
@@ -426,7 +350,8 @@ const BookingScreen = ({ navigation, route }) => {
         address: address,
         totalPrice: finalPrice.toFixed(2),
         offerApplied: offerExists,
-        offerDiscountAmount: offerExists ? offerDiscountAmount : 0
+        offerDiscountAmount: offerExists ? offerDiscountAmount : 0,
+        paymentMethod: selectedPaymentMethod
       });
       
     } catch (error) {
@@ -447,7 +372,7 @@ const BookingScreen = ({ navigation, route }) => {
     try {
       setIsProcessing(true);
       // Defensive logging
-      console.log('finalPrice:', finalPrice, 'discountedServicePrice:', discountedServicePrice, 'additionalItemsPrice:', additionalItemsPrice, 'deliveryFee:', deliveryFee);
+      console.log('finalPrice:', finalPrice, 'discountedServicePrice:', discountedServicePrice, 'deliveryFee:', deliveryFee);
       if (isNaN(finalPrice) || finalPrice <= 0) {
         Alert.alert('Error', 'Calculated total amount is invalid. Please check your order details.');
         setIsProcessing(false);
@@ -505,10 +430,16 @@ const BookingScreen = ({ navigation, route }) => {
     }
   };
 
-  // const handlePayment = isTestMode ? handleTestPayment : handleRazorpayPayment;
-  const handlePayment = handleRazorpayPayment;
-  console.log("HandlePayment ",handlePayment);
-  
+  // Modify handlePayment to handle both payment methods
+  const handlePayment = () => {
+    if (selectedPaymentMethod === 'razorpay') {
+      handleRazorpayPayment();
+    } else {
+      // For COD, directly call handlePaymentSuccess with a mock payment data
+      handlePaymentSuccess({});
+    }
+  };
+
   return (
     <ScreenContainer>
       <SafeAreaView style={styles.safeArea}>
@@ -546,14 +477,14 @@ const BookingScreen = ({ navigation, route }) => {
                 <Text style={styles.baseItemLabel}>{service?.name || 'Wash & Fold'}</Text>
                 <View style={styles.baseQuantityContainer}>
                   <Text style={styles.baseQuantityValue}>{quantity} kg</Text>
-                  <Text style={styles.baseItemPrice}>₹{finalPrice}</Text>
+                  <Text style={styles.baseItemPrice}>₹{finalPrice.toFixed(2)}</Text>
                 </View>
               </View>
             </View>
             
-            <Text style={styles.sectionSubtitle}>Additional Items</Text>
+            <Text style={styles.sectionSubtitle}>Items Chosen</Text>
             
-            {/* Additional Items */}
+            {/* Items Selection */}
             {Object.entries(itemCounts).map(([item, count]) => (
               <View key={item} style={styles.itemRow}>
                 <Text style={styles.itemLabel}>
@@ -689,10 +620,6 @@ const BookingScreen = ({ navigation, route }) => {
                 </View>
               )}
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Additional Items:</Text>
-                <Text style={styles.summaryValue}>₹{Number(additionalItemsPrice).toFixed(2)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Delivery Fee:</Text>
                 <Text style={styles.summaryValue}>₹{deliveryFee.toFixed(2)}</Text>
               </View>
@@ -700,6 +627,52 @@ const BookingScreen = ({ navigation, route }) => {
               <View style={styles.summaryRow}>
                 <Text style={styles.totalLabel}>Total:</Text>
                 <Text style={styles.totalValue}>₹{finalPrice.toFixed(2)}</Text>
+              </View>
+            </View>
+
+            {/* Payment Method */}
+            <View style={styles.paymentMethodContainer}>
+              <Text style={styles.sectionTitle}>Payment Method</Text>
+              <View style={styles.paymentMethodOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.paymentMethodOption,
+                    selectedPaymentMethod === 'razorpay' && styles.selectedPaymentMethod
+                  ]}
+                  onPress={() => setSelectedPaymentMethod('razorpay')}
+                >
+                  <MaterialIcons 
+                    name="payment" 
+                    size={24} 
+                    color={selectedPaymentMethod === 'razorpay' ? '#fff' : '#666'} 
+                  />
+                  <Text style={[
+                    styles.paymentMethodText,
+                    selectedPaymentMethod === 'razorpay' && styles.selectedPaymentMethodText
+                  ]}>
+                    Online Payment
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.paymentMethodOption,
+                    selectedPaymentMethod === 'cod' && styles.selectedPaymentMethod
+                  ]}
+                  onPress={() => setSelectedPaymentMethod('cod')}
+                >
+                  <MaterialIcons 
+                    name="local-atm" 
+                    size={24} 
+                    color={selectedPaymentMethod === 'cod' ? '#fff' : '#666'} 
+                  />
+                  <Text style={[
+                    styles.paymentMethodText,
+                    selectedPaymentMethod === 'cod' && styles.selectedPaymentMethodText
+                  ]}>
+                    Cash on Delivery
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -999,6 +972,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  paymentMethodContainer: {
+    marginBottom: 20,
+  },
+  paymentMethodOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  paymentMethodOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    marginHorizontal: 5,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  selectedPaymentMethod: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  paymentMethodText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  selectedPaymentMethodText: {
+    color: '#fff',
   },
 });
 

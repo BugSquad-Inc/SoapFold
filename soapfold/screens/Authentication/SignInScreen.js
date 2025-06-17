@@ -17,14 +17,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { auth, getUserFromFirestore, updateUserInFirestore } from '../../config/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { theme, getTextStyle } from '../../utils/theme';
+import { auth } from '../../config/firebase';
+import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from '@react-native-firebase/auth';
+import { getUserFromFirestore, createUserInFirestore, updateUserInFirestore } from '../../config/firestore';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LoadingContext } from '../../contexts/LoadingContext';
-
-WebBrowser.maybeCompleteAuthSession();
+import { CommonActions } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { signInWithGoogle, configureGoogleSignIn } from '../../config/authService';
 
 const SignInScreen = ({ navigation }) => {
   const { setIsLoading } = useContext(LoadingContext);
@@ -39,17 +40,15 @@ const SignInScreen = ({ navigation }) => {
   const emailInputRef = useRef(null);
   const passwordInputRef = useRef(null);
 
-  // Google Sign-in configuration
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    androidClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-    webClientId: '391415088926-02i9hua9l1q05c1pm8ejvkc1i98e2ot9.apps.googleusercontent.com',
-  });
-
   // Animation values
   const loaderOpacity = useRef(new Animated.Value(0)).current;
   const loaderScale = useRef(new Animated.Value(0)).current;
   
+  // Configure Google Sign-In on component mount
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
+
   // Function to start preloading animation
   const startPreloadingAnimation = () => {
     setIsPreloading(true);
@@ -81,53 +80,74 @@ const SignInScreen = ({ navigation }) => {
     setIsLoading(true);
 
     try {
-      // Sign in with email
+      // Sign in with Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, emailOrUsername, password);
+      const user = userCredential.user;
       
       // Get user data from Firestore
-      const firestoreUserData = await getUserFromFirestore(userCredential.user.uid);
+      const userData = await getUserFromFirestore(user.uid);
       
-      if (firestoreUserData) {
-        // Update last login in Firestore
-        await updateUserInFirestore(userCredential.user.uid, {
-          lastLogin: new Date().toISOString()
+      if (userData) {
+        // User exists in Firestore, update last login
+        await updateUserInFirestore(user.uid, {
+          lastLogin: new Date().toISOString(),
+          isOnline: true
+        });
+
+        // Store user data in AsyncStorage
+        await AsyncStorage.setItem('@user_data', JSON.stringify(userData));
+        await AsyncStorage.setItem('@auth_token', user.credential?.accessToken || '');
+        
+        // Navigate to main app
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
         });
       } else {
-        // If no Firestore data exists, create it
+        // User doesn't exist in Firestore, create new user
         const newUserData = {
-          uid: userCredential.user.uid,
-          email: userCredential.user.email,
-          displayName: userCredential.user.displayName || userCredential.user.email.split('@')[0],
-          photoURL: userCredential.user.photoURL,
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || user.email.split('@')[0],
+          photoURL: user.photoURL || null,
           createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString()
+          lastLogin: new Date().toISOString(),
+          isOnline: true,
+          authProvider: 'email',
+          location: 'Default Location',
+          settings: {
+            notifications: true,
+            darkMode: false,
+            language: 'en'
+          }
         };
+
+        await createUserInFirestore(user.uid, newUserData);
         
-        await createUserInFirestore(newUserData);
+        // Store user data in AsyncStorage
+        await AsyncStorage.setItem('@user_data', JSON.stringify(newUserData));
+        await AsyncStorage.setItem('@auth_token', user.credential?.accessToken || '');
+        
+        // Navigate to main app
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
       }
-      
-      // Navigate to home screen
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
     } catch (error) {
-      console.error('Sign-in error:', error);
-      let errorMessage = 'Failed to sign in. Please try again.';
+      console.error('[Auth] Sign in error:', error);
       
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'No account found with this email.';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'Incorrect password.';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'Invalid email format.';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'Too many failed attempts. Please try again later.';
-          break;
+      let errorMessage = 'Failed to sign in';
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email. Please sign up first.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password. Please try again.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
       }
       
       Alert.alert('Error', errorMessage);
@@ -139,23 +159,87 @@ const SignInScreen = ({ navigation }) => {
 
   // Function to handle Google sign-in
   const handleGoogleSignIn = async () => {
-    // Show message that Google Sign-in is disabled
-    Alert.alert(
-      "Feature Disabled",
-      "Google Sign-in is currently disabled. Please use email login.",
-      [{ text: "OK" }]
-    );
+    try {
+      setFormLoading(true);
+      setIsLoading(true);
+      
+      const userData = await signInWithGoogle();
+      
+      if (userData) {
+        try {
+          // Store user data in AsyncStorage
+          await AsyncStorage.setItem('@user_data', JSON.stringify(userData));
+          await AsyncStorage.setItem('@auth_token', userData.uid || '');
+          
+          // Navigate to main app
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
+        } catch (storageError) {
+          console.error('[Auth] Error storing user data:', storageError);
+          // Even if storage fails, still navigate to main app
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
+        }
+      }
+    } catch (error) {
+      console.error('[Auth] Google sign in error:', error);
+      
+      let errorMessage = 'Failed to sign in with Google';
+      if (error.message) {
+        if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else if (error.message.includes('canceled')) {
+          errorMessage = 'Sign in was canceled.';
+        } else if (error.message.includes('play services')) {
+          errorMessage = 'Google Play Services is not available.';
+        }
+      }
+      
+      // Show error but don't block the user
+      Alert.alert(
+        'Sign In Notice',
+        'There was an issue with your sign in, but you can still proceed. Some features may be limited.',
+        [
+          {
+            text: 'Continue',
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main' }],
+              });
+            }
+          }
+        ]
+      );
+    } finally {
+      setFormLoading(false);
+      setIsLoading(false);
+    }
   };
 
   // Function to navigate to phone sign-in screen
   const handlePhoneSignIn = () => {
-    // Show message that Phone Sign-in is disabled
-    Alert.alert(
-      "Feature Disabled",
-      "Phone Sign-in is currently disabled. Please use email login.",
-      [{ text: "OK" }]
-    );
+    navigation.navigate('PhoneSignIn');
   };
+
+  // Add this function to handle scroll failures
+  const handleScrollToIndexFailed = (info) => {
+    const wait = new Promise(resolve => setTimeout(resolve, 500));
+    wait.then(() => {
+      scrollViewRef.current?.scrollToIndex({ 
+        index: info.index, 
+        animated: true,
+        viewPosition: 0.5
+      });
+    });
+  };
+
+  // Add ref for ScrollView
+  const scrollViewRef = useRef(null);
 
   return (
     <View style={{flex: 1, backgroundColor: '#f8f8f8'}}>
@@ -169,6 +253,7 @@ const SignInScreen = ({ navigation }) => {
             contentContainerStyle={styles.scrollContainer}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            bounces={false}
           >
             <View style={styles.header}>
               {/* Remove back button from header since we'll have it at the bottom */}

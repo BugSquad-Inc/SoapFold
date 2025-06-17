@@ -16,23 +16,29 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather, Ionicons } from '@expo/vector-icons';
-import { auth, getUserFromFirestore, updateUserInFirestore } from '../../config/firebase';
-import { signOut, updateProfile, deleteUser } from 'firebase/auth';
+import { auth, firestore } from '../../config/firebase';
 import { theme } from '../../utils/theme';
 import { useTheme } from '../../utils/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadToCloudinary } from '../../utils/imageUpload';
+import GoogleSignin from '@react-native-google-signin/google-signin';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CommonActions } from '@react-navigation/native';
+import { doc, updateDoc, getDoc } from '@react-native-firebase/firestore';
 
 const SettingsScreen = ({ navigation }) => {
   const { theme: activeTheme, toggleDarkMode } = useTheme();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showImageActions, setShowImageActions] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [modalAnimation] = useState(new Animated.Value(0));
   const [deleteModalAnimation] = useState(new Animated.Value(0));
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     fetchUserData();
@@ -42,9 +48,10 @@ const SettingsScreen = ({ navigation }) => {
     try {
       const user = auth.currentUser;
       if (user) {
-        const firestoreUserData = await getUserFromFirestore(user.uid);
-        if (firestoreUserData) {
-          setUserData(firestoreUserData);
+        const userRef = doc(firestore, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists) {
+          setUserData(userDoc.data());
         }
       }
     } catch (error) {
@@ -54,13 +61,89 @@ const SettingsScreen = ({ navigation }) => {
     }
   };
 
-  const handleLogout = async () => {
+  const handleSignOut = async () => {
     try {
-      await signOut(auth);
-      // Auth state listener in App.js will handle navigation
+      setLoading(true);
+      const user = auth.currentUser;
+      
+      if (user) {
+        // 1. Update Firestore user status
+        try {
+          const userRef = doc(firestore, 'users', user.uid);
+          const userDoc = await getDoc(userRef);
+          
+          if (userDoc.exists) {
+            await updateDoc(userRef, {
+              lastLogout: new Date().toISOString(),
+              isOnline: false
+            });
+          }
+        } catch (firestoreError) {
+          console.warn('[Auth] Firestore update failed:', firestoreError);
+        }
+
+        // 2. Handle provider-specific sign out
+        const providers = user.providerData;
+        for (const provider of providers) {
+          switch (provider.providerId) {
+            case 'google.com':
+              try {
+                await GoogleSignin.signOut();
+                console.log('[Auth] Google sign out successful');
+              } catch (googleError) {
+                console.warn('[Auth] Google sign out error:', googleError);
+              }
+              break;
+            
+            case 'phone':
+              // Phone auth doesn't require special cleanup
+              console.log('[Auth] Phone auth cleanup completed');
+              break;
+            
+            case 'password':
+              // Email auth doesn't require special cleanup
+              console.log('[Auth] Email auth cleanup completed');
+              break;
+          }
+        }
+
+        // 3. Sign out from Firebase
+        await auth.signOut();
+        console.log('[Auth] Firebase sign out successful');
+
+        // 4. Clear local storage
+        await AsyncStorage.multiRemove([
+          '@user_data',
+          '@auth_token',
+          '@onboarding_complete',
+          '@user_profile',
+          '@user_settings',
+          '@has_seen_onboarding'
+        ]);
+
+        // Use the root navigation
+        navigation.getParent()?.reset({
+          index: 0,
+          routes: [
+            { 
+              name: 'SignIn',
+              params: {
+                fromSignOut: true
+              }
+            }
+          ],
+        });
+      }
     } catch (error) {
-      console.error('Error signing out:', error);
-      Alert.alert('Error', 'Failed to sign out. Please try again.');
+      console.error('[Auth] Error signing out:', error);
+      Alert.alert(
+        'Error',
+        'Failed to sign out. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoading(false);
+      setShowSignOutModal(false);
     }
   };
 
@@ -71,7 +154,7 @@ const SettingsScreen = ({ navigation }) => {
       
       if (user) {
         // Delete user from Firestore first
-        await deleteUser(user);
+        await user.delete();
         // Auth state listener in App.js will handle navigation
       }
     } catch (error) {
@@ -87,7 +170,11 @@ const SettingsScreen = ({ navigation }) => {
     try {
       const user = auth.currentUser;
       if (user) {
-        await updateUserInFirestore(user.uid, updates);
+        const userRef = doc(firestore, 'users', user.uid);
+        await updateDoc(userRef, {
+          ...updates,
+          updatedAt: new Date().toISOString()
+        });
         await fetchUserData(); // Refresh user data
       }
     } catch (error) {
@@ -258,7 +345,12 @@ const SettingsScreen = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Settings</Text>
       </View>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        contentContainerStyle={{ paddingBottom: 32 }}
+      >
         {renderSection('Account', (
           <>
             {renderSettingItem('person-outline', 'Edit Profile', () => navigation.navigate('EditProfile'))}
@@ -274,12 +366,42 @@ const SettingsScreen = ({ navigation }) => {
         ))}
         {renderSection('Login', (
           <>
-            {renderSettingItem('log-out-outline', 'Sign Out', () => setShowDeleteModal(true))}
+            {renderSettingItem('log-out-outline', 'Sign Out', () => setShowSignOutModal(true))}
             {renderSettingItem('trash-outline', 'Delete Account', () => setShowDeleteModal(true))}
           </>
         ))}
-        <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Sign Out Confirmation Modal */}
+      <Modal
+        visible={showSignOutModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSignOutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Sign Out</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to sign out?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowSignOutModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleSignOut}
+              >
+                <Text style={styles.buttonText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Delete Account Confirmation Modal */}
       <Modal

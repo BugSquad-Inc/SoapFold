@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth, firestore, storage } from '../config/firebase';
 import { verifyFirebaseInitialized } from '../config/firebase';
+import { testFirebaseConnection } from '../utils/testFirebaseConnection';
 
 const FirebaseDiagnostic = ({ onDismiss }) => {
   const [status, setStatus] = useState({
-    app: false,
     auth: false,
+    firestore: false,
     storage: false,
     asyncStorage: false,
     userData: null
@@ -22,8 +24,8 @@ const FirebaseDiagnostic = ({ onDismiss }) => {
       const firebaseStatus = verifyFirebaseInitialized();
       setStatus(prevStatus => ({
         ...prevStatus,
-        app: firebaseStatus.app,
         auth: firebaseStatus.auth,
+        firestore: firebaseStatus.firestore,
         storage: firebaseStatus.storage
       }));
     } catch (error) {
@@ -56,129 +58,133 @@ const FirebaseDiagnostic = ({ onDismiss }) => {
       console.error('Error clearing user data:', error);
     }
   };
+
+  const getStatusColor = (isActive) => isActive ? '#4CAF50' : '#F44336';
   
   return (
-    <View style={styles.overlay}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Firebase Status:</Text>
-        <View style={styles.statusContainer}>
-          <Text style={styles.item}>App initialized: {status.app ? '✓' : '✗'}</Text>
-          <Text style={styles.item}>Auth initialized: {status.auth ? '✓' : '✗'}</Text>
-          <Text style={styles.item}>Storage initialized: {status.storage ? '✓' : '✗'}</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Firebase Diagnostic</Text>
+      
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Service Status</Text>
+        <View style={styles.statusRow}>
+          <Text style={styles.label}>Auth:</Text>
+          <Text style={[styles.status, { color: getStatusColor(status.auth) }]}>
+            {status.auth ? 'Active' : 'Inactive'}
+          </Text>
         </View>
-        
-        <Text style={styles.title}>AsyncStorage:</Text>
-        <View style={styles.statusContainer}>
-          <Text style={styles.item}>User data exists: {status.asyncStorage ? '✓' : '✗'}</Text>
+        <View style={styles.statusRow}>
+          <Text style={styles.label}>Firestore:</Text>
+          <Text style={[styles.status, { color: getStatusColor(status.firestore) }]}>
+            {status.firestore ? 'Active' : 'Inactive'}
+          </Text>
         </View>
-        
-        {status.userData && (
-          <>
-            <Text style={styles.title}>User Data:</Text>
-            <ScrollView style={styles.dataContainer}>
-              <Text style={styles.data}>{JSON.stringify(status.userData, null, 2)}</Text>
-            </ScrollView>
-          </>
-        )}
-        
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button} onPress={checkFirebaseStatus}>
-            <Text style={styles.buttonText}>Refresh Status</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.button} onPress={checkAsyncStorage}>
-            <Text style={styles.buttonText}>Check AsyncStorage</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.button, styles.clearButton]} onPress={clearUserData}>
-            <Text style={styles.buttonText}>Clear User Data</Text>
-          </TouchableOpacity>
+        <View style={styles.statusRow}>
+          <Text style={styles.label}>Storage:</Text>
+          <Text style={[styles.status, { color: getStatusColor(status.storage) }]}>
+            {status.storage ? 'Active' : 'Inactive'}
+          </Text>
         </View>
-        
-        <TouchableOpacity style={styles.closeButton} onPress={onDismiss}>
-          <Text style={styles.closeButtonText}>Close</Text>
-        </TouchableOpacity>
+        <View style={styles.statusRow}>
+          <Text style={styles.label}>AsyncStorage:</Text>
+          <Text style={[styles.status, { color: getStatusColor(status.asyncStorage) }]}>
+            {status.asyncStorage ? 'Active' : 'Inactive'}
+          </Text>
+        </View>
       </View>
-    </View>
+
+      {status.userData && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>User Data</Text>
+          <Text style={styles.userData}>
+            {JSON.stringify(status.userData, null, 2)}
+          </Text>
+          <TouchableOpacity 
+            style={styles.clearButton}
+            onPress={clearUserData}
+          >
+            <Text style={styles.clearButtonText}>Clear User Data</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <TouchableOpacity 
+        style={styles.dismissButton}
+        onPress={onDismiss}
+      >
+        <Text style={styles.dismissButtonText}>Dismiss</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
   container: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    width: '90%',
-    maxHeight: '80%',
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#fff'
   },
   title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center'
+  },
+  section: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8
+  },
+  sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 12
   },
-  statusContainer: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 20,
-  },
-  item: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  dataContainer: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 20,
-    maxHeight: 200,
-  },
-  data: {
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 12,
-  },
-  buttonContainer: {
+  statusRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  button: {
-    backgroundColor: '#243D6E',
-    borderRadius: 5,
-    padding: 10,
-    margin: 5,
-    flex: 1,
     alignItems: 'center',
+    marginBottom: 8
+  },
+  label: {
+    fontSize: 16
+  },
+  status: {
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  userData: {
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 4,
+    marginBottom: 12
   },
   clearButton: {
     backgroundColor: '#F44336',
+    padding: 12,
+    borderRadius: 6,
+    alignItems: 'center'
   },
-  buttonText: {
+  clearButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: 'bold'
   },
-  closeButton: {
-    backgroundColor: '#243D6E',
-    borderRadius: 5,
-    padding: 10,
+  dismissButton: {
+    backgroundColor: '#2196F3',
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
+    marginTop: 20
   },
-  closeButtonText: {
+  dismissButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
-  },
+    fontSize: 18,
+    fontWeight: 'bold'
+  }
 });
 
 export default FirebaseDiagnostic; 

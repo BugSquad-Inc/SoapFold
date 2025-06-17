@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../utils/ThemeContext';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
+import { theme } from '../../utils/theme';
 import { auth } from '../../config/firebase';
-import { reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from '@react-native-firebase/auth';
 
 const ChangePasswordScreen = ({ navigation }) => {
-  const { theme: activeTheme } = useTheme();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,66 +22,85 @@ const ChangePasswordScreen = ({ navigation }) => {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
+
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match.');
+      Alert.alert('Error', 'New passwords do not match');
       return;
     }
+
     setLoading(true);
     try {
       const user = auth.currentUser;
+      if (!user || !user.email) {
+        throw new Error('No authenticated user found');
+      }
+
+      // Re-authenticate user before changing password
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
+
+      // Update password
       await updatePassword(user, newPassword);
-      Alert.alert('Success', 'Password updated successfully!');
-      navigation.goBack();
+
+      Alert.alert(
+        'Success',
+        'Password updated successfully',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack()
+          }
+        ]
+      );
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to update password.');
+      console.error('Change password error:', error);
+      Alert.alert('Error', error.message || 'Failed to change password');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: activeTheme.colors.background }]}> 
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}> 
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={26} color={activeTheme.colors.text} />
+          <MaterialIcons name="arrow-back" size={26} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.header, { color: activeTheme.colors.text }]}>Change Password</Text>
+        <Text style={[styles.header, { color: theme.colors.text }]}>Change Password</Text>
         <View style={{ width: 32 }} />
       </View>
       <View style={styles.form}>
-        <Text style={[styles.label, { color: activeTheme.colors.text }]}>Current Password</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>Current Password</Text>
         <TextInput
-          style={[styles.input, { color: activeTheme.colors.text, backgroundColor: activeTheme.colors.cardBackground }]}
+          style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.cardBackground }]}
           value={currentPassword}
           onChangeText={setCurrentPassword}
           placeholder="Enter current password"
-          placeholderTextColor={activeTheme.colors.lightText}
+          placeholderTextColor={theme.colors.lightText}
           secureTextEntry
         />
-        <Text style={[styles.label, { color: activeTheme.colors.text }]}>New Password</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>New Password</Text>
         <TextInput
-          style={[styles.input, { color: activeTheme.colors.text, backgroundColor: activeTheme.colors.cardBackground }]}
+          style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.cardBackground }]}
           value={newPassword}
           onChangeText={setNewPassword}
           placeholder="Enter new password"
-          placeholderTextColor={activeTheme.colors.lightText}
+          placeholderTextColor={theme.colors.lightText}
           secureTextEntry
         />
-        <Text style={[styles.label, { color: activeTheme.colors.text }]}>Confirm New Password</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>Confirm New Password</Text>
         <TextInput
-          style={[styles.input, { color: activeTheme.colors.text, backgroundColor: activeTheme.colors.cardBackground }]}
+          style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.cardBackground }]}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           placeholder="Confirm new password"
-          placeholderTextColor={activeTheme.colors.lightText}
+          placeholderTextColor={theme.colors.lightText}
           secureTextEntry
         />
-        <TouchableOpacity style={[styles.button, { backgroundColor: activeTheme.colors.primary }]} onPress={handleChangePassword} disabled={loading}>
+        <TouchableOpacity style={[styles.button, { backgroundColor: theme.colors.primary }]} onPress={handleChangePassword} disabled={loading}>
           <Text style={styles.buttonText}>{loading ? 'Updating...' : 'Update Password'}</Text>
         </TouchableOpacity>
       </View>

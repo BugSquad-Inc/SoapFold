@@ -1,19 +1,5 @@
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
-  serverTimestamp,
-  arrayUnion,
-  increment,
-  Timestamp
-} from 'firebase/firestore';
-import { db } from './firebase';
+import { collection, doc, getDoc, setDoc, updateDoc, query, where, getDocs, addDoc, serverTimestamp } from '@react-native-firebase/firestore';
+import { firestore } from './firebase';
 
 // Utility function to validate date string
 const isValidDateString = (dateString) => {
@@ -23,26 +9,15 @@ const isValidDateString = (dateString) => {
 };
 
 // Orders Collection
-export const ordersCollection = collection(db, 'orders');
+export const ordersCollection = collection(firestore, 'orders');
 
 export const createOrder = async (orderData) => {
   try {
-    const orderToSave = {
+    const docRef = await addDoc(ordersCollection, {
       ...orderData,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      status: 'pending',
-    };
-
-    if (isValidDateString(orderData.pickupDateString)) {
-      orderToSave.pickupDate = Timestamp.fromDate(new Date(orderData.pickupDateString));
-    }
-    if (isValidDateString(orderData.deliveryDateString)) {
-      orderToSave.deliveryDate = Timestamp.fromDate(new Date(orderData.deliveryDateString));
-    }
-
-    const orderRef = await addDoc(ordersCollection, orderToSave);
-    return orderRef.id;
+      createdAt: serverTimestamp()
+    });
+    return docRef.id;
   } catch (error) {
     console.error('Error creating order:', error);
     throw error;
@@ -51,7 +26,7 @@ export const createOrder = async (orderData) => {
 
 export const updateOrderStatus = async (orderId, status) => {
   try {
-    const orderRef = doc(db, 'orders', orderId);
+    const orderRef = doc(firestore, 'orders', orderId);
     await updateDoc(orderRef, {
       status,
       updatedAt: serverTimestamp()
@@ -65,15 +40,12 @@ export const updateOrderStatus = async (orderId, status) => {
 export const getCustomerOrders = async (customerId) => {
   try {
     console.log('Querying orders for customerId:', customerId);
-    const q = query(
-      ordersCollection,
-      where('customerId', '==', customerId),
-      orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    console.log('Orders query snapshot size:', snapshot.size);
+    const q = query(ordersCollection, where('customerId', '==', customerId));
+    const querySnapshot = await getDocs(q);
     
-    const orders = snapshot.docs.map(doc => ({
+    console.log('Orders query snapshot size:', querySnapshot.size);
+    
+    const orders = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
@@ -86,28 +58,15 @@ export const getCustomerOrders = async (customerId) => {
 };
 
 // Payments Collection
-export const paymentsCollection = collection(db, 'payments');
+export const paymentsCollection = collection(firestore, 'payments');
 
 export const createPayment = async (paymentData) => {
   try {
-    // Validate required fields
-    if (!paymentData.orderId || !paymentData.customerId || !paymentData.amount || !paymentData.method) {
-      throw new Error('Missing required payment fields');
-    }
-
-    const paymentToSave = {
-      orderId: paymentData.orderId,
-      customerId: paymentData.customerId,
-      amount: paymentData.amount,
-      status: paymentData.status || 'pending',
-      method: paymentData.method,
-      transactionId: paymentData.transactionId || null,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-
-    const paymentRef = await addDoc(paymentsCollection, paymentToSave);
-    return paymentRef.id;
+    const docRef = await addDoc(paymentsCollection, {
+      ...paymentData,
+      createdAt: serverTimestamp()
+    });
+    return docRef.id;
   } catch (error) {
     console.error('Error creating payment:', error);
     throw error;
@@ -116,7 +75,7 @@ export const createPayment = async (paymentData) => {
 
 export const updatePaymentStatus = async (paymentId, status) => {
   try {
-    const paymentRef = doc(db, 'payments', paymentId);
+    const paymentRef = doc(firestore, 'payments', paymentId);
     await updateDoc(paymentRef, {
       status,
       updatedAt: serverTimestamp()
@@ -128,17 +87,17 @@ export const updatePaymentStatus = async (paymentId, status) => {
 };
 
 // Customers Collection
-export const customersCollection = collection(db, 'customers');
+export const customersCollection = collection(firestore, 'customers');
 
 export const createCustomer = async (customerData) => {
   try {
-    const customerRef = await addDoc(customersCollection, {
+    const docRef = await addDoc(customersCollection, {
       ...customerData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       orders: []
     });
-    return customerRef.id;
+    return docRef.id;
   } catch (error) {
     console.error('Error creating customer:', error);
     throw error;
@@ -147,7 +106,7 @@ export const createCustomer = async (customerData) => {
 
 export const updateCustomer = async (customerId, customerData) => {
   try {
-    const customerRef = doc(db, 'customers', customerId);
+    const customerRef = doc(firestore, 'customers', customerId);
     await updateDoc(customerRef, {
       ...customerData,
       updatedAt: serverTimestamp()
@@ -160,9 +119,8 @@ export const updateCustomer = async (customerId, customerData) => {
 
 export const getCustomerProfile = async (customerId) => {
   try {
-    const customerRef = doc(db, 'customers', customerId);
-    const customerDoc = await getDoc(customerRef);
-    if (customerDoc.exists()) {
+    const customerDoc = await getDoc(doc(firestore, 'customers', customerId));
+    if (customerDoc.exists) {
       return {
         id: customerDoc.id,
         ...customerDoc.data()
@@ -176,18 +134,18 @@ export const getCustomerProfile = async (customerId) => {
 };
 
 // Offers Collection
-export const offersCollection = collection(db, 'offers');
+export const offersCollection = collection(firestore, 'offers');
 
 export const createOffer = async (offerData) => {
   try {
-    const offerRef = await addDoc(offersCollection, {
+    const docRef = await addDoc(offersCollection, {
       ...offerData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       isActive: true,
       usedBy: []
     });
-    return offerRef.id;
+    return docRef.id;
   } catch (error) {
     console.error('Error creating offer:', error);
     throw error;
@@ -196,42 +154,24 @@ export const createOffer = async (offerData) => {
 
 export const getActiveOffers = async () => {
   try {
-    const now = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
-    const q = query(
-      offersCollection,
-      where('status', '==', true),
-      where('endDate', '>', now),
-      orderBy('endDate', 'asc')
-    );
-    
-    const snapshot = await getDocs(q);
-    const offers = snapshot.docs.map(doc => ({
+    const q = query(offersCollection, where('isActive', '==', true));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data(),
-      expiryDate: doc.data().endDate || null, // Use endDate as expiryDate for UI
-      createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || null,
-      updatedAt: doc.data().updatedAt?.toDate?.()?.toISOString() || null
+      ...doc.data()
     }));
-    
-    console.log('[Firestore] Raw offers data:', JSON.stringify(offers, null, 2));
-    offers.forEach((offer, idx) => {
-      console.log(`[Firestore] Offer ${idx + 1}:`, offer);
-    });
-    console.log('[Firestore] Total offers fetched:', offers.length);
-    
-    return offers;
   } catch (error) {
-    console.error('Error fetching active offers:', error);
+    console.error('Error getting offers:', error);
     throw error;
   }
 };
 
 export const applyOffer = async (offerId, customerId) => {
   try {
-    const offerRef = doc(db, 'offers', offerId);
+    const offerRef = doc(firestore, 'offers', offerId);
     await updateDoc(offerRef, {
-      usedBy: arrayUnion(customerId),
-      usageLimit: increment(-1)
+      usedBy: serverTimestamp(),
+      usageLimit: serverTimestamp()
     });
   } catch (error) {
     console.error('Error applying offer:', error);
@@ -240,32 +180,33 @@ export const applyOffer = async (offerId, customerId) => {
 };
 
 // Services Collection
-export const servicesCollection = collection(db, 'services');
+export const servicesCollection = collection(firestore, 'services');
 
 export const getServices = async () => {
   try {
-    const snapshot = await getDocs(servicesCollection);
-    return snapshot.docs.map(doc => ({
+    const q = query(servicesCollection, where('isActive', '==', true));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
   } catch (error) {
-    console.error('Error fetching services:', error);
+    console.error('Error getting services:', error);
     throw error;
   }
 };
 
 // Reviews Collection
-export const reviewsCollection = collection(db, 'reviews');
+export const reviewsCollection = collection(firestore, 'reviews');
 
 export const createReview = async (reviewData) => {
   try {
-    const reviewRef = await addDoc(reviewsCollection, {
+    const docRef = await addDoc(reviewsCollection, {
       ...reviewData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    return reviewRef.id;
+    return docRef.id;
   } catch (error) {
     console.error('Error creating review:', error);
     throw error;
@@ -274,17 +215,89 @@ export const createReview = async (reviewData) => {
 
 export const getOrderReviews = async (orderId) => {
   try {
-    const q = query(
-      reviewsCollection,
-      where('orderId', '==', orderId)
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const q = query(reviewsCollection, where('orderId', '==', orderId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
   } catch (error) {
     console.error('Error fetching order reviews:', error);
+    throw error;
+  }
+};
+
+// User Management
+export const createUserInFirestore = async (userDataOrId, userData) => {
+  try {
+    // Handle both single parameter (userData with uid) and two parameters (userId, userData)
+    const userId = userDataOrId.uid || userDataOrId;
+    const dataToSave = userData || userDataOrId;
+
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, userId);
+    await setDoc(userRef, dataToSave);
+    return true;
+  } catch (error) {
+    console.error('Error creating user in Firestore:', error);
+    throw error;
+  }
+};
+
+export const getUserFromFirestore = async (userId) => {
+  try {
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, userId);
+    const userDoc = await getDoc(userRef);
+    return userDoc.exists ? userDoc.data() : null;
+  } catch (error) {
+    console.error('Error getting user from Firestore:', error);
+    throw error;
+  }
+};
+
+export const updateUserInFirestore = async (userId, userData) => {
+  try {
+    const usersCollection = collection(firestore, 'users');
+    const userRef = doc(usersCollection, userId);
+    await updateDoc(userRef, userData);
+    return true;
+  } catch (error) {
+    console.error('Error updating user in Firestore:', error);
+    throw error;
+  }
+};
+
+// Address Management
+export const saveAddress = async (userId, addressData) => {
+  try {
+    const addressesRef = collection(firestore, 'users', userId, 'addresses');
+    const docRef = await addDoc(addressesRef, {
+      ...addressData,
+      createdAt: serverTimestamp()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error saving address:', error);
+    throw error;
+  }
+};
+
+export const getUserAddresses = async (userId) => {
+  try {
+    const addressesRef = collection(firestore, 'users', userId, 'addresses');
+    const q = query(addressesRef, where('isActive', '==', true));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error getting addresses:', error);
     throw error;
   }
 }; 

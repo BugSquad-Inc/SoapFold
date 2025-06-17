@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,15 @@ import {
   SafeAreaView,
   ScrollView,
   StatusBar,
-  Image
+  Image,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../utils/theme';
 import ScreenContainer from '../../components/ScreenContainer';
+import { auth } from '../../config/firebase';
+import { createBookingInFirestore } from '../../config/firestore';
 
 const BookingConfirmationScreen = ({ navigation, route }) => {
   const { 
@@ -159,15 +163,18 @@ const BookingConfirmationScreen = ({ navigation, route }) => {
         {/* Bottom Buttons */}
         <View style={styles.bottomButtons}>
           <TouchableOpacity 
-            style={styles.viewOrderButton}
-            onPress={() => navigation.navigate('OrderDetailScreen', { orderId: bookingId })}
+            style={[styles.viewOrderButton, styles.disabledButton]}
+            disabled={true}
           >
-            <Text style={styles.viewOrderButtonText}>View Order</Text>
+            <Text style={[styles.viewOrderButtonText, styles.disabledButtonText]}>View Order</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.homeButton}
-            onPress={() => navigation.navigate('HomeScreen')}
+            onPress={() => navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            })}
           >
             <Text style={styles.homeButtonText}>Go to Home</Text>
           </TouchableOpacity>
@@ -360,6 +367,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  disabledButton: {
+    backgroundColor: '#e0e0e0',
+    opacity: 0.7,
+  },
+  disabledButtonText: {
+    color: '#999999',
   },
 });
 

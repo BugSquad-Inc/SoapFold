@@ -14,9 +14,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { theme } from '../../utils/theme';
 import { auth } from '../../config/firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { theme, getTextStyle } from '../../utils/theme';
+import { sendPasswordResetEmail } from '@react-native-firebase/auth';
 
 const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -34,14 +34,15 @@ const ForgotPasswordScreen = ({ navigation }) => {
       return;
     }
 
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       await sendPasswordResetEmail(auth, email);
       setResetSent(true);
-      setIsLoading(false);
     } catch (error) {
+      console.error('Password reset error:', error);
+      Alert.alert('Error', error.message || 'Failed to send reset email');
+    } finally {
       setIsLoading(false);
-      Alert.alert('Error', error.message);
     }
   };
 

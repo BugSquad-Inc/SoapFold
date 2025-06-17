@@ -12,14 +12,18 @@ import {
   FlatList,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { auth, saveUserDataToLocalStorage } from '../../config/firebase';
-import { updateProfile } from 'firebase/auth';
 import { useTheme } from '../../utils/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadToCloudinary } from '../../utils/imageUpload';
+import { getUserFromFirestore, updateUserInFirestore } from '../../config/firestore';
+import CountryPicker from 'react-native-country-picker-modal';
+import { theme } from '../../utils/theme';
+import { auth } from '../../config/firebase';
+import { updateProfile } from '@react-native-firebase/auth';
 
 // Sample countries data
 const countries = [
@@ -50,16 +54,24 @@ const EditProfileScreen = ({ navigation, route }) => {
   const [showImageActionModal, setShowImageActionModal] = useState(false);
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      setFullName(user.displayName || '');
-      setEmail(user.email || '');
-      if (user.displayName) {
-        const names = user.displayName.split(' ');
-        setFirstName(names[0] || '');
-      }
-      setUsername(user.reloadUserInfo?.screenName || '');
-      setUser(user);
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      setFullName(currentUser.displayName || '');
+      setEmail(currentUser.email || '');
+      setPhoneNumber(currentUser.phoneNumber || '');
+      setGender(currentUser.metadata.gender || '');
+      setAddress(currentUser.metadata.address || '');
+      setUsername(currentUser.reloadUserInfo?.screenName || '');
+      setUser({
+        ...currentUser,
+        photoURL: currentUser.photoURL || '',
+        displayName: currentUser.displayName || '',
+        email: currentUser.email || '',
+        phoneNumber: currentUser.phoneNumber || '',
+        gender: currentUser.metadata.gender || '',
+        address: currentUser.metadata.address || '',
+        username: currentUser.reloadUserInfo?.screenName || '',
+      });
     }
   }, []);
 
@@ -70,27 +82,40 @@ const EditProfileScreen = ({ navigation, route }) => {
     }
     setLoading(true);
     try {
-      // Update Firebase Auth profile
-      await updateProfile(auth.currentUser, {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+
+      // Update auth profile
+      await updateProfile(currentUser, {
         displayName: fullName,
         photoURL: user?.photoURL || null
       });
 
-      // Update local user data
+      // Update Firestore profile
+      await updateUserInFirestore(currentUser.uid, {
+        displayName: fullName,
+        photoURL: user?.photoURL || null,
+        updatedAt: new Date().toISOString()
+      });
+
+      // Update local state
       const updatedUser = {
         ...user,
         displayName: fullName,
         photoURL: user?.photoURL || null
       };
-      await saveUserDataToLocalStorage(updatedUser);
       setUser(updatedUser);
 
       // Notify other screens of the update
       navigation.navigate('Settings', { userUpdated: true });
     } catch (error) {
+      console.error('Error updating profile:', error);
       Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleProfileImagePress = async () => {
@@ -147,14 +172,24 @@ const EditProfileScreen = ({ navigation, route }) => {
     setShowImageActionModal(false);
     try {
       setLoading(true);
-      // Update Firebase Auth profile only
-      await updateProfile(auth.currentUser, {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        // Update auth profile
+        await updateProfile(currentUser, {
         photoURL: null
       });
+
+        // Update Firestore profile
+        await updateUserInFirestore(currentUser.uid, {
+          photoURL: null,
+          updatedAt: new Date().toISOString()
+        });
+
       // Update local state
       const updatedUser = { ...user, photoURL: null };
       setUser(updatedUser);
       Alert.alert('Success', 'Profile image removed successfully');
+      }
     } catch (error) {
       console.error('Error removing photo:', error);
       Alert.alert('Error', 'Failed to remove photo. Please try again.');
@@ -168,14 +203,24 @@ const EditProfileScreen = ({ navigation, route }) => {
       setLoading(true);
       const photoURL = await uploadToCloudinary(uri);
       if (photoURL) {
-        // Update Firebase Auth profile only
-        await updateProfile(auth.currentUser, {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          // Update auth profile
+          await updateProfile(currentUser, {
           photoURL: photoURL
         });
+
+          // Update Firestore profile
+          await updateUserInFirestore(currentUser.uid, {
+            photoURL: photoURL,
+            updatedAt: new Date().toISOString()
+          });
+
         // Update local state
         const updatedUser = { ...user, photoURL };
         setUser(updatedUser);
         Alert.alert('Success', 'Profile image updated successfully');
+        }
       }
     } catch (error) {
       console.error('Error uploading image:', error);

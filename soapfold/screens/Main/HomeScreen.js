@@ -17,8 +17,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
-import { auth, verifyFirebaseInitialized, getUserFromFirestore } from '../../config/firebase';
-import { signOut } from 'firebase/auth';
+import { getUserFromFirestore } from '../../config/firestore';
+import { signOut } from '../../config/authService';
 import { BlurView } from 'expo-blur';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { theme, getTextStyle } from '../../utils/theme';
@@ -26,6 +26,8 @@ import { useTheme } from '../../utils/ThemeContext';
 import ThemedStatusBar from '../../components/ThemedStatusBar';
 import topSectionBg from '../../assets/topsection_bg.jpeg';
 import { getCustomerOrders, getActiveOffers, applyOffer } from '../../config/firestore'; // adjust path if needed
+import { auth } from '../../config/firebase';
+import { createUserInFirestore } from '../../config/firestore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -120,7 +122,7 @@ const HomeScreen = () => {
         if (userData) {
           setUserData(userData);
           console.log('Using user data from Firestore in home');
-          fetchRecentOrder(currentUser.uid); // This is now safe!
+          fetchRecentOrder(currentUser.uid);
         } else {
           // No cached user data, create new user data from auth
           console.log('No user document exists, creating default user');
@@ -153,10 +155,20 @@ const HomeScreen = () => {
             photoURL: currentUser.photoURL,
             createdAt: new Date().toISOString(),
             lastLogin: new Date().toISOString(),
-            location: 'Cembung Dafur, Yogyakarta'
+            location: 'Cembung Dafur, Yogyakarta',
+            authProvider: googleProvider ? 'google' : 'email',
+            isOnline: true,
+            settings: {
+              notifications: true,
+              darkMode: false,
+              language: 'en'
+            }
           };
           
           console.log('Created default user:', defaultUser);
+          
+          // Create user in Firestore
+          await createUserInFirestore(defaultUser);
           
           // Set user data in state
           setUserData(defaultUser);
@@ -357,9 +369,9 @@ const HomeScreen = () => {
     try {
       console.log('Starting logout process from HomeScreen...');
       
-      // Sign out from Firebase
-      await signOut(auth);
-      console.log('User signed out from Firebase Auth');
+      // Sign out using authService
+      await signOut();
+      console.log('User signed out successfully');
       
       // The auth state listener in App.js will handle navigation automatically
     } catch (error) {
@@ -501,13 +513,29 @@ const HomeScreen = () => {
     }
   ];
 
+  // Default promotional data
+  const defaultPromoData = [
+    {
+      id: '1',
+      title: 'Welcome to SoapFold',
+      subtitle: 'Your Laundry Partner',
+      description: 'Get 30% off on your first order',
+      backgroundColor: '#000000',
+      accentColor: '#FF9500',
+      buttonText: 'Redeem Now',
+      iconName: 'arrow-right-circle'
+    }
+  ];
+
   // Promotional Carousel Component
   const PromoCarousel = () => {
     const [activeIndex, setActiveIndex] = useState(0);
     const flatListRef = useRef(null);
     const scrolling = useRef(false);
+    const scrollX = useRef(new Animated.Value(0)).current;
+    const autoScrollTimer = useRef(null);
 
-    // Use Firestore offers if available, otherwise fallback to originalData
+    // Use Firestore offers if available, otherwise fallback to defaultPromoData
     const promoData = offers.length > 0
       ? offers.map((offer, idx) => ({
           id: offer.id || idx.toString(),
@@ -519,54 +547,149 @@ const HomeScreen = () => {
           buttonText: 'Redeem Now',
           iconName: 'arrow-right-circle'
         }))
-      : originalData;
+      : defaultPromoData;
+
+    // Add getItemLayout handler
+    const getItemLayout = (data, index) => ({
+      length: width,
+      offset: width * index,
+      index,
+    });
+
+    // Add onScrollToIndexFailed handler
+    const handleScrollToIndexFailed = (info) => {
+      const wait = new Promise(resolve => setTimeout(resolve, 500));
+      wait.then(() => {
+        if (flatListRef.current) {
+          flatListRef.current.scrollToIndex({
+            index: info.index,
+            animated: true,
+            viewPosition: 0.5
+          });
+        }
+      });
+    };
+
+    const startAutoScroll = () => {
+      autoScrollTimer.current = setInterval(() => {
+        if (!scrolling.current && flatListRef.current) {
+          const nextIndex = (activeIndex + 1) % promoData.length;
+          flatListRef.current.scrollToIndex({
+            index: nextIndex,
+            animated: true
+          });
+          setActiveIndex(nextIndex);
+        }
+      }, 1500);
+    };
+
+    const stopAutoScroll = () => {
+      if (autoScrollTimer.current) {
+        clearInterval(autoScrollTimer.current);
+      }
+    };
+
+    useEffect(() => {
+      startAutoScroll();
+      return () => stopAutoScroll();
+    }, [activeIndex, promoData.length]);
 
     const handleMomentumScrollEnd = (event) => {
       const newIndex = Math.round(
         event.nativeEvent.contentOffset.x / width
       );
       setActiveIndex(newIndex);
+      scrolling.current = false;
     };
 
-    const renderPromoItem = ({ item }) => (
-      <View style={[styles.promoCard, { backgroundColor: item.backgroundColor }]}>
-        <View style={styles.promoContentContainer}>
-          <View style={styles.promoTextContainer}>
-            <Text style={styles.promoTitle}>{item.title}</Text>
-            {item.subtitle ? (
-              <Text style={[styles.promoSubtitle, { color: item.accentColor }]}>{item.subtitle}</Text>
-            ) : null}
-            <Text style={styles.promoDescription}>{item.description}</Text>
-            <TouchableOpacity
-              style={[styles.promoActionButton, { backgroundColor: item.accentColor, marginTop: 10, marginBottom: 4 }]}
-              onPress={() => {
-                navigation.navigate('ServiceCategoryScreen', {
-                  category: {
-                    id: 'all',
-                    name: 'All Services',
-                    icon: 'local-laundry-service',
-                    color: activeTheme.colors.primary
-                  },
-                  offerExists: true,
-                  offerDiscountAmount: 30
-                });
-              }}
-            >
-              <Text style={styles.promoActionButtonText}>Redeem Now</Text>
-              <Feather name="arrow-right-circle" size={16} color="#FFFFFF" style={{ marginLeft: 5 }} />
-            </TouchableOpacity>
-          </View>
-          <View style={[styles.accentShape, { backgroundColor: item.accentColor }]} />
-          <View style={styles.promoImageContainer}>
-            <Image
-              source={require('../../assets/images/laundry.jpg')}
-              style={styles.promoImage}
-              resizeMode="cover"
-            />
-          </View>
-        </View>
-      </View>
+    const handleScroll = Animated.event(
+      [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+      { useNativeDriver: true }
     );
+
+    const renderPromoItem = ({ item, index }) => {
+      const inputRange = [
+        (index - 1) * width,
+        index * width,
+        (index + 1) * width
+      ];
+
+      const scale = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.9, 1, 0.9],
+        extrapolate: 'clamp'
+      });
+
+      const opacity = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.7, 1, 0.7],
+        extrapolate: 'clamp'
+      });
+
+      return (
+        <Animated.View 
+          style={[
+            styles.promoCard, 
+            { 
+              backgroundColor: item.backgroundColor,
+              transform: [{ scale }],
+              opacity
+            }
+          ]}
+        >
+          <View style={styles.promoContentContainer}>
+            <View style={styles.promoTextContainer}>
+              <Text style={styles.promoTitle}>{item.title}</Text>
+              {item.subtitle ? (
+                <Text style={[styles.promoSubtitle, { color: item.accentColor }]}>{item.subtitle}</Text>
+              ) : null}
+              <Text style={styles.promoDescription}>{item.description}</Text>
+              <TouchableOpacity
+                style={[styles.promoActionButton, { backgroundColor: item.accentColor }]}
+                onPress={() => {
+                  navigation.navigate('ServiceCategoryScreen', {
+                    category: {
+                      id: 'all',
+                      name: 'All Services',
+                      icon: 'local-laundry-service',
+                      color: activeTheme.colors.primary
+                    },
+                    offerExists: true,
+                    offerDiscountAmount: 30
+                  });
+                }}
+              >
+                <Text style={styles.promoActionButtonText}>Redeem Now</Text>
+                <Feather name="arrow-right-circle" size={16} color="#FFFFFF" style={{ marginLeft: 5 }} />
+              </TouchableOpacity>
+            </View>
+            <Animated.View 
+              style={[
+                styles.accentShape, 
+                { 
+                  backgroundColor: item.accentColor,
+                  transform: [
+                    { rotate: '-25deg' },
+                    { scale: scrollX.interpolate({
+                      inputRange,
+                      outputRange: [0.9, 1, 0.9],
+                      extrapolate: 'clamp'
+                    })}
+                  ]
+                }
+              ]} 
+            />
+            <View style={styles.promoImageContainer}>
+              <Image
+                source={require('../../assets/images/laundry.jpg')}
+                style={styles.promoImage}
+                resizeMode="cover"
+              />
+            </View>
+          </View>
+        </Animated.View>
+      );
+    };
 
     if (loadingOffers) {
       return (
@@ -586,7 +709,7 @@ const HomeScreen = () => {
 
     return (
       <View style={styles.promoContainer}>
-        <FlatList
+        <Animated.FlatList
           ref={flatListRef}
           data={promoData}
           renderItem={renderPromoItem}
@@ -595,18 +718,47 @@ const HomeScreen = () => {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleMomentumScrollEnd}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={styles.promoList}
+          onScrollBeginDrag={() => {
+            scrolling.current = true;
+            stopAutoScroll();
+          }}
+          onScrollEndDrag={() => {
+            scrolling.current = false;
+            startAutoScroll();
+          }}
+          getItemLayout={getItemLayout}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
         />
         <View style={styles.promoPagination}>
-          {promoData.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.promoDot,
-                index === activeIndex && styles.promoDotActive
-              ]}
-            />
-          ))}
+          {promoData.map((_, index) => {
+            const inputRange = [
+              (index - 1) * width,
+              index * width,
+              (index + 1) * width
+            ];
+
+            const opacity = scrollX.interpolate({
+              inputRange,
+              outputRange: [0.3, 1, 0.3],
+              extrapolate: 'clamp'
+            });
+
+            return (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.promoDot,
+                  {
+                    opacity,
+                    backgroundColor: index === activeIndex ? theme.colors.primary : '#888'
+                  }
+                ]}
+              />
+            );
+          })}
         </View>
       </View>
     );
@@ -841,11 +993,8 @@ const HomeScreen = () => {
 
         {recentOrder ? (
           <TouchableOpacity 
-            style={styles.recentOrderCard}
-            onPress={() => navigation.navigate('OrderDetailScreen', {
-              orderId: recentOrder.id,
-              ...recentOrder // pass other order details as needed
-            })}
+            style={[styles.recentOrderCard, styles.disabledCard]}
+            disabled={true}
           >
             <View style={styles.recentOrderHeader}>
               <View style={styles.orderInfoContainer}>
@@ -872,27 +1021,6 @@ const HomeScreen = () => {
                 {recentOrder.pickupDate?.formatted}
                 {recentOrder.pickupDate?.pickupTime ? ` | ${recentOrder.pickupDate.pickupTime}` : ''}
               </Text>
-            </View>
-            {/* Render items, total, etc. */}
-            <View style={styles.orderItemsPreview}>
-              {recentOrder.items && recentOrder.items.map((item, idx) => (
-                <View key={idx} style={styles.orderItemPreview}>
-                  <MaterialIcons name="checkroom" size={18} color="#666" />
-                  <Text style={styles.orderItemPreviewText}>
-                    {item.name} ({item.quantity})
-                  </Text>
-                </View>
-              ))}
-            </View>
-            <View style={styles.orderSummary}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Total</Text>
-                <Text style={styles.summaryValue}>₹{recentOrder.totalAmount || recentOrder.service?.finalPrice || recentOrder.service?.price || 0}</Text>
-              </View>
-              <TouchableOpacity style={styles.trackOrderButton}>
-                <Text style={styles.trackOrderText}>Track Order</Text>
-                <MaterialIcons name="arrow-forward" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         ) : (
@@ -1447,7 +1575,10 @@ const styles = StyleSheet.create({
     ...getTextStyle('medium', 'sm', '#FFFFFF'),
     fontSize: 13,
   },
+  disabledCard: {
+    opacity: 0.7,
+    backgroundColor: '#f5f5f5',
+  },
 });
 
 export default HomeScreen;
-
